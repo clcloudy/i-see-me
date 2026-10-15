@@ -1,0 +1,20 @@
+# Godot-generated caches. Keep source assets, .import settings and .uid files.
+.godot/
+.godot-tools/
+
+# Local export output.
+/build/
+/builds/
+/dist/
+/exports/
+export_credentials.cfg
+
+# Local credentials. Track only an explicit example file.
+.env
+.env.*
+!.env.example
+
+# Operating-system files.
+.DS_Store
+Thumbs.db
+Desktop.ini
