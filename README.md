@@ -50,10 +50,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\Start-Godot.ps1 -Mod
 当前没有音源，静音只验证了总线状态；正式声音接入后仍需重新验证。
 
 ## 开工前需要补齐
-
-- 主负责人在 GitHub 仓库 Settings → Collaborators 中邀请另外六人。
-- 在开发计划中填写成员姓名、GitHub 用户名和可投入时间。
-- 确认展示电脑以及本地配音工具的导出能力和使用许可。
+- 在开发计划中填写成员姓名、GitHub 用户名。
 - 按协作规则完成每个人的第一次小样、提交与合并练习。
 - 按接入说明提交独立成员小样，再由主开发集中集成。
 - 本周后续安装匹配版本的导出模板并验证目标电脑；当前尚未配置 Windows 导出。
