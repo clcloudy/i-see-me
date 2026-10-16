@@ -1,0 +1,64 @@
+[gd_scene load_steps=9 format=3]
+
+[sub_resource type="StandardMaterial3D" id="Material_frame"]
+albedo_color = Color(0.88, 0.89, 0.87, 1)
+roughness = 0.8
+
+[sub_resource type="StandardMaterial3D" id="Material_glass"]
+transparency = 1
+albedo_color = Color(0.78, 0.87, 0.9, 0.35)
+roughness = 0.15
+
+[sub_resource type="StandardMaterial3D" id="Material_sill"]
+albedo_color = Color(0.68, 0.73, 0.75, 1)
+roughness = 0.85
+
+[sub_resource type="BoxMesh" id="Mesh_frame_h"]
+size = Vector3(0.1, 0.08, 1.4)
+
+[sub_resource type="BoxMesh" id="Mesh_frame_v"]
+size = Vector3(0.1, 1.6, 0.08)
+
+[sub_resource type="BoxMesh" id="Mesh_mullion"]
+size = Vector3(0.08, 1.6, 0.06)
+
+[sub_resource type="BoxMesh" id="Mesh_glass"]
+size = Vector3(0.02, 1.52, 1.32)
+
+[sub_resource type="BoxMesh" id="Mesh_sill"]
+size = Vector3(0.24, 0.06, 1.5)
+
+[node name="Window" type="Node3D"]
+
+[node name="FrameTop" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.8, 0)
+mesh = SubResource("Mesh_frame_h")
+material_override = SubResource("Material_frame")
+
+[node name="FrameBottom" type="MeshInstance3D" parent="."]
+position = Vector3(0, -0.8, 0)
+mesh = SubResource("Mesh_frame_h")
+material_override = SubResource("Material_frame")
+
+[node name="FrameLeft" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0, -0.7)
+mesh = SubResource("Mesh_frame_v")
+material_override = SubResource("Material_frame")
+
+[node name="FrameRight" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0, 0.7)
+mesh = SubResource("Mesh_frame_v")
+material_override = SubResource("Material_frame")
+
+[node name="Mullion" type="MeshInstance3D" parent="."]
+mesh = SubResource("Mesh_mullion")
+material_override = SubResource("Material_frame")
+
+[node name="Glass" type="MeshInstance3D" parent="."]
+mesh = SubResource("Mesh_glass")
+material_override = SubResource("Material_glass")
+
+[node name="Sill" type="MeshInstance3D" parent="."]
+position = Vector3(0.08, -0.86, 0)
+mesh = SubResource("Mesh_sill")
+material_override = SubResource("Material_sill")
