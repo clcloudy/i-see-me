@@ -1,0 +1,71 @@
+[gd_scene load_steps=9 format=3]
+
+[sub_resource type="StandardMaterial3D" id="Material_clothes"]
+albedo_color = Color(0.76, 0.39, 0.28, 1)
+roughness = 0.95
+
+[sub_resource type="StandardMaterial3D" id="Material_skin"]
+albedo_color = Color(0.86, 0.7, 0.56, 1)
+roughness = 1.0
+
+[sub_resource type="StandardMaterial3D" id="Material_trousers"]
+albedo_color = Color(0.23, 0.27, 0.3, 1)
+roughness = 1.0
+
+[sub_resource type="BoxMesh" id="Mesh_torso"]
+size = Vector3(0.43, 0.55, 0.26)
+
+[sub_resource type="SphereMesh" id="Mesh_head"]
+radius = 0.16
+height = 0.36
+radial_segments = 16
+rings = 8
+
+[sub_resource type="BoxMesh" id="Mesh_arm"]
+size = Vector3(0.12, 0.52, 0.14)
+
+[sub_resource type="BoxMesh" id="Mesh_leg"]
+size = Vector3(0.16, 0.76, 0.2)
+
+[sub_resource type="BoxMesh" id="Mesh_nose"]
+size = Vector3(0.08, 0.07, 0.07)
+
+[node name="Person" type="Node3D"]
+
+[node name="Torso" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.1, 0)
+mesh = SubResource("Mesh_torso")
+material_override = SubResource("Material_clothes")
+
+[node name="Head" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.58, 0)
+mesh = SubResource("Mesh_head")
+material_override = SubResource("Material_skin")
+
+[node name="Nose" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.58, -0.16)
+mesh = SubResource("Mesh_nose")
+material_override = SubResource("Material_skin")
+
+[node name="LeftArm" type="MeshInstance3D" parent="."]
+position = Vector3(-0.29, 1.07, 0)
+mesh = SubResource("Mesh_arm")
+material_override = SubResource("Material_clothes")
+
+[node name="RightArm" type="MeshInstance3D" parent="."]
+position = Vector3(0.29, 1.07, 0)
+mesh = SubResource("Mesh_arm")
+material_override = SubResource("Material_clothes")
+
+[node name="LeftLeg" type="MeshInstance3D" parent="."]
+position = Vector3(-0.12, 0.43, 0)
+mesh = SubResource("Mesh_leg")
+material_override = SubResource("Material_trousers")
+
+[node name="RightLeg" type="MeshInstance3D" parent="."]
+position = Vector3(0.12, 0.43, 0)
+mesh = SubResource("Mesh_leg")
+material_override = SubResource("Material_trousers")
+
+[node name="ViewAnchor" type="Marker3D" parent="."]
+position = Vector3(0, 1.7, 0)

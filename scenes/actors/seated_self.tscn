@@ -1,0 +1,68 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/actors/person.tscn" id="1_person"]
+
+[sub_resource type="StandardMaterial3D" id="Material_chair"]
+albedo_color = Color(0.25, 0.52, 0.68, 1)
+roughness = 0.85
+
+[sub_resource type="StandardMaterial3D" id="Material_trousers"]
+albedo_color = Color(0.23, 0.27, 0.3, 1)
+roughness = 1.0
+
+[sub_resource type="BoxMesh" id="Mesh_seat"]
+size = Vector3(0.55, 0.08, 0.52)
+
+[sub_resource type="BoxMesh" id="Mesh_back"]
+size = Vector3(0.55, 0.5, 0.06)
+
+[sub_resource type="BoxMesh" id="Mesh_support"]
+size = Vector3(0.4, 0.48, 0.35)
+
+[sub_resource type="BoxMesh" id="Mesh_shin"]
+size = Vector3(0.16, 0.45, 0.2)
+
+[node name="SeatedSelf" type="Node3D"]
+
+[node name="Person" parent="." instance=ExtResource("1_person")]
+position = Vector3(0, -0.25, 0)
+
+[node name="LeftLeg" parent="Person" index="5"]
+position = Vector3(-0.12, 0.8, -0.29)
+rotation_degrees = Vector3(90, 0, 0)
+scale = Vector3(1, 0.72, 1)
+
+[node name="RightLeg" parent="Person" index="6"]
+position = Vector3(0.12, 0.8, -0.29)
+rotation_degrees = Vector3(90, 0, 0)
+scale = Vector3(1, 0.72, 1)
+
+[node name="LeftShin" type="MeshInstance3D" parent="."]
+position = Vector3(-0.12, 0.3, -0.48)
+mesh = SubResource("Mesh_shin")
+material_override = SubResource("Material_trousers")
+
+[node name="RightShin" type="MeshInstance3D" parent="."]
+position = Vector3(0.12, 0.3, -0.48)
+mesh = SubResource("Mesh_shin")
+material_override = SubResource("Material_trousers")
+
+[node name="ChairSeat" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.5, 0)
+mesh = SubResource("Mesh_seat")
+material_override = SubResource("Material_chair")
+
+[node name="ChairBack" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.78, 0.27)
+mesh = SubResource("Mesh_back")
+material_override = SubResource("Material_chair")
+
+[node name="ChairSupport" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.24, 0)
+mesh = SubResource("Mesh_support")
+material_override = SubResource("Material_chair")
+
+[node name="ViewAnchor" type="Marker3D" parent="."]
+position = Vector3(0, 1.36, 0)
+
+[editable path="Person"]

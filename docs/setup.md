@@ -30,25 +30,33 @@
 # 打开编辑器，F6 运行当前场景，F5 运行整个项目。
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\Start-Godot.ps1
 
-# 直接查看房间。
+# 直接运行三层灰盒小样。
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\Start-Godot.ps1 -Mode Play
 
-# 导入和结构检查，不弹出游戏窗口。
+# 导入、流程交互与各阶段退出检查，不弹出游戏窗口。
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\Start-Godot.ps1 -Mode Check
 
-# 实际渲染检查，自动保存两种窗口尺寸的截图并退出。
+# 实际渲染检查，自动保存两种窗口尺寸下的各层与界面截图并退出。
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\Start-Godot.ps1 -Mode Capture
 ```
 
-也可双击项目根目录的 `打开编辑器.cmd` 或 `查看房间.cmd`。
+也可双击项目根目录的 `打开编辑器.cmd` 或 `查看房间.cmd`（现运行三层小样）。
 其他成员可修改启动脚本参数 `-InstallDirectory` 为自己的非 C 盘目录，不需要修改项目场景。
 启动器不会下载任何内容，也不会提交或推送代码。
 
 ## 当前工程内容
 
-- `scenes/main.tscn`：场景入口、固定相机、环境和灯光。
+- `scenes/main.tscn`：场景入口，组合灰盒教室、镜头、界面和唯一流程控制器，保留环境和灯光。
 - `scenes/room.tscn`：8 × 6 米的空房间，高 3.4 米，地板、天花板、四面墙及踢脚线。
-- 房间由可在 Godot 编辑器直接选择和修改的基础网格组成，没有人物、家具、剧情和运行时脚本。
-- 相机固定，无行走控制；可在编辑器 3D 视图里自由查看和调整。
+- `scenes/classroom.tscn`、`scenes/actors/`、`scenes/props/`：可替换的几何体教室、人物与课桌占位。
+- `scenes/camera_rig.tscn`：三个预设位置和注视目标，无行走控制。
+- `scenes/ui/prototype_ui.tscn`：临时界面；`scripts/`：流程、镜头、空间显露与界面脚本。
+- `content/prototype.json`：所有小样文案，正式剧情与声音尚未接入。
 
-这只是供后续开发使用的基础工程，不是四周计划里的完整 Demo。
+小样依次显示内容提示、L1、L2、L3 与结束页；Esc 暂停，转场期间可跳过。
+它是供成员接入的运行骨架，不是四周计划里的完整 Demo。接口与验收记录见[第一周说明](week1-runtime-skeleton.md)。
+
+`Check` 会检查导入、流程、防重复点击、暂停恢复、静音重开及七种退出路径。
+`Capture` 会在 1280×720 与 960×540 下检查并保存三层、转场、提示、暂停和结束画面。
+日志位于 `.local/logs/`（`import.log`、`check.log`、`capture.log`、`quit-*.log`），截图位于 `.local/captures/`，均不提交。
+启动检查同时核对退出码与错误日志。画面及三层理解度仍须人实际检查。
