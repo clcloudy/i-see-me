@@ -1,0 +1,42 @@
+[gd_scene load_steps=5 format=3]
+
+[sub_resource type="StandardMaterial3D" id="Material_top"]
+albedo_color = Color(0.25, 0.52, 0.68, 1)
+roughness = 0.85
+
+[sub_resource type="StandardMaterial3D" id="Material_frame"]
+albedo_color = Color(0.29, 0.32, 0.34, 1)
+roughness = 0.9
+
+[sub_resource type="BoxMesh" id="Mesh_top"]
+size = Vector3(1.05, 0.08, 0.6)
+
+[sub_resource type="BoxMesh" id="Mesh_leg"]
+size = Vector3(0.06, 0.71, 0.06)
+
+[node name="Desk" type="Node3D"]
+
+[node name="Top" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.75, 0)
+mesh = SubResource("Mesh_top")
+material_override = SubResource("Material_top")
+
+[node name="FrontLeft" type="MeshInstance3D" parent="."]
+position = Vector3(-0.43, 0.355, -0.22)
+mesh = SubResource("Mesh_leg")
+material_override = SubResource("Material_frame")
+
+[node name="FrontRight" type="MeshInstance3D" parent="."]
+position = Vector3(0.43, 0.355, -0.22)
+mesh = SubResource("Mesh_leg")
+material_override = SubResource("Material_frame")
+
+[node name="BackLeft" type="MeshInstance3D" parent="."]
+position = Vector3(-0.43, 0.355, 0.22)
+mesh = SubResource("Mesh_leg")
+material_override = SubResource("Material_frame")
+
+[node name="BackRight" type="MeshInstance3D" parent="."]
+position = Vector3(0.43, 0.355, 0.22)
+mesh = SubResource("Mesh_leg")
+material_override = SubResource("Material_frame")

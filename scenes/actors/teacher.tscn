@@ -1,0 +1,18 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/actors/person.tscn" id="1_person"]
+
+[sub_resource type="StandardMaterial3D" id="Material_teacher"]
+albedo_color = Color(0.37, 0.43, 0.4, 1)
+roughness = 1.0
+
+[node name="Teacher" instance=ExtResource("1_person")]
+
+[node name="Torso" parent="." index="0"]
+material_override = SubResource("Material_teacher")
+
+[node name="LeftArm" parent="." index="3"]
+material_override = SubResource("Material_teacher")
+
+[node name="RightArm" parent="." index="4"]
+material_override = SubResource("Material_teacher")

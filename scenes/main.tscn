@@ -1,6 +1,9 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=6 format=3]
 
-[ext_resource type="PackedScene" path="res://scenes/room.tscn" id="1_room"]
+[ext_resource type="PackedScene" path="res://scenes/classroom.tscn" id="1_classroom"]
+[ext_resource type="PackedScene" path="res://scenes/camera_rig.tscn" id="2_camera"]
+[ext_resource type="PackedScene" path="res://scenes/ui/prototype_ui.tscn" id="3_ui"]
+[ext_resource type="Script" path="res://scripts/flow_controller.gd" id="4_flow"]
 
 [sub_resource type="Environment" id="Environment_room"]
 background_mode = 1
@@ -12,7 +15,7 @@ tonemap_mode = 0
 
 [node name="Main" type="Node3D"]
 
-[node name="Room" parent="." instance=ExtResource("1_room")]
+[node name="Classroom" parent="." instance=ExtResource("1_classroom")]
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("Environment_room")
@@ -30,10 +33,13 @@ light_color = Color(0.9, 0.95, 1, 1)
 light_energy = 0.45
 omni_range = 8.0
 
-[node name="Camera3D" type="Camera3D" parent="."]
-position = Vector3(2.8, 1.65, 2.1)
-rotation_degrees = Vector3(-7, 36, 0)
-current = true
-fov = 78.0
-near = 0.05
-far = 50.0
+[node name="CameraRig" parent="." instance=ExtResource("2_camera")]
+
+[node name="PrototypeUI" parent="." instance=ExtResource("3_ui")]
+
+[node name="Flow" type="Node" parent="." node_paths=PackedStringArray("camera_rig", "classroom", "interface")]
+process_mode = 3
+script = ExtResource("4_flow")
+camera_rig = NodePath("../CameraRig")
+classroom = NodePath("../Classroom")
+interface = NodePath("../PrototypeUI")

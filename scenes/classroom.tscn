@@ -1,0 +1,60 @@
+[gd_scene load_steps=11 format=3]
+
+[ext_resource type="Script" path="res://scripts/classroom.gd" id="1_script"]
+[ext_resource type="PackedScene" path="res://scenes/room.tscn" id="2_room"]
+[ext_resource type="PackedScene" path="res://scenes/props/desk.tscn" id="3_desk"]
+[ext_resource type="PackedScene" path="res://scenes/actors/person.tscn" id="4_person"]
+[ext_resource type="PackedScene" path="res://scenes/actors/seated_self.tscn" id="5_seated"]
+[ext_resource type="PackedScene" path="res://scenes/actors/teacher.tscn" id="6_teacher"]
+
+[sub_resource type="StandardMaterial3D" id="Material_board"]
+albedo_color = Color(0.15, 0.31, 0.25, 1)
+roughness = 1.0
+
+[sub_resource type="StandardMaterial3D" id="Material_stage"]
+albedo_color = Color(0.19, 0.2, 0.21, 1)
+roughness = 1.0
+
+[sub_resource type="BoxMesh" id="Mesh_board"]
+size = Vector3(3.6, 1.2, 0.08)
+
+[sub_resource type="BoxMesh" id="Mesh_stage"]
+size = Vector3(10, 0.16, 9)
+
+[node name="Classroom" type="Node3D"]
+script = ExtResource("1_script")
+
+[node name="Room" parent="." instance=ExtResource("2_room")]
+
+[node name="Board" type="MeshInstance3D" parent="."]
+position = Vector3(0, 2, -2.94)
+mesh = SubResource("Mesh_board")
+material_override = SubResource("Material_board")
+
+[node name="PlayerDesk" parent="." instance=ExtResource("3_desk")]
+position = Vector3(0, 0, 0.15)
+
+[node name="LeftDesk" parent="." instance=ExtResource("3_desk")]
+position = Vector3(-2, 0, -0.8)
+
+[node name="RightDesk" parent="." instance=ExtResource("3_desk")]
+position = Vector3(2, 0, -0.8)
+
+[node name="Teacher" parent="." instance=ExtResource("6_teacher")]
+position = Vector3(-0.6, 0, -2)
+rotation_degrees = Vector3(0, 180, 0)
+
+[node name="SeatedSelf" parent="." instance=ExtResource("5_seated")]
+visible = false
+position = Vector3(0, 0, 0.95)
+
+[node name="Observer" parent="." instance=ExtResource("4_person")]
+visible = false
+position = Vector3(2.65, 0, 2.15)
+rotation_degrees = Vector3(0, 65.6, 0)
+
+[node name="StageFloor" type="MeshInstance3D" parent="."]
+visible = false
+position = Vector3(0.5, -0.28, 0.5)
+mesh = SubResource("Mesh_stage")
+material_override = SubResource("Material_stage")

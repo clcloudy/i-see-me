@@ -5,6 +5,14 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+function Assert-GodotLog {
+    param([string]$Path)
+    if (Select-String -LiteralPath $Path -Pattern '^(SCRIPT ERROR:|ERROR:)' -Quiet) {
+        throw "Godot reported an error. See $Path."
+    }
+}
+
 $project = Split-Path -Parent $PSScriptRoot
 $install = [System.IO.Path]::GetFullPath($InstallDirectory)
 if ([System.IO.Path]::GetPathRoot($install) -ieq 'C:\') {
@@ -32,7 +40,7 @@ foreach ($name in $variables.Keys) {
     [Environment]::SetEnvironmentVariable($name, $variables[$name], 'Process')
 }
 New-Item -ItemType Directory -Force -Path (Join-Path $project '.local\logs') | Out-Null
-$log = Join-Path $project '.local\logs\godot.log'
+$log = Join-Path $project ".local\logs\$($Mode.ToLower()).log"
 
 try {
     switch ($Mode) {
@@ -43,14 +51,24 @@ try {
             Start-Process -FilePath $editor -ArgumentList @('--path', "`"$project`"", '--log-file', "`"$log`"") -WorkingDirectory $project
         }
         'Check' {
-            & $console --headless --path $project --log-file $log --editor --import --quit
+            $importLog = Join-Path $project '.local\logs\import.log'
+            & $console --headless --path $project --log-file $importLog --editor --import --quit
             if ($LASTEXITCODE -ne 0) { throw 'Godot project import failed.' }
+            Assert-GodotLog -Path $importLog
             & $console --headless --path $project --log-file $log --script res://tests/smoke.gd
-            if ($LASTEXITCODE -ne 0) { throw 'Room smoke check failed.' }
+            if ($LASTEXITCODE -ne 0) { throw 'Prototype smoke check failed.' }
+            Assert-GodotLog -Path $log
+            foreach ($stage in @('intro', 'l1', 'l2', 'l3', 'complete', 'transition', 'paused-transition')) {
+                $quitLog = Join-Path $project ".local\logs\quit-$stage.log"
+                & $console --headless --path $project --log-file $quitLog --script res://tests/smoke.gd -- --quit-check $stage
+                if ($LASTEXITCODE -ne 0) { throw "Prototype quit check failed at $stage." }
+                Assert-GodotLog -Path $quitLog
+            }
         }
         'Capture' {
             & $console --path $project --log-file $log --resolution 1280x720 --script res://tests/smoke.gd -- --capture
-            if ($LASTEXITCODE -ne 0) { throw 'Room render check failed.' }
+            if ($LASTEXITCODE -ne 0) { throw 'Prototype render check failed.' }
+            Assert-GodotLog -Path $log
         }
     }
 }
