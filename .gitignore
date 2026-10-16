@@ -9,6 +9,9 @@
 /exports/
 export_credentials.cfg
 
+# Local logs, validation images and workstation-specific data.
+/.local/
+
 # Local credentials. Track only an explicit example file.
 .env
 .env.*
