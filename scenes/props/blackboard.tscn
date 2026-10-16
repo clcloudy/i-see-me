@@ -1,0 +1,74 @@
+[gd_scene load_steps=10 format=3]
+
+[sub_resource type="StandardMaterial3D" id="Material_board"]
+albedo_color = Color(0.15, 0.31, 0.25, 1)
+roughness = 1.0
+
+[sub_resource type="StandardMaterial3D" id="Material_frame"]
+albedo_color = Color(0.61, 0.6, 0.49, 1)
+roughness = 0.9
+
+[sub_resource type="StandardMaterial3D" id="Material_chalk"]
+albedo_color = Color(0.92, 0.92, 0.87, 1)
+roughness = 0.9
+
+[sub_resource type="BoxMesh" id="Mesh_board"]
+size = Vector3(3.6, 1.2, 0.06)
+
+[sub_resource type="BoxMesh" id="Mesh_frame_h"]
+size = Vector3(3.76, 0.08, 0.1)
+
+[sub_resource type="BoxMesh" id="Mesh_frame_v"]
+size = Vector3(0.08, 1.36, 0.1)
+
+[sub_resource type="BoxMesh" id="Mesh_tray"]
+size = Vector3(3.6, 0.06, 0.22)
+
+[sub_resource type="BoxMesh" id="Mesh_chalk_a"]
+size = Vector3(0.09, 0.03, 0.03)
+
+[sub_resource type="BoxMesh" id="Mesh_chalk_b"]
+size = Vector3(0.07, 0.025, 0.025)
+
+[node name="Blackboard" type="Node3D"]
+
+[node name="Board" type="MeshInstance3D" parent="."]
+position = Vector3(0, 2, 0)
+mesh = SubResource("Mesh_board")
+material_override = SubResource("Material_board")
+
+[node name="FrameTop" type="MeshInstance3D" parent="."]
+position = Vector3(0, 2.64, 0)
+mesh = SubResource("Mesh_frame_h")
+material_override = SubResource("Material_frame")
+
+[node name="FrameBottom" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.36, 0)
+mesh = SubResource("Mesh_frame_h")
+material_override = SubResource("Material_frame")
+
+[node name="FrameLeft" type="MeshInstance3D" parent="."]
+position = Vector3(-1.84, 2, 0)
+mesh = SubResource("Mesh_frame_v")
+material_override = SubResource("Material_frame")
+
+[node name="FrameRight" type="MeshInstance3D" parent="."]
+position = Vector3(1.84, 2, 0)
+mesh = SubResource("Mesh_frame_v")
+material_override = SubResource("Material_frame")
+
+[node name="Tray" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.3, 0.1)
+mesh = SubResource("Mesh_tray")
+material_override = SubResource("Material_frame")
+
+[node name="ChalkA" type="MeshInstance3D" parent="."]
+position = Vector3(0.45, 1.36, 0.1)
+mesh = SubResource("Mesh_chalk_a")
+material_override = SubResource("Material_chalk")
+
+[node name="ChalkB" type="MeshInstance3D" parent="."]
+position = Vector3(-0.25, 1.355, 0.13)
+rotation_degrees = Vector3(0, 12, 0)
+mesh = SubResource("Mesh_chalk_b")
+material_override = SubResource("Material_chalk")

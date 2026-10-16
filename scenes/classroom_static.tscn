@@ -1,0 +1,97 @@
+[gd_scene load_steps=11 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/room.tscn" id="1_room"]
+[ext_resource type="PackedScene" path="res://scenes/props/blackboard.tscn" id="2_board"]
+[ext_resource type="PackedScene" path="res://scenes/props/lectern.tscn" id="3_lectern"]
+[ext_resource type="PackedScene" path="res://scenes/props/window.tscn" id="4_window"]
+[ext_resource type="PackedScene" path="res://scenes/props/clock.tscn" id="5_clock"]
+[ext_resource type="PackedScene" path="res://scenes/props/desk.tscn" id="6_desk"]
+[ext_resource type="PackedScene" path="res://scenes/actors/seated_self.tscn" id="7_seated_self"]
+[ext_resource type="PackedScene" path="res://scenes/actors/seated_classmate.tscn" id="8_classmate"]
+[ext_resource type="PackedScene" path="res://scenes/actors/teacher.tscn" id="9_teacher"]
+[ext_resource type="PackedScene" path="res://scenes/actors/person.tscn" id="10_person"]
+
+[node name="ClassroomStatic" type="Node3D"]
+
+[node name="Room" parent="." instance=ExtResource("1_room")]
+
+[node name="Front" type="Node3D" parent="."]
+
+[node name="Board" parent="Front" instance=ExtResource("2_board")]
+position = Vector3(0, 0, -2.94)
+
+[node name="Lectern" parent="Front" instance=ExtResource("3_lectern")]
+position = Vector3(-1.4, 0, -2.55)
+
+[node name="Clock" parent="Front" instance=ExtResource("5_clock")]
+position = Vector3(3, 2.6, -2.97)
+
+[node name="Teacher" parent="Front" instance=ExtResource("9_teacher")]
+position = Vector3(-0.6, 0, -2)
+rotation_degrees = Vector3(0, 180, 0)
+
+[node name="LeftWall" type="Node3D" parent="."]
+
+[node name="WindowFront" parent="LeftWall" instance=ExtResource("4_window")]
+position = Vector3(-3.96, 1.5, -1.6)
+
+[node name="WindowCenter" parent="LeftWall" instance=ExtResource("4_window")]
+position = Vector3(-3.96, 1.5, 0)
+
+[node name="WindowBack" parent="LeftWall" instance=ExtResource("4_window")]
+position = Vector3(-3.96, 1.5, 1.6)
+
+[node name="Furniture" type="Node3D" parent="."]
+
+[node name="DeskBackLeft" parent="Furniture" instance=ExtResource("6_desk")]
+position = Vector3(-2, 0, 0.15)
+
+[node name="DeskBackRight" parent="Furniture" instance=ExtResource("6_desk")]
+position = Vector3(2, 0, 0.15)
+
+[node name="DeskFrontLeft" parent="Furniture" instance=ExtResource("6_desk")]
+position = Vector3(-2, 0, -1.2)
+
+[node name="DeskFrontRight" parent="Furniture" instance=ExtResource("6_desk")]
+position = Vector3(2, 0, -1.2)
+
+[node name="PlayerDesk" parent="Furniture" instance=ExtResource("6_desk")]
+position = Vector3(0, 0, 0.15)
+
+[node name="People" type="Node3D" parent="."]
+
+[node name="PlayerSeat" parent="People" instance=ExtResource("7_seated_self")]
+position = Vector3(0, 0, 0.95)
+
+[node name="ClassmateBackLeft" parent="People" instance=ExtResource("8_classmate")]
+position = Vector3(-2, 0, 0.95)
+
+[node name="ClassmateFrontLeft" parent="People" instance=ExtResource("8_classmate")]
+position = Vector3(-2, 0, -0.4)
+
+[node name="ClassmateFrontRight" parent="People" instance=ExtResource("8_classmate")]
+position = Vector3(2, 0, -0.4)
+
+[node name="Observer" parent="People" instance=ExtResource("10_person")]
+position = Vector3(2.65, 0, 2.15)
+rotation_degrees = Vector3(0, 65.6, 0)
+
+[node name="CameraAnchors" type="Node3D" parent="."]
+
+[node name="L1" type="Marker3D" parent="CameraAnchors"]
+position = Vector3(0, 1.36, 0.95)
+
+[node name="L2" type="Marker3D" parent="CameraAnchors"]
+position = Vector3(2.65, 1.7, 2.15)
+
+[node name="L3" type="Marker3D" parent="CameraAnchors"]
+position = Vector3(7.6, 5.4, 8.8)
+
+[node name="TeacherFocus" type="Marker3D" parent="CameraAnchors"]
+position = Vector3(-0.6, 0.7, -2)
+
+[node name="SubjectFocus" type="Marker3D" parent="CameraAnchors"]
+position = Vector3(0, 1.05, 0.8)
+
+[node name="StageFocus" type="Marker3D" parent="CameraAnchors"]
+position = Vector3(0.5, 0.9, 0.2)
