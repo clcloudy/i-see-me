@@ -12,6 +12,9 @@ export_credentials.cfg
 # Local logs, validation images and workstation-specific data.
 /.local/
 
+# AI assistant local memory and scratch files.
+/.workbuddy/
+
 # Local credentials. Track only an explicit example file.
 .env
 .env.*
