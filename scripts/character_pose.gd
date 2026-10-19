@@ -13,10 +13,9 @@ enum Pose { STAND, SIT, HEAD_DOWN, HEAD_UP, REBUT, WRITING }
 const SEATED_HIP_HEIGHT := 0.47  # 坐姿时髋部世界高度（座面 0.45 + 余量）
 const SEATED_POSES: Array[Pose] = [Pose.SIT, Pose.HEAD_DOWN, Pose.HEAD_UP, Pose.WRITING]
 
-# 基础片段：站姿手臂下垂、坐姿腿部折叠。姿态专属角度最后合并，保证优先生效。
-const ARMS_DOWN := {
-	"UpperArm.L": Vector3(0, 0, 75), "UpperArm.R": Vector3(0, 0, -75),
-}
+# 基础片段：坐姿腿部折叠。手臂下垂不写死角度——男女骨架手臂静止朝向不同
+# （男 T-pose、女 A-pose），固定角在女性模型上会变成手臂张开；
+# 改为运行时按各骨架实际骨骼变换自动瞄准（见 _aim_arms）。
 const SEATED_LEGS := {
 	"UpperLeg.L": Vector3(-90, 0, 0), "UpperLeg.R": Vector3(-90, 0, 0),
 	"LowerLeg.L": Vector3(110, 0, 0), "LowerLeg.R": Vector3(110, 0, 0),
@@ -52,7 +51,7 @@ func apply_pose() -> void:
 	_char_position_y(0.0)
 	for i in _skeleton.get_bone_count():
 		_skeleton.set_bone_pose_rotation(i, _skeleton.get_bone_rest(i).basis.get_rotation_quaternion())
-	var bone_angles: Dictionary = ARMS_DOWN.duplicate()
+	var bone_angles: Dictionary = {}
 	if SEATED_POSES.has(pose):
 		bone_angles.merge(SEATED_LEGS, true)
 	bone_angles.merge(POSE_OVERRIDES[pose], true)
@@ -64,6 +63,10 @@ func apply_pose() -> void:
 		var e: Vector3 = bone_angles[bone_name]
 		var delta := Quaternion.from_euler(Vector3(deg_to_rad(e.x), deg_to_rad(e.y), deg_to_rad(e.z)))
 		_skel_set_rot(idx, delta)
+	if not POSE_OVERRIDES[pose].has("UpperArm.R"):
+		_aim_arm("R")
+	if not POSE_OVERRIDES[pose].has("UpperArm.L"):
+		_aim_arm("L")
 	if SEATED_POSES.has(pose):
 		await get_tree().process_frame
 		await get_tree().process_frame
@@ -74,6 +77,30 @@ func apply_pose() -> void:
 
 func _skel_set_rot(idx: int, delta: Quaternion) -> void:
 	_skeleton.set_bone_pose_rotation(idx, delta * _skeleton.get_bone_pose_rotation(idx))
+
+
+## 让一侧手臂自然下垂（略向外 0.15）。
+## 做法：取肩→肘当前方向 cur，旋转到目标方向（重力反方向 + 沿 cur 方向少量外展），
+## 换算成 UpperArm 骨骼空间的增量四元数。按每具骨架实时计算，男女骨架通用。
+func _aim_arm(side: String) -> void:
+	var upper_idx := _skeleton.find_bone("UpperArm." + side)
+	var lower_idx := _skeleton.find_bone("LowerArm." + side)
+	if upper_idx == -1 or lower_idx == -1:
+		return
+	var gpose := _skeleton.get_bone_global_pose(upper_idx)
+	var lower_pos := _skeleton.get_bone_global_pose(lower_idx).origin
+	var cur := (lower_pos - gpose.origin).normalized()
+	if cur.length_squared() < 0.5:
+		return
+	# 世界方向转到骨骼空间（骨架节点带 100x 缩放与 90° 旋转，必须走变换）
+	var down := (_skeleton.global_transform.basis.orthonormalized().inverse() * Vector3.DOWN).normalized()
+	var target := (down + cur * 0.15).normalized()
+	var q_world := Quaternion(cur, target)
+	var grot := gpose.basis.get_rotation_quaternion()
+	var local_delta := grot.inverse() * q_world * grot
+	var rest_rot := _skeleton.get_bone_rest(upper_idx).basis.get_rotation_quaternion()
+	# 推导：L' = L · (G⁻¹·Q·G)，即 rest 在左、局部增量在右
+	_skeleton.set_bone_pose_rotation(upper_idx, rest_rot * local_delta)
 
 
 ## 整体高度只通过移动 Model 子节点实现（根节点保持地面原点不动）。

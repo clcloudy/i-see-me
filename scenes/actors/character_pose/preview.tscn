@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=16 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/actors/character_pose/stand.tscn" id="1_stand"]
 [ext_resource type="PackedScene" path="res://scenes/actors/character_pose/sit.tscn" id="2_sit"]
@@ -7,7 +7,12 @@
 [ext_resource type="PackedScene" path="res://scenes/actors/character_pose/rebut.tscn" id="5_rebut"]
 [ext_resource type="PackedScene" path="res://scenes/actors/character_pose/writing.tscn" id="6_writing"]
 [ext_resource type="PackedScene" path="res://scenes/actors/character_pose/teacher_stand.tscn" id="7_teacher"]
-[ext_resource type="PackedScene" path="res://scenes/actors/character_pose/classmate_sit.tscn" id="8_classmate"]
+[ext_resource type="PackedScene" path="res://scenes/actors/character_pose/classmate_worker_sit.tscn" id="8_worker"]
+[ext_resource type="PackedScene" path="res://scenes/actors/character_pose/classmate_casual2_sit.tscn" id="9_casual2"]
+[ext_resource type="PackedScene" path="res://scenes/actors/character_pose/classmate_adventurer_down.tscn" id="10_adv"]
+[ext_resource type="PackedScene" path="res://scenes/actors/character_pose/classmate_womenscasual_sit.tscn" id="11_wcasual"]
+[ext_resource type="PackedScene" path="res://scenes/actors/character_pose/classmate_womensformal_down.tscn" id="12_wformal"]
+[ext_resource type="PackedScene" path="res://scenes/actors/character_pose/classmate_womensworker_sit.tscn" id="13_wworker"]
 
 [sub_resource type="Environment" id="Environment_preview"]
 background_mode = 1
@@ -18,7 +23,7 @@ ambient_light_energy = 0.7
 tonemap_mode = 0
 
 [sub_resource type="PlaneMesh" id="Mesh_floor"]
-size = Vector2(18, 8)
+size = Vector2(20, 12)
 
 [node name="CharacterPosePreview" type="Node3D"]
 
@@ -36,33 +41,48 @@ directional_shadow_max_distance = 30.0
 mesh = SubResource("Mesh_floor")
 
 [node name="Stand" parent="." instance=ExtResource("1_stand")]
-position = Vector3(-7, 0, 0)
-
-[node name="Sit" parent="." instance=ExtResource("2_sit")]
 position = Vector3(-5, 0, 0)
 
-[node name="HeadDown" parent="." instance=ExtResource("3_down")]
+[node name="Sit" parent="." instance=ExtResource("2_sit")]
 position = Vector3(-3, 0, 0)
 
-[node name="HeadUp" parent="." instance=ExtResource("4_up")]
+[node name="HeadDown" parent="." instance=ExtResource("3_down")]
 position = Vector3(-1, 0, 0)
 
-[node name="Rebut" parent="." instance=ExtResource("5_rebut")]
+[node name="HeadUp" parent="." instance=ExtResource("4_up")]
 position = Vector3(1, 0, 0)
 
-[node name="Writing" parent="." instance=ExtResource("6_writing")]
+[node name="Rebut" parent="." instance=ExtResource("5_rebut")]
 position = Vector3(3, 0, 0)
 
-[node name="TeacherStand" parent="." instance=ExtResource("7_teacher")]
+[node name="Writing" parent="." instance=ExtResource("6_writing")]
 position = Vector3(5, 0, 0)
 
-[node name="ClassmateSit" parent="." instance=ExtResource("8_classmate")]
-position = Vector3(7, 0, 0)
+[node name="TeacherStand" parent="." instance=ExtResource("7_teacher")]
+position = Vector3(-7, 0, -3)
+
+[node name="ClassmateWorkerSit" parent="." instance=ExtResource("8_worker")]
+position = Vector3(-5, 0, -3)
+
+[node name="ClassmateCasual2Sit" parent="." instance=ExtResource("9_casual2")]
+position = Vector3(-3, 0, -3)
+
+[node name="ClassmateAdventurerDown" parent="." instance=ExtResource("10_adv")]
+position = Vector3(-1, 0, -3)
+
+[node name="ClassmateWomensCasualSit" parent="." instance=ExtResource("11_wcasual")]
+position = Vector3(1, 0, -3)
+
+[node name="ClassmateWomensFormalDown" parent="." instance=ExtResource("12_wformal")]
+position = Vector3(3, 0, -3)
+
+[node name="ClassmateWomensWorkerSit" parent="." instance=ExtResource("13_wworker")]
+position = Vector3(5, 0, -3)
 
 [node name="PreviewCamera" type="Camera3D" parent="."]
-position = Vector3(0, 2.6, 9.5)
-rotation_degrees = Vector3(-12, 0, 0)
+position = Vector3(0, 3, 11)
+rotation_degrees = Vector3(-14, 0, 0)
 current = true
 fov = 60.0
 near = 0.05
-far = 60.0
+far = 80.0
