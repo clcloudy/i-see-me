@@ -1,0 +1,77 @@
+[gd_scene load_steps=10 format=3]
+
+[sub_resource type="StandardMaterial3D" id="Material_wood"]
+albedo_color = Color(0.78, 0.62, 0.42, 1)
+roughness = 0.5
+
+[sub_resource type="StandardMaterial3D" id="Material_metal"]
+albedo_color = Color(0.58, 0.6, 0.61, 1)
+metallic = 0.35
+roughness = 0.5
+
+[sub_resource type="StandardMaterial3D" id="Material_logo"]
+albedo_color = Color(0.1, 0.18, 0.3, 1)
+roughness = 0.6
+
+[sub_resource type="BoxMesh" id="Mesh_seat"]
+size = Vector3(0.46, 0.05, 0.42)
+
+[sub_resource type="BoxMesh" id="Mesh_back"]
+size = Vector3(0.46, 0.4, 0.05)
+
+[sub_resource type="BoxMesh" id="Mesh_rail"]
+size = Vector3(0.52, 0.05, 0.06)
+
+[sub_resource type="BoxMesh" id="Mesh_side"]
+size = Vector3(0.04, 0.45, 0.42)
+
+[sub_resource type="BoxMesh" id="Mesh_arm"]
+size = Vector3(0.05, 0.04, 0.38)
+
+[sub_resource type="CylinderMesh" id="Mesh_logo"]
+top_radius = 0.035
+bottom_radius = 0.035
+height = 0.012
+
+[node name="LectureChair" type="Node3D"]
+
+[node name="Seat" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.45, 0)
+mesh = SubResource("Mesh_seat")
+material_override = SubResource("Material_wood")
+
+[node name="Back" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.7, 0.19)
+mesh = SubResource("Mesh_back")
+material_override = SubResource("Material_wood")
+
+[node name="TopRail" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.92, 0.19)
+mesh = SubResource("Mesh_rail")
+material_override = SubResource("Material_metal")
+
+[node name="SideLeft" type="MeshInstance3D" parent="."]
+position = Vector3(-0.25, 0.22, 0)
+mesh = SubResource("Mesh_side")
+material_override = SubResource("Material_metal")
+
+[node name="SideRight" type="MeshInstance3D" parent="."]
+position = Vector3(0.25, 0.22, 0)
+mesh = SubResource("Mesh_side")
+material_override = SubResource("Material_metal")
+
+[node name="ArmLeft" type="MeshInstance3D" parent="."]
+position = Vector3(-0.25, 0.63, -0.02)
+mesh = SubResource("Mesh_arm")
+material_override = SubResource("Material_metal")
+
+[node name="ArmRight" type="MeshInstance3D" parent="."]
+position = Vector3(0.25, 0.63, -0.02)
+mesh = SubResource("Mesh_arm")
+material_override = SubResource("Material_metal")
+
+[node name="Logo" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.7, 0.218)
+rotation_degrees = Vector3(90, 0, 0)
+mesh = SubResource("Mesh_logo")
+material_override = SubResource("Material_logo")

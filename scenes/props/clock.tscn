@@ -1,52 +1,26 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=5 format=3]
 
-[sub_resource type="StandardMaterial3D" id="Material_rim"]
-albedo_color = Color(0.35, 0.38, 0.4, 1)
-roughness = 0.7
+[sub_resource type="StandardMaterial3D" id="Material_housing"]
+albedo_color = Color(0.1, 0.1, 0.11, 1)
+roughness = 0.6
 
-[sub_resource type="StandardMaterial3D" id="Material_face"]
-albedo_color = Color(0.92, 0.91, 0.86, 1)
-roughness = 0.9
+[sub_resource type="StandardMaterial3D" id="Material_bezel"]
+albedo_color = Color(0.22, 0.23, 0.25, 1)
+roughness = 0.5
 
-[sub_resource type="StandardMaterial3D" id="Material_hand"]
-albedo_color = Color(0.24, 0.27, 0.3, 1)
-roughness = 0.8
+[sub_resource type="BoxMesh" id="Mesh_housing"]
+size = Vector3(0.9, 0.32, 0.08)
 
-[sub_resource type="CylinderMesh" id="Mesh_rim"]
-top_radius = 0.2
-bottom_radius = 0.2
-height = 0.05
+[sub_resource type="BoxMesh" id="Mesh_bezel"]
+size = Vector3(0.98, 0.4, 0.05)
 
-[sub_resource type="CylinderMesh" id="Mesh_face"]
-top_radius = 0.17
-bottom_radius = 0.17
-height = 0.06
+[node name="DigitalClock" type="Node3D"]
 
-[sub_resource type="BoxMesh" id="Mesh_hand"]
-size = Vector3(0.02, 0.12, 0.012)
+[node name="Bezel" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0, -0.02)
+mesh = SubResource("Mesh_bezel")
+material_override = SubResource("Material_bezel")
 
-[node name="Clock" type="Node3D"]
-
-[node name="Rim" type="MeshInstance3D" parent="."]
-rotation_degrees = Vector3(90, 0, 0)
-mesh = SubResource("Mesh_rim")
-material_override = SubResource("Material_rim")
-
-[node name="Face" type="MeshInstance3D" parent="."]
-position = Vector3(0, 0, 0.01)
-rotation_degrees = Vector3(90, 0, 0)
-mesh = SubResource("Mesh_face")
-material_override = SubResource("Material_face")
-
-[node name="HourHand" type="MeshInstance3D" parent="."]
-position = Vector3(0, 0.03, 0.045)
-rotation_degrees = Vector3(0, 0, -35)
-mesh = SubResource("Mesh_hand")
-material_override = SubResource("Material_hand")
-
-[node name="MinuteHand" type="MeshInstance3D" parent="."]
-position = Vector3(0.035, -0.02, 0.045)
-rotation_degrees = Vector3(0, 0, 55)
-scale = Vector3(0.75, 1.15, 1)
-mesh = SubResource("Mesh_hand")
-material_override = SubResource("Material_hand")
+[node name="Housing" type="MeshInstance3D" parent="."]
+mesh = SubResource("Mesh_housing")
+material_override = SubResource("Material_housing")
