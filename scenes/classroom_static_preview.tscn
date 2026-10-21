@@ -37,7 +37,7 @@ light_energy = 0.4
 omni_range = 6.0
 
 [node name="PreviewCamera" type="Camera3D" parent="."]
-position = Vector3(0, 1.36, 0.95)
+position = Vector3(1.2, 1.36, 0)
 current = true
 fov = 65.0
 near = 0.05

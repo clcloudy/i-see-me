@@ -1,4 +1,4 @@
-[gd_scene load_steps=16 format=3]
+[gd_scene load_steps=18 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/room_lecture.tscn" id="1_room"]
 [ext_resource type="PackedScene" path="res://scenes/props/blackboard.tscn" id="2_board"]
@@ -9,8 +9,10 @@
 [ext_resource type="PackedScene" path="res://scenes/props/clock.tscn" id="7_clock"]
 [ext_resource type="PackedScene" path="res://scenes/props/door.tscn" id="8_door"]
 [ext_resource type="PackedScene" path="res://scenes/props/ceiling_light.tscn" id="9_light"]
-[ext_resource type="PackedScene" path="res://scenes/props/lecture_desk.tscn" id="10_desk"]
-[ext_resource type="PackedScene" path="res://scenes/props/lecture_chair.tscn" id="11_chair"]
+[ext_resource type="PackedScene" path="res://scenes/props/lecture_desk_short.tscn" id="10_desk_short"]
+[ext_resource type="PackedScene" path="res://scenes/props/lecture_desk_long.tscn" id="11_desk_long"]
+[ext_resource type="PackedScene" path="res://scenes/props/lecture_row_short.tscn" id="12_row_short"]
+[ext_resource type="PackedScene" path="res://scenes/props/lecture_row_long.tscn" id="13_row_long"]
 
 [sub_resource type="StandardMaterial3D" id="Material_platform"]
 albedo_color = Color(0.6, 0.44, 0.28, 1)
@@ -86,101 +88,77 @@ rotation_degrees = Vector3(0, 180, 0)
 
 [node name="Furniture" type="Node3D" parent="."]
 
-[node name="DeskLeftA" parent="Furniture" instance=ExtResource("10_desk")]
-position = Vector3(-0.9, 0, -2.55)
+[node name="DeskC1B" parent="Furniture" instance=ExtResource("10_desk_short")]
+position = Vector3(-3.725, 0, -0.75)
 
-[node name="DeskRightA" parent="Furniture" instance=ExtResource("10_desk")]
-position = Vector3(2.5, 0, -2.55)
+[node name="DeskC2B" parent="Furniture" instance=ExtResource("11_desk_long")]
+position = Vector3(-1.45, 0, -0.75)
 
-[node name="DeskLeftB" parent="Furniture" instance=ExtResource("10_desk")]
-position = Vector3(-0.9, 0, -0.75)
+[node name="DeskC3B" parent="Furniture" instance=ExtResource("11_desk_long")]
+position = Vector3(1.45, 0, -0.75)
 
-[node name="DeskRightB" parent="Furniture" instance=ExtResource("10_desk")]
-position = Vector3(2.5, 0, -0.75)
+[node name="DeskC4B" parent="Furniture" instance=ExtResource("10_desk_short")]
+position = Vector3(3.725, 0, -0.75)
 
-[node name="DeskLeftC" parent="Furniture" instance=ExtResource("10_desk")]
-position = Vector3(-0.9, 0, 1.05)
+[node name="DeskC1C" parent="Furniture" instance=ExtResource("10_desk_short")]
+position = Vector3(-3.725, 0, 1.05)
 
-[node name="DeskRightC" parent="Furniture" instance=ExtResource("10_desk")]
-position = Vector3(2.5, 0, 1.05)
+[node name="DeskC2C" parent="Furniture" instance=ExtResource("11_desk_long")]
+position = Vector3(-1.45, 0, 1.05)
 
-[node name="DeskLeftD" parent="Furniture" instance=ExtResource("10_desk")]
-position = Vector3(-0.9, 0, 2.85)
+[node name="DeskC3C" parent="Furniture" instance=ExtResource("11_desk_long")]
+position = Vector3(1.45, 0, 1.05)
 
-[node name="DeskRightD" parent="Furniture" instance=ExtResource("10_desk")]
-position = Vector3(2.5, 0, 2.85)
+[node name="DeskC4C" parent="Furniture" instance=ExtResource("10_desk_short")]
+position = Vector3(3.725, 0, 1.05)
 
-[node name="ChairA1" parent="Furniture" instance=ExtResource("11_chair")]
-position = Vector3(-1.8, 0, -1.8)
+[node name="DeskC1D" parent="Furniture" instance=ExtResource("10_desk_short")]
+position = Vector3(-3.725, 0, 2.85)
 
-[node name="ChairA2" parent="Furniture" instance=ExtResource("11_chair")]
-position = Vector3(-0.9, 0, -1.8)
+[node name="DeskC2D" parent="Furniture" instance=ExtResource("11_desk_long")]
+position = Vector3(-1.45, 0, 2.85)
 
-[node name="ChairA3" parent="Furniture" instance=ExtResource("11_chair")]
-position = Vector3(0, 0, -1.8)
+[node name="DeskC3D" parent="Furniture" instance=ExtResource("11_desk_long")]
+position = Vector3(1.45, 0, 2.85)
 
-[node name="ChairA4" parent="Furniture" instance=ExtResource("11_chair")]
-position = Vector3(1.6, 0, -1.8)
+[node name="DeskC4D" parent="Furniture" instance=ExtResource("10_desk_short")]
+position = Vector3(3.725, 0, 2.85)
 
-[node name="ChairA5" parent="Furniture" instance=ExtResource("11_chair")]
-position = Vector3(2.5, 0, -1.8)
+[node name="SeatRowC1B" parent="Furniture" instance=ExtResource("12_row_short")]
+position = Vector3(-3.725, 0, 0)
 
-[node name="ChairA6" parent="Furniture" instance=ExtResource("11_chair")]
-position = Vector3(3.4, 0, -1.8)
+[node name="SeatRowC2B" parent="Furniture" instance=ExtResource("13_row_long")]
+position = Vector3(-1.45, 0, 0)
 
-[node name="ChairB1" parent="Furniture" instance=ExtResource("11_chair")]
-position = Vector3(-1.8, 0, 0)
+[node name="SeatRowC3B" parent="Furniture" instance=ExtResource("13_row_long")]
+position = Vector3(1.45, 0, 0)
 
-[node name="ChairB2" parent="Furniture" instance=ExtResource("11_chair")]
-position = Vector3(-0.9, 0, 0)
+[node name="SeatRowC4B" parent="Furniture" instance=ExtResource("12_row_short")]
+position = Vector3(3.725, 0, 0)
 
-[node name="ChairB3" parent="Furniture" instance=ExtResource("11_chair")]
-position = Vector3(0, 0, 0)
+[node name="SeatRowC1C" parent="Furniture" instance=ExtResource("12_row_short")]
+position = Vector3(-3.725, 0, 1.8)
 
-[node name="ChairB4" parent="Furniture" instance=ExtResource("11_chair")]
-position = Vector3(1.6, 0, 0)
+[node name="SeatRowC2C" parent="Furniture" instance=ExtResource("13_row_long")]
+position = Vector3(-1.45, 0, 1.8)
 
-[node name="ChairB5" parent="Furniture" instance=ExtResource("11_chair")]
-position = Vector3(2.5, 0, 0)
+[node name="SeatRowC3C" parent="Furniture" instance=ExtResource("13_row_long")]
+position = Vector3(1.45, 0, 1.8)
 
-[node name="ChairB6" parent="Furniture" instance=ExtResource("11_chair")]
-position = Vector3(3.4, 0, 0)
+[node name="SeatRowC4C" parent="Furniture" instance=ExtResource("12_row_short")]
+position = Vector3(3.725, 0, 1.8)
 
-[node name="ChairC1" parent="Furniture" instance=ExtResource("11_chair")]
-position = Vector3(-1.8, 0, 1.8)
+[node name="SeatRowC1D" parent="Furniture" instance=ExtResource("12_row_short")]
+position = Vector3(-3.725, 0, 3.6)
 
-[node name="ChairC2" parent="Furniture" instance=ExtResource("11_chair")]
-position = Vector3(-0.9, 0, 1.8)
+[node name="SeatRowC2D" parent="Furniture" instance=ExtResource("13_row_long")]
+position = Vector3(-1.45, 0, 3.6)
 
-[node name="ChairC3" parent="Furniture" instance=ExtResource("11_chair")]
-position = Vector3(0, 0, 1.8)
+[node name="SeatRowC3D" parent="Furniture" instance=ExtResource("13_row_long")]
+position = Vector3(1.45, 0, 3.6)
 
-[node name="ChairC4" parent="Furniture" instance=ExtResource("11_chair")]
-position = Vector3(1.6, 0, 1.8)
-
-[node name="ChairC5" parent="Furniture" instance=ExtResource("11_chair")]
-position = Vector3(2.5, 0, 1.8)
-
-[node name="ChairC6" parent="Furniture" instance=ExtResource("11_chair")]
-position = Vector3(3.4, 0, 1.8)
-
-[node name="ChairD1" parent="Furniture" instance=ExtResource("11_chair")]
-position = Vector3(-1.8, 0, 3.6)
-
-[node name="ChairD2" parent="Furniture" instance=ExtResource("11_chair")]
-position = Vector3(-0.9, 0, 3.6)
-
-[node name="ChairD3" parent="Furniture" instance=ExtResource("11_chair")]
-position = Vector3(0, 0, 3.6)
-
-[node name="ChairD4" parent="Furniture" instance=ExtResource("11_chair")]
-position = Vector3(1.6, 0, 3.6)
-
-[node name="ChairD5" parent="Furniture" instance=ExtResource("11_chair")]
-position = Vector3(2.5, 0, 3.6)
-
-[node name="ChairD6" parent="Furniture" instance=ExtResource("11_chair")]
-position = Vector3(3.4, 0, 3.6)
+[node name="SeatRowC4D" parent="Furniture" instance=ExtResource("12_row_short")]
+position = Vector3(3.725, 0, 3.6)
 
 [node name="Ceiling" type="Node3D" parent="."]
 
@@ -229,10 +207,10 @@ position = Vector3(3, 3.35, 2.5)
 [node name="CameraAnchors" type="Node3D" parent="."]
 
 [node name="L1" type="Marker3D" parent="CameraAnchors"]
-position = Vector3(0, 1.36, 0)
+position = Vector3(1.2, 1.36, 0)
 
 [node name="L2" type="Marker3D" parent="CameraAnchors"]
-position = Vector3(3.9, 1.7, 4.3)
+position = Vector3(3.6, 1.7, 4.45)
 
 [node name="L3" type="Marker3D" parent="CameraAnchors"]
 position = Vector3(9.5, 7, 11)
@@ -241,18 +219,18 @@ position = Vector3(9.5, 7, 11)
 position = Vector3(-2.8, 1, -4.35)
 
 [node name="SubjectFocus" type="Marker3D" parent="CameraAnchors"]
-position = Vector3(0, 1.05, -0.1)
+position = Vector3(1.2, 1.05, -0.1)
 
 [node name="StageFocus" type="Marker3D" parent="CameraAnchors"]
 position = Vector3(0.5, 0.9, -1.5)
 
 [node name="PlayerSeatSpot" type="Marker3D" parent="CameraAnchors"]
-position = Vector3(0, 0, 0)
+position = Vector3(1.2, 0, 0)
 
 [node name="TeacherSpot" type="Marker3D" parent="CameraAnchors"]
 position = Vector3(-2.8, 0.15, -4.4)
 
 [node name="ObserverSpot" type="Marker3D" parent="CameraAnchors"]
-position = Vector3(3.9, 0, 4.3)
+position = Vector3(3.6, 0, 4.45)
 
 [editable path="Room"]
