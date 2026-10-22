@@ -1,0 +1,130 @@
+[gd_scene load_steps=13 format=3]
+
+[ext_resource type="Material" path="res://assets/materials/floor_hinoki_planks.tres" id="1_floor"]
+[ext_resource type="Material" path="res://assets/materials/wall_plastered.tres" id="2_wall"]
+
+[sub_resource type="StandardMaterial3D" id="Material_trim"]
+albedo_color = Color(0.55, 0.38, 0.24, 1)
+roughness = 0.9
+
+[sub_resource type="BoxMesh" id="Mesh_floor"]
+size = Vector3(10, 0.2, 10)
+
+[sub_resource type="BoxMesh" id="Mesh_front_back"]
+size = Vector3(10.2, 3.6, 0.2)
+
+[sub_resource type="BoxMesh" id="Mesh_side"]
+size = Vector3(0.2, 3.6, 10)
+
+[sub_resource type="BoxMesh" id="Mesh_pier_wide"]
+size = Vector3(0.2, 2.3, 1.3)
+
+[sub_resource type="BoxMesh" id="Mesh_pier_narrow"]
+size = Vector3(0.2, 2.3, 0.6)
+
+[sub_resource type="BoxMesh" id="Mesh_sill"]
+size = Vector3(0.2, 0.7, 1.4)
+
+[sub_resource type="BoxMesh" id="Mesh_header"]
+size = Vector3(0.2, 1.3, 10)
+
+[sub_resource type="BoxMesh" id="Mesh_trim_back"]
+size = Vector3(10, 0.12, 0.04)
+
+[sub_resource type="BoxMesh" id="Mesh_trim_side"]
+size = Vector3(0.04, 0.12, 10)
+
+[node name="Room" type="Node3D"]
+
+[node name="Floor" type="MeshInstance3D" parent="."]
+position = Vector3(0, -0.1, 0)
+mesh = SubResource("Mesh_floor")
+material_override = ExtResource("1_floor")
+
+[node name="Ceiling" type="MeshInstance3D" parent="."]
+position = Vector3(0, 3.7, 0)
+mesh = SubResource("Mesh_floor")
+material_override = ExtResource("2_wall")
+
+[node name="BackWall" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.8, -5.1)
+mesh = SubResource("Mesh_front_back")
+material_override = ExtResource("2_wall")
+
+[node name="FrontWall" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.8, 5.1)
+mesh = SubResource("Mesh_front_back")
+material_override = ExtResource("2_wall")
+
+[node name="LeftWall" type="MeshInstance3D" parent="."]
+position = Vector3(-5.1, 1.8, 0)
+mesh = SubResource("Mesh_side")
+material_override = ExtResource("2_wall")
+
+[node name="RightWall" type="Node3D" parent="."]
+position = Vector3(5.1, 1.8, 0)
+
+[node name="PierBackEnd" type="MeshInstance3D" parent="RightWall"]
+position = Vector3(0, -0.65, -4.35)
+mesh = SubResource("Mesh_pier_wide")
+material_override = ExtResource("2_wall")
+
+[node name="Pier1" type="MeshInstance3D" parent="RightWall"]
+position = Vector3(0, -0.65, -2)
+mesh = SubResource("Mesh_pier_narrow")
+material_override = ExtResource("2_wall")
+
+[node name="Pier2" type="MeshInstance3D" parent="RightWall"]
+position = Vector3(0, -0.65, 0)
+mesh = SubResource("Mesh_pier_narrow")
+material_override = ExtResource("2_wall")
+
+[node name="Pier3" type="MeshInstance3D" parent="RightWall"]
+position = Vector3(0, -0.65, 2)
+mesh = SubResource("Mesh_pier_narrow")
+material_override = ExtResource("2_wall")
+
+[node name="PierFrontEnd" type="MeshInstance3D" parent="RightWall"]
+position = Vector3(0, -0.65, 4.35)
+mesh = SubResource("Mesh_pier_wide")
+material_override = ExtResource("2_wall")
+
+[node name="Sill1" type="MeshInstance3D" parent="RightWall"]
+position = Vector3(0, -1.45, -3)
+mesh = SubResource("Mesh_sill")
+material_override = ExtResource("2_wall")
+
+[node name="Sill2" type="MeshInstance3D" parent="RightWall"]
+position = Vector3(0, -1.45, -1)
+mesh = SubResource("Mesh_sill")
+material_override = ExtResource("2_wall")
+
+[node name="Sill3" type="MeshInstance3D" parent="RightWall"]
+position = Vector3(0, -1.45, 1)
+mesh = SubResource("Mesh_sill")
+material_override = ExtResource("2_wall")
+
+[node name="Sill4" type="MeshInstance3D" parent="RightWall"]
+position = Vector3(0, -1.45, 3)
+mesh = SubResource("Mesh_sill")
+material_override = ExtResource("2_wall")
+
+[node name="Header" type="MeshInstance3D" parent="RightWall"]
+position = Vector3(0, 1.15, 0)
+mesh = SubResource("Mesh_header")
+material_override = ExtResource("2_wall")
+
+[node name="BackSkirting" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.06, -4.98)
+mesh = SubResource("Mesh_trim_back")
+material_override = SubResource("Material_trim")
+
+[node name="LeftSkirting" type="MeshInstance3D" parent="."]
+position = Vector3(-4.98, 0.06, 0)
+mesh = SubResource("Mesh_trim_side")
+material_override = SubResource("Material_trim")
+
+[node name="RightSkirting" type="MeshInstance3D" parent="."]
+position = Vector3(4.98, 0.06, 0)
+mesh = SubResource("Mesh_trim_side")
+material_override = SubResource("Material_trim")

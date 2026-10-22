@@ -1,0 +1,46 @@
+[gd_scene load_steps=6 format=3]
+
+[sub_resource type="StandardMaterial3D" id="Material_fabric"]
+albedo_color = Color(0.6, 0.62, 0.64, 1)
+roughness = 0.95
+
+[sub_resource type="StandardMaterial3D" id="Material_rod"]
+albedo_color = Color(0.3, 0.3, 0.32, 1)
+metallic = 0.4
+roughness = 0.5
+
+[sub_resource type="BoxMesh" id="Mesh_panel"]
+size = Vector3(0.06, 2.5, 0.55)
+
+[sub_resource type="BoxMesh" id="Mesh_fold"]
+size = Vector3(0.02, 2.5, 0.05)
+
+[sub_resource type="BoxMesh" id="Mesh_rod"]
+size = Vector3(0.04, 0.04, 1)
+
+[node name="Curtain" type="Node3D"]
+
+[node name="Panel" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.55, 0)
+mesh = SubResource("Mesh_panel")
+material_override = SubResource("Material_fabric")
+
+[node name="FoldLeft" type="MeshInstance3D" parent="."]
+position = Vector3(0.04, 1.55, -0.18)
+mesh = SubResource("Mesh_fold")
+material_override = SubResource("Material_fabric")
+
+[node name="FoldMiddle" type="MeshInstance3D" parent="."]
+position = Vector3(0.04, 1.55, 0)
+mesh = SubResource("Mesh_fold")
+material_override = SubResource("Material_fabric")
+
+[node name="FoldRight" type="MeshInstance3D" parent="."]
+position = Vector3(0.04, 1.55, 0.18)
+mesh = SubResource("Mesh_fold")
+material_override = SubResource("Material_fabric")
+
+[node name="Rod" type="MeshInstance3D" parent="."]
+position = Vector3(0, 2.85, 0)
+mesh = SubResource("Mesh_rod")
+material_override = SubResource("Material_rod")

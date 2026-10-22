@@ -1,37 +1,14 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=2 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/classroom_static.tscn" id="1_classroom"]
 
-[sub_resource type="Environment" id="Environment_preview"]
-background_mode = 1
-background_color = Color(0.62, 0.72, 0.77, 1)
-ambient_light_source = 3
-ambient_light_color = Color(0.88, 0.93, 1, 1)
-ambient_light_energy = 0.7
-tonemap_mode = 0
 
 [node name="ClassroomStaticPreview" type="Node3D"]
 
 [node name="ClassroomStatic" parent="." instance=ExtResource("1_classroom")]
 
-[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
-environment = SubResource("Environment_preview")
-
-[node name="Daylight" type="DirectionalLight3D" parent="."]
-rotation_degrees = Vector3(-48, -28, 0)
-light_color = Color(1, 0.96, 0.89, 1)
-light_energy = 1.1
-shadow_enabled = true
-directional_shadow_max_distance = 20.0
-
-[node name="FillLight" type="OmniLight3D" parent="."]
-position = Vector3(0, 2.7, 0)
-light_color = Color(0.9, 0.95, 1, 1)
-light_energy = 0.45
-omni_range = 8.0
-
 [node name="PreviewCamera" type="Camera3D" parent="."]
-position = Vector3(0, 1.36, 0.95)
+position = Vector3(1.2, 1.36, 0)
 current = true
 fov = 65.0
 near = 0.05

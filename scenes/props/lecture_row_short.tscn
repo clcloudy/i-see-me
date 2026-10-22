@@ -1,0 +1,130 @@
+[gd_scene load_steps=10 format=3]
+
+[ext_resource type="Material" path="res://assets/materials/wood_smoked_walnut.tres" id="1_wood"]
+[sub_resource type="StandardMaterial3D" id="Material_metal"]
+albedo_color = Color(0.58, 0.6, 0.61, 1)
+metallic = 0.35
+roughness = 0.5
+
+[sub_resource type="BoxMesh" id="Mesh_back"]
+size = Vector3(0.42, 0.4, 0.04)
+
+[sub_resource type="BoxMesh" id="Mesh_post"]
+size = Vector3(0.05, 0.45, 0.06)
+
+[sub_resource type="BoxMesh" id="Mesh_top_rail"]
+size = Vector3(1.55, 0.05, 0.06)
+
+[sub_resource type="BoxMesh" id="Mesh_arm"]
+size = Vector3(0.06, 0.04, 0.44)
+
+[sub_resource type="BoxMesh" id="Mesh_leg"]
+size = Vector3(0.06, 0.63, 0.1)
+
+[sub_resource type="BoxMesh" id="Mesh_seat"]
+size = Vector3(0.42, 0.04, 0.42)
+
+[sub_resource type="BoxMesh" id="Mesh_bracket"]
+size = Vector3(0.3, 0.06, 0.06)
+
+[node name="LectureRowShort" type="Node3D"]
+
+[node name="Back1" type="MeshInstance3D" parent="."]
+position = Vector3(-0.5, 0.72, 0.21)
+mesh = SubResource("Mesh_back")
+material_override = ExtResource("1_wood")
+
+[node name="Back2" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.72, 0.21)
+mesh = SubResource("Mesh_back")
+material_override = ExtResource("1_wood")
+
+[node name="Back3" type="MeshInstance3D" parent="."]
+position = Vector3(0.5, 0.72, 0.21)
+mesh = SubResource("Mesh_back")
+material_override = ExtResource("1_wood")
+
+[node name="Post1" type="MeshInstance3D" parent="."]
+position = Vector3(-0.75, 0.72, 0.21)
+mesh = SubResource("Mesh_post")
+material_override = SubResource("Material_metal")
+
+[node name="Post2" type="MeshInstance3D" parent="."]
+position = Vector3(-0.25, 0.72, 0.21)
+mesh = SubResource("Mesh_post")
+material_override = SubResource("Material_metal")
+
+[node name="Post3" type="MeshInstance3D" parent="."]
+position = Vector3(0.25, 0.72, 0.21)
+mesh = SubResource("Mesh_post")
+material_override = SubResource("Material_metal")
+
+[node name="Post4" type="MeshInstance3D" parent="."]
+position = Vector3(0.75, 0.72, 0.21)
+mesh = SubResource("Mesh_post")
+material_override = SubResource("Material_metal")
+
+[node name="TopRail" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.945, 0.21)
+mesh = SubResource("Mesh_top_rail")
+material_override = SubResource("Material_metal")
+
+[node name="Arm1" type="MeshInstance3D" parent="."]
+position = Vector3(-0.75, 0.63, -0.01)
+mesh = SubResource("Mesh_arm")
+material_override = SubResource("Material_metal")
+
+[node name="Arm2" type="MeshInstance3D" parent="."]
+position = Vector3(-0.25, 0.63, -0.01)
+mesh = SubResource("Mesh_arm")
+material_override = SubResource("Material_metal")
+
+[node name="Arm3" type="MeshInstance3D" parent="."]
+position = Vector3(0.25, 0.63, -0.01)
+mesh = SubResource("Mesh_arm")
+material_override = SubResource("Material_metal")
+
+[node name="Arm4" type="MeshInstance3D" parent="."]
+position = Vector3(0.75, 0.63, -0.01)
+mesh = SubResource("Mesh_arm")
+material_override = SubResource("Material_metal")
+
+[node name="LegLeft" type="MeshInstance3D" parent="."]
+position = Vector3(-0.75, 0.315, -0.01)
+mesh = SubResource("Mesh_leg")
+material_override = SubResource("Material_metal")
+
+[node name="LegRight" type="MeshInstance3D" parent="."]
+position = Vector3(0.75, 0.315, -0.01)
+mesh = SubResource("Mesh_leg")
+material_override = SubResource("Material_metal")
+
+[node name="Seat1" type="MeshInstance3D" parent="."]
+position = Vector3(-0.5, 0.45, -0.02)
+mesh = SubResource("Mesh_seat")
+material_override = ExtResource("1_wood")
+
+[node name="Seat2" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.45, -0.02)
+mesh = SubResource("Mesh_seat")
+material_override = ExtResource("1_wood")
+
+[node name="Seat3" type="MeshInstance3D" parent="."]
+position = Vector3(0.5, 0.45, -0.02)
+mesh = SubResource("Mesh_seat")
+material_override = ExtResource("1_wood")
+
+[node name="Bracket1" type="MeshInstance3D" parent="."]
+position = Vector3(-0.5, 0.4, 0.16)
+mesh = SubResource("Mesh_bracket")
+material_override = SubResource("Material_metal")
+
+[node name="Bracket2" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.4, 0.16)
+mesh = SubResource("Mesh_bracket")
+material_override = SubResource("Material_metal")
+
+[node name="Bracket3" type="MeshInstance3D" parent="."]
+position = Vector3(0.5, 0.4, 0.16)
+mesh = SubResource("Mesh_bracket")
+material_override = SubResource("Material_metal")

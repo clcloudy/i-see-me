@@ -1,0 +1,63 @@
+[gd_scene load_steps=8 format=3]
+
+[sub_resource type="StandardMaterial3D" id="Material_red"]
+albedo_color = Color(0.42, 0.12, 0.09, 1)
+roughness = 0.55
+
+[sub_resource type="StandardMaterial3D" id="Material_frame"]
+albedo_color = Color(0.3, 0.08, 0.06, 1)
+roughness = 0.6
+
+[sub_resource type="StandardMaterial3D" id="Material_handle"]
+albedo_color = Color(0.75, 0.72, 0.6, 1)
+metallic = 0.6
+roughness = 0.35
+
+[sub_resource type="BoxMesh" id="Mesh_leaf"]
+size = Vector3(0.8, 2.2, 0.06)
+
+[sub_resource type="BoxMesh" id="Mesh_frame_top"]
+size = Vector3(1.9, 0.1, 0.14)
+
+[sub_resource type="BoxMesh" id="Mesh_frame_side"]
+size = Vector3(0.1, 2.3, 0.14)
+
+[sub_resource type="BoxMesh" id="Mesh_handle"]
+size = Vector3(0.04, 0.16, 0.03)
+
+[node name="Door" type="Node3D"]
+
+[node name="FrameTop" type="MeshInstance3D" parent="."]
+position = Vector3(0, 2.25, 0)
+mesh = SubResource("Mesh_frame_top")
+material_override = SubResource("Material_frame")
+
+[node name="FrameLeft" type="MeshInstance3D" parent="."]
+position = Vector3(-0.85, 1.1, 0)
+mesh = SubResource("Mesh_frame_side")
+material_override = SubResource("Material_frame")
+
+[node name="FrameRight" type="MeshInstance3D" parent="."]
+position = Vector3(0.85, 1.1, 0)
+mesh = SubResource("Mesh_frame_side")
+material_override = SubResource("Material_frame")
+
+[node name="LeafLeft" type="MeshInstance3D" parent="."]
+position = Vector3(-0.4, 1.1, 0)
+mesh = SubResource("Mesh_leaf")
+material_override = SubResource("Material_red")
+
+[node name="LeafRight" type="MeshInstance3D" parent="."]
+position = Vector3(0.4, 1.1, 0)
+mesh = SubResource("Mesh_leaf")
+material_override = SubResource("Material_red")
+
+[node name="HandleLeft" type="MeshInstance3D" parent="."]
+position = Vector3(-0.06, 1.05, 0.05)
+mesh = SubResource("Mesh_handle")
+material_override = SubResource("Material_handle")
+
+[node name="HandleRight" type="MeshInstance3D" parent="."]
+position = Vector3(0.06, 1.05, 0.05)
+mesh = SubResource("Mesh_handle")
+material_override = SubResource("Material_handle")

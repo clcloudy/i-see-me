@@ -1,0 +1,103 @@
+[gd_scene load_steps=13 format=3]
+
+[ext_resource type="Material" path="res://assets/materials/wood_oak_veneer.tres" id="1_wood"]
+[sub_resource type="StandardMaterial3D" id="Material_metal"]
+albedo_color = Color(0.55, 0.57, 0.58, 1)
+metallic = 0.35
+roughness = 0.5
+
+[sub_resource type="StandardMaterial3D" id="Material_dark"]
+albedo_color = Color(0.3, 0.32, 0.34, 1)
+roughness = 0.6
+
+[sub_resource type="BoxMesh" id="Mesh_top"]
+size = Vector3(2.1, 0.05, 0.55)
+
+[sub_resource type="CylinderMesh" id="Mesh_edge"]
+top_radius = 0.025
+bottom_radius = 0.025
+height = 2.1
+
+[sub_resource type="BoxMesh" id="Mesh_tray_floor"]
+size = Vector3(1.5, 0.02, 0.48)
+
+[sub_resource type="BoxMesh" id="Mesh_tray_wall"]
+size = Vector3(0.02, 0.12, 0.48)
+
+[sub_resource type="BoxMesh" id="Mesh_tray_back"]
+size = Vector3(1.5, 0.12, 0.02)
+
+[sub_resource type="BoxMesh" id="Mesh_tray_lip"]
+size = Vector3(1.5, 0.03, 0.02)
+
+[sub_resource type="BoxMesh" id="Mesh_post"]
+size = Vector3(0.07, 0.7, 0.4)
+
+[sub_resource type="BoxMesh" id="Mesh_foot"]
+size = Vector3(0.12, 0.05, 0.55)
+
+[sub_resource type="BoxMesh" id="Mesh_beam"]
+size = Vector3(1.5, 0.05, 0.06)
+
+[node name="LectureDeskLong" type="Node3D"]
+
+[node name="Top" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.75, 0)
+mesh = SubResource("Mesh_top")
+material_override = ExtResource("1_wood")
+
+[node name="Edge" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.75, 0.275)
+rotation_degrees = Vector3(0, 0, 90)
+mesh = SubResource("Mesh_edge")
+material_override = ExtResource("1_wood")
+
+[node name="TrayFloor" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.56, 0)
+mesh = SubResource("Mesh_tray_floor")
+material_override = SubResource("Material_dark")
+
+[node name="TrayLeft" type="MeshInstance3D" parent="."]
+position = Vector3(-0.75, 0.62, 0)
+mesh = SubResource("Mesh_tray_wall")
+material_override = SubResource("Material_dark")
+
+[node name="TrayRight" type="MeshInstance3D" parent="."]
+position = Vector3(0.75, 0.62, 0)
+mesh = SubResource("Mesh_tray_wall")
+material_override = SubResource("Material_dark")
+
+[node name="TrayBack" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.62, -0.23)
+mesh = SubResource("Mesh_tray_back")
+material_override = SubResource("Material_dark")
+
+[node name="TrayLip" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.585, 0.23)
+mesh = SubResource("Mesh_tray_lip")
+material_override = SubResource("Material_metal")
+
+[node name="LegLeft" type="MeshInstance3D" parent="."]
+position = Vector3(-0.85, 0.365, 0)
+mesh = SubResource("Mesh_post")
+material_override = SubResource("Material_metal")
+
+[node name="LegRight" type="MeshInstance3D" parent="."]
+position = Vector3(0.85, 0.365, 0)
+mesh = SubResource("Mesh_post")
+material_override = SubResource("Material_metal")
+
+[node name="FootLeft" type="MeshInstance3D" parent="."]
+position = Vector3(-0.85, 0.025, 0)
+mesh = SubResource("Mesh_foot")
+material_override = SubResource("Material_metal")
+
+[node name="FootRight" type="MeshInstance3D" parent="."]
+position = Vector3(0.85, 0.025, 0)
+mesh = SubResource("Mesh_foot")
+material_override = SubResource("Material_metal")
+
+[node name="Beam" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.2, 0)
+mesh = SubResource("Mesh_beam")
+material_override = SubResource("Material_metal")

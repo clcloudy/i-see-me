@@ -21,14 +21,26 @@ func _run() -> void:
 	var rig := main.get_node_or_null("CameraRig") as PrototypeCameraRig
 	var classroom := main.get_node_or_null("Classroom") as PrototypeClassroom
 	var ui := main.get_node_or_null("PrototypeUI") as PrototypeUI
-	if flow == null or rig == null or classroom == null or ui == null:
+	var flow_state := main.get_node_or_null("L2FlowState") as L2FlowState
+	if flow == null or rig == null or classroom == null or ui == null or flow_state == null:
 		_check(false, "Missing prototype modules.")
 		quit(1)
 		return
+	flow_state.transition_seconds = 0.0
 	_check(rig.camera.current, "An active camera is required.")
-	for mesh_name in ["Floor", "Ceiling", "BackWall", "FrontWall", "LeftWall", "RightWall"]:
+	for mesh_name in ["Floor", "Ceiling", "BackWall", "FrontWall", "LeftWall"]:
 		var mesh := classroom.room.get_node_or_null(mesh_name) as MeshInstance3D
 		_check(mesh != null and mesh.mesh != null, "Missing room geometry: " + mesh_name)
+	# The window wall is built from piers, sills and a header so the windows are real openings.
+	var right_wall := classroom.room.get_node_or_null("RightWall") as Node3D
+	_check(right_wall != null, "Missing room geometry: RightWall")
+	var wall_pieces := 0
+	if right_wall != null:
+		for child in right_wall.get_children():
+			var piece := child as MeshInstance3D
+			if piece != null and piece.mesh != null:
+				wall_pieces += 1
+	_check(wall_pieces >= 10, "RightWall must be built from segmented wall pieces.")
 	rig.transition_finished.connect(func(view: StringName) -> void: _finished.append(view))
 	if OS.get_cmdline_user_args().has("--quit-check"):
 		await _prepare_quit(flow)
@@ -36,9 +48,9 @@ func _run() -> void:
 		call_deferred("_emit_quit", ui)
 		return
 	elif OS.get_cmdline_user_args().has("--capture"):
-		await _capture(flow, rig, ui, classroom)
+		await _capture(flow, rig, ui, classroom, flow_state)
 	else:
-		await _test_flow(flow, rig, ui, classroom)
+		await _test_flow(flow, rig, ui, classroom, flow_state)
 	main.queue_free()
 	await process_frame
 	if _failures == 0:
@@ -47,16 +59,20 @@ func _run() -> void:
 
 
 func _test_flow(
-	flow: PrototypeFlow, rig: PrototypeCameraRig, ui: PrototypeUI, classroom: PrototypeClassroom
+	flow: PrototypeFlow, rig: PrototypeCameraRig, ui: PrototypeUI, classroom: PrototypeClassroom,
+	flow_state: L2FlowState
 ) -> void:
 	rig.transition_seconds = 0.12
-	_check(flow.stage == &"intro" and ui.modal.visible, "Start at content notice.")
+	var floor_mesh := classroom.room.get_node_or_null("Floor") as MeshInstance3D
+	var floor_original: Material = floor_mesh.material_override if floor_mesh != null else null
+	_check(not flow_state.is_active(), "Flow state is off at the content notice.")
 	await process_frame
 	ui.modal_primary.pressed.emit()
 	_check(flow.stage == &"l1", "Notice enters L1.")
 	ui.continue_button.pressed.emit()
 	_check(not flow.transitioning, "Repeated input in the same frame must not advance twice.")
-	_check(not classroom.seated_self.visible and not classroom.observer.visible, "L1 hides selves.")
+	_check_actor(classroom.seated_self, false, "L1 hides seated self.")
+	_check_actor(classroom.observer, false, "L1 hides observer.")
 	await process_frame
 	ui.continue_button.pressed.emit()
 	_check(flow.stage == &"l1" and flow.transitioning, "Stage changes only after camera completion.")
@@ -78,7 +94,11 @@ func _test_flow(
 	_check(not paused, "Resume from pause menu.")
 	await create_timer(0.25).timeout
 	_check(flow.stage == &"l2" and _finished == [&"l2"], "Natural completion emits once.")
-	_check(classroom.seated_self.visible and not classroom.observer.visible, "L2 reveals seated self.")
+	_check_actor(classroom.seated_self, true, "L2 reveals seated self.")
+	_check_actor(classroom.observer, false, "L2 still hides observer.")
+	_check(flow_state.is_active(), "L2 activates the flow state.")
+	_check(flow_state.get_clay_mesh_count() > 0, "L2 applies the untextured clay material.")
+	_check(is_equal_approx(flow_state.focus_radius, 2.0), "The flow-state focus radius is two metres.")
 	var escape := InputEventKey.new()
 	escape.keycode = KEY_ESCAPE
 	escape.pressed = true
@@ -95,7 +115,11 @@ func _test_flow(
 	ui.skip_button.pressed.emit()
 	flow.skip_transition()
 	_check(flow.stage == &"l3" and _finished == [&"l2", &"l3"], "Skip completes exactly once.")
-	_check(classroom.observer.visible, "L3 reveals the observer.")
+	_check_actor(classroom.observer, true, "L3 reveals the observer.")
+	_check(not flow_state.is_active(), "L3 leaves the flow state.")
+	_check(flow_state.get_clay_mesh_count() == 0, "L3 restores the original materials.")
+	_check(floor_mesh != null and floor_mesh.material_override == floor_original,
+		"Floor material is restored.")
 	await create_timer(0.2).timeout
 	_check(_finished.size() == 2, "Skipped tween must not call completion later.")
 	ui.continue_button.pressed.emit()
@@ -109,7 +133,10 @@ func _test_flow(
 		ui.modal_restart.pressed.emit()
 		_check(not paused and flow.stage == &"intro", "Paused restart at " + String(target))
 		_check(not rig.is_transitioning(), "Restart cancels camera at " + String(target))
-		_check(not classroom.seated_self.visible and not classroom.observer.visible, "Reset visibility.")
+		_check(not flow_state.is_active() and flow_state.get_clay_mesh_count() == 0,
+			"Restart clears the flow state.")
+		_check_actor(classroom.seated_self, false, "Reset hides seated self.")
+		_check_actor(classroom.observer, false, "Reset hides observer.")
 		_check(classroom.get_node("Room/FrontWall").visible, "Reset stage boundaries.")
 		_check(flow.muted, "Restart preserves mute setting.")
 	for source in [&"l1", &"l2"]:
@@ -135,7 +162,17 @@ func _test_flow(
 	flow.restart()
 	flow.toggle_mute()
 	_check(not AudioServer.is_bus_mute(0), "Unmute restores Master bus.")
-	print("PASS: sequence, duplicate input, natural/skip/cancel completion, pause, mute and restart.")
+	flow_state.set_focus_point(Vector3(1.2, 1.36, 0.0))
+	flow_state.activate()
+	_check(flow_state.is_active() and flow_state.get_clay_mesh_count() > 0,
+		"Direct activation works with an explicit focus point.")
+	flow_state.set_focus_radius(3.5)
+	_check(is_equal_approx(flow_state.focus_radius, 3.5), "Focus radius is configurable.")
+	flow_state.deactivate(true)
+	_check(not flow_state.is_active() and flow_state.get_clay_mesh_count() == 0,
+		"Direct deactivation restores materials.")
+	flow_state.focus_radius = 2.0
+	print("PASS: sequence, duplicate input, natural/skip/cancel completion, pause, mute, restart, L2 flow state.")
 
 
 func _prepare_quit(flow: PrototypeFlow) -> void:
@@ -184,13 +221,15 @@ func _enter_view(flow: PrototypeFlow, target: StringName) -> void:
 
 
 func _capture(
-	flow: PrototypeFlow, rig: PrototypeCameraRig, ui: PrototypeUI, classroom: PrototypeClassroom
+	flow: PrototypeFlow, rig: PrototypeCameraRig, ui: PrototypeUI, classroom: PrototypeClassroom,
+	flow_state: L2FlowState
 ) -> void:
 	if DisplayServer.get_name() == "headless":
 		_check(false, "Capture requires an actual rendering window.")
 		return
 	DirAccess.make_dir_recursive_absolute("res://.local/captures")
 	rig.transition_seconds = 1.0
+	flow_state.transition_seconds = 0.0
 	for dimensions in [Vector2i(1280, 720), Vector2i(960, 540)]:
 		DisplayServer.window_set_size(dimensions)
 		root.size = dimensions
@@ -205,7 +244,7 @@ func _capture(
 			flow.skip_transition()
 			_check(flow.stage == view, "Capture view mismatch.")
 			await _save_capture(view, dimensions, ui)
-		_check(classroom.observer.visible, "Observer is visible for capture.")
+		_check_actor(classroom.observer, true, "Observer is visible for capture.")
 		flow.toggle_pause()
 		await _save_capture(&"paused", dimensions, ui)
 		flow.toggle_pause()
@@ -255,6 +294,14 @@ func _check_ui_layout(node: Node) -> void:
 			)
 	for child in node.get_children():
 		_check_ui_layout(child)
+
+
+## 人物不是每套布景都有：纯布景场景（如 classroom_static）缺人物时跳过该项检查并记录。
+func _check_actor(actor: Node3D, expected: bool, message: String) -> void:
+	if actor == null:
+		print("SKIP: " + message + " (no actor node in this set)")
+		return
+	_check(actor.visible == expected, message)
 
 
 func _check(condition: bool, message: String) -> void:

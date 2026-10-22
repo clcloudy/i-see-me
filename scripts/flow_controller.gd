@@ -9,6 +9,7 @@ const NEXT_VIEW := {&"l1": &"l2", &"l2": &"l3"}
 @export var camera_rig: PrototypeCameraRig
 @export var classroom: PrototypeClassroom
 @export var interface: PrototypeUI
+@export var flow_state: L2FlowState
 
 var stage: StringName = &"intro"
 var transitioning: bool = false
@@ -75,6 +76,8 @@ func skip_transition() -> void:
 
 func restart() -> void:
 	get_tree().paused = false
+	if flow_state != null:
+		flow_state.deactivate(true)
 	camera_rig.cancel_transition()
 	transitioning = false
 	_last_advance_frame = Engine.get_process_frames()
@@ -84,6 +87,8 @@ func restart() -> void:
 
 func quit() -> void:
 	get_tree().paused = false
+	if flow_state != null:
+		flow_state.deactivate(true)
 	camera_rig.cancel_transition()
 	get_tree().quit()
 
@@ -102,6 +107,11 @@ func _set_stage(stage_id: StringName) -> void:
 		classroom.set_view(stage)
 	elif stage == &"intro":
 		classroom.set_view(&"l1")
+	if flow_state != null:
+		if stage == &"l2":
+			flow_state.activate()
+		else:
+			flow_state.deactivate()
 	_refresh()
 	stage_changed.emit(stage)
 	interface.focus_primary()
