@@ -1,19 +1,8 @@
-[gd_scene load_steps=13 format=3]
+[gd_scene load_steps=11 format=3]
 
-[sub_resource type="StandardMaterial3D" id="Material_red"]
-albedo_color = Color(0.45, 0.13, 0.09, 1)
-roughness = 0.55
-
-[sub_resource type="StandardMaterial3D" id="Material_red_dark"]
-albedo_color = Color(0.3, 0.08, 0.06, 1)
-roughness = 0.6
-
+[ext_resource type="Material" path="res://assets/materials/wood_lacquered_cherry.tres" id="1_cherry"]
 [sub_resource type="StandardMaterial3D" id="Material_plaque"]
 albedo_color = Color(0.86, 0.8, 0.65, 1)
-roughness = 0.6
-
-[sub_resource type="StandardMaterial3D" id="Material_logo"]
-albedo_color = Color(0.15, 0.35, 0.2, 1)
 roughness = 0.6
 
 [sub_resource type="BoxMesh" id="Mesh_base"]
@@ -38,57 +27,46 @@ size = Vector3(0.78, 0.22, 0.015)
 [sub_resource type="BoxMesh" id="Mesh_plaque"]
 size = Vector3(0.7, 0.16, 0.02)
 
-[sub_resource type="CylinderMesh" id="Mesh_logo"]
-top_radius = 0.1
-bottom_radius = 0.1
-height = 0.012
-
 [node name="Podium" type="Node3D"]
 
 [node name="Base" type="MeshInstance3D" parent="."]
 position = Vector3(0, 0.06, 0)
 mesh = SubResource("Mesh_base")
-material_override = SubResource("Material_red_dark")
+material_override = ExtResource("1_cherry")
 
 [node name="Body" type="MeshInstance3D" parent="."]
 position = Vector3(0, 0.43, 0)
 mesh = SubResource("Mesh_body")
-material_override = SubResource("Material_red")
+material_override = ExtResource("1_cherry")
 
 [node name="Platform" type="MeshInstance3D" parent="."]
 position = Vector3(0, 0.76, 0)
 mesh = SubResource("Mesh_platform")
-material_override = SubResource("Material_red_dark")
+material_override = ExtResource("1_cherry")
 
 [node name="FrontWall" type="MeshInstance3D" parent="."]
 position = Vector3(0, 0.95, 0.305)
 mesh = SubResource("Mesh_wall_front")
-material_override = SubResource("Material_red")
+material_override = ExtResource("1_cherry")
 
 [node name="LeftWall" type="MeshInstance3D" parent="."]
 position = Vector3(-0.495, 0.95, 0)
 rotation_degrees = Vector3(0, -90, 0)
 mesh = SubResource("Mesh_wall_side")
-material_override = SubResource("Material_red")
+material_override = ExtResource("1_cherry")
 
 [node name="RightWall" type="MeshInstance3D" parent="."]
 position = Vector3(0.495, 0.95, 0)
 rotation_degrees = Vector3(0, -90, 0)
 mesh = SubResource("Mesh_wall_side")
-material_override = SubResource("Material_red")
+material_override = ExtResource("1_cherry")
 
 [node name="PlaqueBorder" type="MeshInstance3D" parent="."]
 position = Vector3(0, 0.95, 0.335)
 mesh = SubResource("Mesh_plaque_border")
-material_override = SubResource("Material_red_dark")
+material_override = ExtResource("1_cherry")
 
 [node name="Plaque" type="MeshInstance3D" parent="."]
 position = Vector3(0, 0.95, 0.345)
 mesh = SubResource("Mesh_plaque")
 material_override = SubResource("Material_plaque")
-
-[node name="Logo" type="MeshInstance3D" parent="."]
-position = Vector3(0, 0.45, 0.315)
-rotation_degrees = Vector3(90, 0, 0)
-mesh = SubResource("Mesh_logo")
-material_override = SubResource("Material_logo")

@@ -1,22 +1,9 @@
-[gd_scene load_steps=12 format=3]
+[gd_scene load_steps=10 format=3]
 
-[sub_resource type="StandardMaterial3D" id="Material_white"]
-albedo_color = Color(0.82, 0.84, 0.85, 1)
-metallic = 0.2
-roughness = 0.5
-
-[sub_resource type="StandardMaterial3D" id="Material_white_light"]
-albedo_color = Color(0.9, 0.91, 0.92, 1)
-metallic = 0.2
-roughness = 0.45
-
+[ext_resource type="Material" path="res://assets/materials/metal_corrugated_iron.tres" id="1_iron"]
 [sub_resource type="StandardMaterial3D" id="Material_dark"]
-albedo_color = Color(0.18, 0.2, 0.22, 1)
+albedo_color = Color(0.27, 0.29, 0.31, 1)
 roughness = 0.7
-
-[sub_resource type="StandardMaterial3D" id="Material_logo"]
-albedo_color = Color(0.1, 0.2, 0.4, 1)
-roughness = 0.6
 
 [sub_resource type="BoxMesh" id="Mesh_body"]
 size = Vector3(1.7, 0.78, 0.8)
@@ -36,11 +23,6 @@ top_radius = 0.17
 bottom_radius = 0.17
 height = 0.02
 
-[sub_resource type="CylinderMesh" id="Mesh_logo"]
-top_radius = 0.07
-bottom_radius = 0.07
-height = 0.012
-
 [sub_resource type="BoxMesh" id="Mesh_vent"]
 size = Vector3(0.5, 0.03, 0.01)
 
@@ -49,41 +31,35 @@ size = Vector3(0.5, 0.03, 0.01)
 [node name="Body" type="MeshInstance3D" parent="."]
 position = Vector3(0, 0.39, 0)
 mesh = SubResource("Mesh_body")
-material_override = SubResource("Material_white")
+material_override = ExtResource("1_iron")
 
 [node name="Platform" type="MeshInstance3D" parent="."]
 position = Vector3(0, 0.8, 0)
 mesh = SubResource("Mesh_platform")
-material_override = SubResource("Material_white_light")
+material_override = ExtResource("1_iron")
 
 [node name="FrontWall" type="MeshInstance3D" parent="."]
 position = Vector3(0, 0.93, 0.405)
 mesh = SubResource("Mesh_wall_front")
-material_override = SubResource("Material_white_light")
+material_override = ExtResource("1_iron")
 
 [node name="LeftWall" type="MeshInstance3D" parent="."]
 position = Vector3(-0.855, 0.93, 0)
 rotation_degrees = Vector3(0, -90, 0)
 mesh = SubResource("Mesh_wall_side")
-material_override = SubResource("Material_white_light")
+material_override = ExtResource("1_iron")
 
 [node name="RightWall" type="MeshInstance3D" parent="."]
 position = Vector3(0.855, 0.93, 0)
 rotation_degrees = Vector3(0, -90, 0)
 mesh = SubResource("Mesh_wall_side")
-material_override = SubResource("Material_white_light")
+material_override = ExtResource("1_iron")
 
 [node name="Speaker" type="MeshInstance3D" parent="."]
 position = Vector3(-0.45, 0.5, 0.405)
 rotation_degrees = Vector3(90, 0, 0)
 mesh = SubResource("Mesh_speaker")
 material_override = SubResource("Material_dark")
-
-[node name="Logo" type="MeshInstance3D" parent="."]
-position = Vector3(0.5, 0.5, 0.405)
-rotation_degrees = Vector3(90, 0, 0)
-mesh = SubResource("Mesh_logo")
-material_override = SubResource("Material_logo")
 
 [node name="VentTop" type="MeshInstance3D" parent="."]
 position = Vector3(0.5, 0.3, 0.403)

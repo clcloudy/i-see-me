@@ -1,0 +1,30 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/effects/l2_flow_state.gd" id="1_script"]
+[ext_resource type="Shader" path="res://shaders/l2_flow_state.gdshader" id="2_shader"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_flow"]
+resource_local_to_scene = true
+render_priority = 127
+shader = ExtResource("2_shader")
+
+[sub_resource type="QuadMesh" id="QuadMesh_flow"]
+size = Vector2(1, 1)
+
+[node name="L2FlowState" type="Node3D"]
+script = ExtResource("1_script")
+target_root_path = NodePath("..")
+focus_radius = 2.0
+focus_falloff = 1.2
+blur_pixels = 20.0
+clay_color = Color(0.27, 0.28, 0.3, 1)
+transition_seconds = 0.6
+
+[node name="Screen" type="MeshInstance3D" parent="."]
+top_level = true
+visible = false
+gi_mode = 0
+cast_shadow = 0
+extra_cull_margin = 16384.0
+mesh = SubResource("QuadMesh_flow")
+material_override = SubResource("ShaderMaterial_flow")

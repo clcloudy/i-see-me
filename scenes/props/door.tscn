@@ -14,7 +14,7 @@ metallic = 0.6
 roughness = 0.35
 
 [sub_resource type="BoxMesh" id="Mesh_leaf"]
-size = Vector3(0.8, 2.15, 0.06)
+size = Vector3(0.8, 2.2, 0.06)
 
 [sub_resource type="BoxMesh" id="Mesh_frame_top"]
 size = Vector3(1.9, 0.1, 0.14)
@@ -43,12 +43,12 @@ mesh = SubResource("Mesh_frame_side")
 material_override = SubResource("Material_frame")
 
 [node name="LeafLeft" type="MeshInstance3D" parent="."]
-position = Vector3(-0.4, 1.075, 0)
+position = Vector3(-0.4, 1.1, 0)
 mesh = SubResource("Mesh_leaf")
 material_override = SubResource("Material_red")
 
 [node name="LeafRight" type="MeshInstance3D" parent="."]
-position = Vector3(0.4, 1.075, 0)
+position = Vector3(0.4, 1.1, 0)
 mesh = SubResource("Mesh_leaf")
 material_override = SubResource("Material_red")
 

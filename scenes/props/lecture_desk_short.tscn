@@ -1,9 +1,6 @@
 [gd_scene load_steps=13 format=3]
 
-[sub_resource type="StandardMaterial3D" id="Material_top"]
-albedo_color = Color(0.78, 0.62, 0.42, 1)
-roughness = 0.4
-
+[ext_resource type="Material" path="res://assets/materials/wood_oak_veneer.tres" id="1_wood"]
 [sub_resource type="StandardMaterial3D" id="Material_metal"]
 albedo_color = Color(0.55, 0.57, 0.58, 1)
 metallic = 0.35
@@ -47,13 +44,13 @@ size = Vector3(0.95, 0.05, 0.06)
 [node name="Top" type="MeshInstance3D" parent="."]
 position = Vector3(0, 0.75, 0)
 mesh = SubResource("Mesh_top")
-material_override = SubResource("Material_top")
+material_override = ExtResource("1_wood")
 
 [node name="Edge" type="MeshInstance3D" parent="."]
 position = Vector3(0, 0.75, 0.275)
 rotation_degrees = Vector3(0, 0, 90)
 mesh = SubResource("Mesh_edge")
-material_override = SubResource("Material_top")
+material_override = ExtResource("1_wood")
 
 [node name="TrayFloor" type="MeshInstance3D" parent="."]
 position = Vector3(0, 0.56, 0)

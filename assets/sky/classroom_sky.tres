@@ -1,0 +1,10 @@
+[gd_resource type="Sky" format=3 uid="uid://rfovsecyb4ah"]
+
+[ext_resource type="Texture2D" uid="uid://u81cln4bkvwo" path="res://assets/sky/je_gray_02_2k.exr" id="1_panorama"]
+
+[sub_resource type="PanoramaSkyMaterial" id="PanoramaSkyMaterial_day"]
+panorama = ExtResource("1_panorama")
+energy_multiplier = 2.0
+
+[resource]
+sky_material = SubResource("PanoramaSkyMaterial_day")

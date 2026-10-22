@@ -1,0 +1,119 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/classroom_static.tscn" id="1_classroom"]
+[ext_resource type="PackedScene" path="res://scenes/actors/character_pose/sit.tscn" id="2_protagonist"]
+[ext_resource type="PackedScene" path="res://scenes/effects/l2_flow_state.tscn" id="3_effect"]
+[ext_resource type="Script" path="res://scripts/effects/l2_flow_preview.gd" id="4_preview"]
+
+[sub_resource type="StyleBoxFlat" id="Style_panel"]
+bg_color = Color(0.06, 0.07, 0.075, 0.94)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.35, 0.39, 0.42, 0.9)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_left = 6
+corner_radius_bottom_right = 6
+content_margin_left = 18.0
+content_margin_top = 14.0
+content_margin_right = 18.0
+content_margin_bottom = 14.0
+
+[sub_resource type="StyleBoxFlat" id="Style_button"]
+bg_color = Color(0.22, 0.29, 0.33, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.52, 0.62, 0.68, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_left = 4
+corner_radius_bottom_right = 4
+content_margin_left = 16.0
+content_margin_top = 9.0
+content_margin_right = 16.0
+content_margin_bottom = 9.0
+
+[sub_resource type="Theme" id="Theme_preview"]
+default_font_size = 16
+Button/styles/normal = SubResource("Style_button")
+Button/colors/font_color = Color(0.96, 0.98, 1, 1)
+Label/colors/font_color = Color(0.94, 0.96, 0.98, 1)
+
+[node name="L2FlowPreview" type="Node3D"]
+script = ExtResource("4_preview")
+
+[node name="Classroom" parent="." instance=ExtResource("1_classroom")]
+
+[node name="Protagonist" parent="." instance=ExtResource("2_protagonist")]
+position = Vector3(1.2, 0, 0)
+
+[node name="Camera3D" type="Camera3D" parent="."]
+current = true
+position = Vector3(1.2, 1.75, 1.4)
+fov = 65.0
+near = 0.05
+far = 50.0
+
+[node name="LookTarget" type="Marker3D" parent="."]
+position = Vector3(1.2, 1.1, -1.6)
+
+[node name="L2FlowState" parent="." instance=ExtResource("3_effect")]
+focus_node_path = NodePath("../Protagonist/ViewAnchor")
+focus_height = 0.0
+auto_activate = true
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="Screen" type="Control" parent="UI"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme = SubResource("Theme_preview")
+
+[node name="Panel" type="PanelContainer" parent="UI/Screen"]
+layout_mode = 1
+offset_left = 24.0
+offset_top = 24.0
+offset_right = 548.0
+offset_bottom = 276.0
+theme_override_styles/panel = SubResource("Style_panel")
+
+[node name="Box" type="VBoxContainer" parent="UI/Screen/Panel"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Title" type="Label" parent="UI/Screen/Panel/Box"]
+layout_mode = 2
+text = "L2 心流状态 · 预览"
+theme_override_font_sizes/font_size = 20
+
+[node name="Hint" type="Label" parent="UI/Screen/Panel/Box"]
+layout_mode = 2
+custom_minimum_size = Vector2(470, 0)
+text = "灰黑、无贴图的模型；以主角为球心，半径 2 m 内保持清晰，之外逐渐模糊。"
+autowrap_mode = 3
+theme_override_font_sizes/font_size = 14
+
+[node name="Toggle" type="Button" parent="UI/Screen/Panel/Box"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "开启心流效果"
+
+[node name="Status" type="Label" parent="UI/Screen/Panel/Box"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "状态：关闭（正常教室材质）"
+theme_override_font_sizes/font_size = 13
+
+[node name="Note" type="Label" parent="UI/Screen/Panel/Box"]
+layout_mode = 2
+text = "空格或按钮切换。F6 单独运行此场景，不影响主场景。"
+theme_override_font_sizes/font_size = 12
