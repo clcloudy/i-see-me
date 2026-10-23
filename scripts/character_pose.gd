@@ -52,7 +52,7 @@ const POSE_OVERRIDES := {
 	},
 	Pose.WHISPER_L: {"Torso": Vector3(0, -8, 0), "Neck": Vector3(4, -22, 0), "Head": Vector3(2, -10, 0)},
 	Pose.WHISPER_R: {"Torso": Vector3(0, 8, 0), "Neck": Vector3(4, 22, 0), "Head": Vector3(2, 10, 0)},
-	Pose.COVER_MOUTH: {"Neck": Vector3(14, -6, 0), "Head": Vector3(6, -2, 0)},
+	Pose.COVER_MOUTH: {"Neck": Vector3(18, -8, 0), "Head": Vector3(10, -4, 0)},
 	Pose.SIDE_GLANCE_L: {"Neck": Vector3(-2, -28, 0), "Head": Vector3(0, -12, 0)},
 	Pose.SIDE_GLANCE_R: {"Neck": Vector3(-2, 28, 0), "Head": Vector3(0, 12, 0)},
 	Pose.NOD: {"Torso": Vector3(4, 0, 0), "Neck": Vector3(9, 0, 0), "Head": Vector3(4, 0, 0)},
@@ -144,11 +144,11 @@ func _ik_hand_to_mouth(side: String) -> void:
 	if upper_idx == -1 or lower_idx == -1 or hand_idx == -1 or head_idx == -1:
 		_aim_arm(side)
 		return
-	# 嘴部目标：头骨前方 0.09、略上方 0.04（世界方向 → 骨架空间）
+	# 嘴部目标：头骨前方 0.085、略高于原点 0.005（世界方向 → 骨架空间）
 	var fwd := -(self.global_transform.basis.z).normalized()
 	var up := self.global_transform.basis.y.normalized()
 	var head_world := _skeleton.global_transform * _skeleton.get_bone_global_pose(head_idx).origin
-	var mouth_world := head_world + fwd * 0.09 + up * 0.04
+	var mouth_world := head_world + fwd * 0.085 + up * 0.005
 	var inv := _skeleton.global_transform.affine_inverse()
 	var target := inv * mouth_world
 	var s_pos := _skeleton.get_bone_global_pose(upper_idx).origin
@@ -172,7 +172,7 @@ func _ik_hand_to_mouth(side: String) -> void:
 	var up_skel := (inv.basis * up).normalized()
 	var right_skel := (inv.basis * self.global_transform.basis.x).normalized()
 	var side_sign := 1.0 if side == "R" else -1.0
-	var pole := (right_skel * side_sign - up_skel * 0.8 - fwd_skel * 0.25).normalized()
+	var pole := (right_skel * side_sign * 0.9 - up_skel * 1.3 - fwd_skel * 0.15).normalized()
 	var pole_in_plane := pole - st_dir * pole.dot(st_dir)
 	if pole_in_plane.length_squared() < 0.000001:
 		pole_in_plane = up_skel - st_dir * up_skel.dot(st_dir)
