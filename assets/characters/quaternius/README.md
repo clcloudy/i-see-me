@@ -19,9 +19,14 @@
 | Worker.glb | 同学 1（男，工装） | 658 KB |
 | Casual2.glb | 同学 2（男，休闲） | 742 KB |
 | Adventurer.glb | 同学 3（男，户外夹克） | 1.2 MB |
-| WomensCasual.glb | 同学 4（女，休闲） | 786 KB |
-| WomensFormal.glb | 同学 5（女，正装） | 754 KB |
-| WomensWorker.glb | 同学 6（女，工装） | 754 KB |
+| Beach.glb | 同学 4（男，短袖休闲） | 814 KB |
+| Farmer.glb | 同学 5（男，背带工装） | 683 KB |
+| Punk.glb | 同学 6（男，朋克夹克） | 735 KB |
+| WomensCasual.glb | 同学 7（女，休闲） | 786 KB |
+| WomensFormal.glb | 同学 8（女，正装） | 754 KB |
+| WomensWorker.glb | 同学 9（女，工装） | 754 KB |
+| WomensAdventurer.glb | 同学 10（女，户外夹克） | 1.2 MB |
+| WomensPunk.glb | 同学 11（女，朋克） | 754 KB |
 
 均为 glTF Binary，约 5,200–10,200 三角面，Humanoid 骨架，无内置动画、无表情 blendshape。
 男女骨架手指骨命名略有差异（男 49 骨 / 女 51 骨），但躯干与四肢骨骼完全一致，
@@ -32,9 +37,12 @@
 1. **不要写骨骼位置**。该模型导入后 Skeleton3D 节点自带 100× 缩放 + 90° 旋转（Blender/glTF 导出惯例），骨骼局部坐标是厘米级；往骨骼位置字段写米制数值会被放大 100 倍，人物会沉入地板几十米。
 2. **静态姿态 = 只旋转骨骼 + 移动角色根节点**。6 种姿态的骨骼角度表在 `scripts/character_pose.gd`；坐姿臀高 0.47 m 通过根节点下沉实现，场景内原点仍在地面。
 3. 姿态场景在 `scenes/actors/character_pose/`，可直接实例化；模型朝向已统一为项目约定的局部 -Z。
-   - 主角：`stand / sit / head_down / head_up / rebut / writing.tscn`
+   - 主角：`stand / sit / head_down / head_up / rebut / writing.tscn`；对话扩展 `stand_talk`（站起看向讲台说话）、`look_around`（躲避视线四处看）
    - 教师：`teacher_stand.tscn`
-   - 同学（6 人）：`classmate_*_sit.tscn`（坐姿）与 `classmate_*_down.tscn`（低头，对应思绪倒放环节"同学很快就低头了"）
+   - 同学（11 人）：`classmate_*_sit.tscn`（坐姿）与 `classmate_*_down.tscn`（低头，对应思绪倒放环节"同学很快就低头了"）
+   - 事件姿态（10.22 任务）：`event_cover_mouth.tscn`（E02 掩嘴低笑，两骨 IK 手到嘴边）、`event_side_glance.tscn`（E02 侧脸看向声源）、`event_nod.tscn`（E03 轻轻点头）；`classmate_*_whisper_l/r.tscn`（交头接耳）
+   - 满座教室：`classroom_seating.tscn`（42 座全满，主角在第二排第七位）
+   - 对话时刻预览：`classroom_dialogue_preview.tscn`（真教室 + 教师 + 主角站讲 + E02/E03 + 议论同学）
    - 全员预览：`preview.tscn`（前排主角 6 姿态，后排教师+6 同学）
 4. 材质统一由 `scripts/character_pose.gd` 在运行时设为粗糙、无高光（Compatibility 渲染器兼容）；不修改 .glb 源文件。
 5. 膝盖弯曲等角度已用批量渲染扫描校准（90° 会小腹突出、180° 过度折叠，110° 垂直自然），没有把握不要凭感觉改。
