@@ -74,7 +74,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\Start-Godot.ps1 -Mod
 | `scenes/actors/teacher/teacher_animated.tscn` | 单个动画教师，供正式流程实例化 | — |
 | `scenes/actors/teacher/teacher_emotions_preview.tscn` | 5 种情绪并排对照 | `1/2/3` 切讲课/提问/点名，`A` 自动轮播 |
 | `scenes/actors/teacher/teacher_writing_preview.tscn` | 5 种情绪同时板书 | — |
-| `scenes/actors/teacher/teacher_classroom_preview.tscn` | 真教室集成演示（含 HUD） | `1-4` 动作，`QWERT` 情绪，`空格` 暂停，`A` 自动轮播 |
+| `scenes/actors/teacher/teacher_classroom_preview.tscn` | 真教室集成演示（含 HUD） | `1-4` 动作，`QWERT` 情绪，`S` 说话，`空格` 暂停，`A` 自动轮播 |
 
 在编辑器打开对应场景后按 **F6** 运行当前场景即可。演示场景的键盘操作由 `scripts/teacher_anim_demo.gd` / `teacher_emotion_lineup.gd` 提供，正式流程不需要这两个脚本。
 
@@ -102,6 +102,8 @@ teacher.set_state(TeacherAnimator.Action.LECTURE, TeacherAnimator.Emotion.NEUTRA
 | `time_scale` | `1.0` | 整体节奏倍率 |
 | `phase_offset` | `0.0` | 相位偏移（秒），多个教师错开动作 |
 | `show_props` | `true` | 显示粉笔 / 点名册 |
+| `talking` | `true` | 说话口型开关（板书背对教室时自动闭嘴） |
+| `speech_speed` | `1.0` | 口型语速倍率 |
 | `turn_speed` | `3.5` | 转身插值速度 |
 | `target_smoothing` | `12.0` | 手部目标点平滑速度 |
 
@@ -137,6 +139,26 @@ teacher.set_state(TeacherAnimator.Action.LECTURE, TeacherAnimator.Emotion.DOWN) 
 ```
 
 每句台词前调用一次即可，动作会持续循环；只换情绪时用 `set_emotion()`，不会打断手部动作。板书转身约 1.2 秒，情绪过渡约 0.4 秒，硬切时才用 `immediate=true`。
+
+### 面部口型与表情（2026-10-23）
+
+Quaternius 模型脸上没有嘴、没有下颌骨、也没有 blend shape，所以 `scripts/teacher_face.gd` 在运行时**测量头部网格**（眼框、眉面片、下巴），在脸前补出三组贴面件并每帧跟随 Head 骨：
+
+- **嘴**：深色口腔 + 牙齿，按音素序列开合（A/E/I/O/U/M/F/S/换气），幅度、嘴宽、嘴角随情绪变化；说话时嘴不会一直半张。
+- **眉**：复制原模型的眉毛面片、略微放大外移，按情绪抬起/压低/内侧倾斜（疑惑单边挑眉）。
+- **眼睑**：肤色面片从上眼睑落下，负责眨眼（2~5 秒一次）与眯眼（失落时更眯）。
+
+动作只决定“说不说话”：讲课 / 提问 / 点名说话，板书（背对教室）闭嘴。`talking = false` 可整体关掉口型，用 `speech_speed` 调速。面部参数表在 `scripts/teacher_animator.gd` 的 `FACE_CONFIG`，与 `EMOTION_CONFIG`（身体）分开调。
+
+### 粉笔与点名册握持（2026-10-23）
+
+道具不再用固定偏移摆放，而是按**弯曲后的真实骨骼位置**计算：
+
+- `_hand_frame()` 用 8 根指骨实时求手指方向、拇指方向与掌心法线（右手掌心法线 = 拇指 × 手指）。
+- `_curl_fingers()` 按“掌心法线 × 手指方向”轴逐节弯曲四指与拇指；捏粉笔时食指中指只弯一半、无名指小指收紧（`HOLD_SCALES["pinch"]`）。
+- 粉笔夹在食指中节掌侧凹槽里，笔身沿“手指 + 掌心”方向伸出 10 cm；点名册托在掌上，背面贴在实测的指背最高点（不会再被手指穿出封面）。
+
+细节与效果图见[教师口型与握持](docs/教师口型与握持-2026-10-23.md)。
 
 **自检：**
 
