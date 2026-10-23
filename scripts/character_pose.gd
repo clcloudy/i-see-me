@@ -120,6 +120,9 @@ const OUTFIT_PALETTES := [
 @export_range(0, 12) var outfit: int = 0
 ## 整体身高缩放（0.97~1.03）。满座时避免所有人等高，坐姿不影响座面高度。
 @export var height_scale: float = 1.0
+## 小腿角度微调（-1~1）：让各人的小腿朝向略有差别，满座时不至于像队列。
+## 只影响坐姿小腿，范围约 ±2.5°，不会破坏“端坐”或让脚离地。
+@export_range(-1.0, 1.0) var leg_variation: float = 0.0
 
 var _skeleton: Skeleton3D
 
@@ -163,6 +166,11 @@ func apply_pose() -> void:
 		# 掩嘴：手臂下垂后，用两骨 IK 把右手精确放到嘴边（男女骨架通用）
 		_ik_hand_to_mouth("R")
 	if SEATED_POSES.has(pose):
+		# 男女骨架的小腿骨局部轴不同：同一组欧拉角在男模上会让小腿向外撇开，
+		# 看着像盘腿。统一按骨架空间方向收正成“端坐”：小腿朝下略向前。
+		# 目标方向取自女模校准后的自然坐姿（0, 0.386, -0.922），男女共用。
+		_aim_shin("L")
+		_aim_shin("R")
 		await get_tree().process_frame
 		await get_tree().process_frame
 		var hips := _skeleton.find_bone("Hips")
@@ -264,6 +272,28 @@ func _aim_bone_toward(bone_idx: int, child_idx: int, target_dir: Vector3) -> voi
 	var local_delta := grot.inverse() * q * grot
 	var current := _skeleton.get_bone_pose_rotation(bone_idx)
 	_skeleton.set_bone_pose_rotation(bone_idx, current * local_delta)
+
+
+## 坐姿小腿收正（2026-10-23）：把小腿骨的全局朝向统一成
+##   X = 骨架 +X、Y = 朝下略向前 (0, 0.386, -0.922)、Z = X×Y
+## 这正好是女模校准后的自然坐姿（小腿垂直、脚背朝前）。
+## 男模小腿骨局部轴与女模不同，固定欧拉角会让男生小腿外撇、像盘腿；
+## 只按方向瞄准还会残留滚转，导致两只脚在身前交叉——所以连滚转一起定死。
+## 膝部位置（origin）沿用大腿算出的结果，不移动骨骼。
+func _aim_shin(side: String) -> void:
+	var lower_idx := _skeleton.find_bone("LowerLeg." + side)
+	if lower_idx == -1:
+		return
+	# 每个人的小腿在标准朝向上再偏 0~2.5°；左右腿再各外/内偏 0.6°，避免完全平行。
+	# 骨骼空间里 X 轴控制前后倾、Y 轴控制左右摆。
+	var lean := deg_to_rad(leg_variation * 2.5)
+	var turn := deg_to_rad(leg_variation * 2.0) + deg_to_rad(-0.6 if side == "L" else 0.6)
+	var y := Vector3(0.0, 0.386, -0.922).normalized()
+	y = y.rotated(Vector3.RIGHT, lean).rotated(Vector3.UP, turn).normalized()
+	var z := Vector3.RIGHT.cross(y).normalized()
+	var x := y.cross(z).normalized()
+	var origin := _skeleton.get_bone_global_pose(lower_idx).origin
+	_skeleton.set_bone_global_pose(lower_idx, Transform3D(Basis(x, y, z), origin))
 
 
 ## 整体高度只通过移动 Model 子节点实现（根节点保持地面原点不动）。

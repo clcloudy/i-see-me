@@ -63,26 +63,32 @@ position = Vector3(-7, 0, -3)
 
 [node name="ClassmateCasualSit" parent="." instance=ExtResource("8_casual")]
 position = Vector3(-5, 0, -3)
+leg_variation = 0.0
 outfit = 3
 
 [node name="ClassmateCasual2Sit" parent="." instance=ExtResource("9_casual2")]
 position = Vector3(-3, 0, -3)
+leg_variation = 0.55
 outfit = 6
 
 [node name="ClassmateCasualDown" parent="." instance=ExtResource("10_casual_down")]
 position = Vector3(-1, 0, -3)
+leg_variation = -0.7
 outfit = 8
 
 [node name="ClassmateWomensCasualSit" parent="." instance=ExtResource("11_wcasual")]
 position = Vector3(1, 0, -3)
+leg_variation = 0.9
 outfit = 2
 
 [node name="ClassmateWomensCasualDown" parent="." instance=ExtResource("12_wcasual_down")]
 position = Vector3(3, 0, -3)
+leg_variation = -0.35
 outfit = 9
 
 [node name="ClassmateCasual2Down" parent="." instance=ExtResource("13_casual2_down")]
 position = Vector3(5, 0, -3)
+leg_variation = 0.75
 outfit = 11
 
 [node name="PreviewCamera" type="Camera3D" parent="."]

@@ -26,101 +26,121 @@ shadow_enabled = true
 
 [node name="SeatB01" parent="." instance=ExtResource("3")]
 position = Vector3(-4.225, 0, -0.02)
+leg_variation = 0.0
 outfit = 1
 height_scale = 0.97
 
 [node name="SeatB02" parent="." instance=ExtResource("1")]
 position = Vector3(-3.725, 0, -0.02)
+leg_variation = 0.55
 outfit = 6
 height_scale = 1.02
 
 [node name="SeatB03" parent="." instance=ExtResource("3")]
 position = Vector3(-3.225, 0, -0.02)
+leg_variation = -0.7
 outfit = 11
 height_scale = 0.98
 
 [node name="SeatB04" parent="." instance=ExtResource("2")]
 position = Vector3(-2.2, 0, -0.02)
+leg_variation = 0.9
 outfit = 4
 height_scale = 1.01
 
 [node name="SeatB05" parent="." instance=ExtResource("3")]
 position = Vector3(-1.7, 0, -0.02)
+leg_variation = -0.35
 outfit = 9
 height_scale = 0.99
 
 [node name="SeatB06" parent="." instance=ExtResource("1")]
 position = Vector3(-1.2, 0, -0.02)
+leg_variation = 0.75
 outfit = 2
 height_scale = 1.03
 
 [node name="SeatB07" parent="." instance=ExtResource("3")]
 position = Vector3(-0.7, 0, -0.02)
+leg_variation = -0.9
 outfit = 7
 height_scale = 1.0
 
 [node name="SeatB08" parent="." instance=ExtResource("2")]
 position = Vector3(0.7, 0, -0.02)
+leg_variation = 0.25
 outfit = 12
 height_scale = 0.97
 
 [node name="SeatB09" parent="." instance=ExtResource("3")]
 position = Vector3(1.2, 0, -0.02)
+leg_variation = -0.55
 outfit = 5
 height_scale = 1.02
 
 [node name="SeatB10" parent="." instance=ExtResource("1")]
 position = Vector3(1.7, 0, -0.02)
+leg_variation = 0.65
 outfit = 10
 height_scale = 0.98
 
 [node name="SeatB11" parent="." instance=ExtResource("3")]
 position = Vector3(2.2, 0, -0.02)
+leg_variation = -0.15
 outfit = 3
 height_scale = 1.01
 
 [node name="SeatB12" parent="." instance=ExtResource("2")]
 position = Vector3(3.225, 0, -0.02)
+leg_variation = 0.45
 outfit = 8
 height_scale = 0.99
 
 [node name="SeatB13" parent="." instance=ExtResource("3")]
 position = Vector3(3.725, 0, -0.02)
+leg_variation = -0.8
 outfit = 1
 height_scale = 1.03
 
 [node name="SeatB14" parent="." instance=ExtResource("1")]
 position = Vector3(4.225, 0, -0.02)
+leg_variation = 0.1
 outfit = 6
 height_scale = 1.0
 
 [node name="SeatC01" parent="." instance=ExtResource("1")]
 position = Vector3(-4.225, 0, 1.78)
+leg_variation = 0.0
 outfit = 11
 height_scale = 1.01
 
 [node name="SeatC02" parent="." instance=ExtResource("3")]
 position = Vector3(-3.725, 0, 1.78)
+leg_variation = 0.55
 outfit = 4
 height_scale = 0.99
 
 [node name="SeatC03" parent="." instance=ExtResource("2")]
 position = Vector3(-3.225, 0, 1.78)
+leg_variation = -0.7
 outfit = 9
 height_scale = 1.03
 
 [node name="SeatC04" parent="." instance=ExtResource("3")]
 position = Vector3(-2.2, 0, 1.78)
+leg_variation = 0.9
 outfit = 2
 height_scale = 1.0
 
 [node name="SeatC05" parent="." instance=ExtResource("1")]
 position = Vector3(-1.7, 0, 1.78)
+leg_variation = -0.35
 outfit = 7
 height_scale = 0.97
 
 [node name="SeatC06" parent="." instance=ExtResource("3")]
 position = Vector3(-1.2, 0, 1.78)
+leg_variation = 0.75
 outfit = 12
 height_scale = 1.02
 
@@ -129,105 +149,126 @@ position = Vector3(-0.7, 0, 1.78)
 
 [node name="SeatC08" parent="." instance=ExtResource("3")]
 position = Vector3(0.7, 0, 1.78)
+leg_variation = -0.9
 outfit = 10
 height_scale = 1.01
 
 [node name="SeatC09" parent="." instance=ExtResource("1")]
 position = Vector3(1.2, 0, 1.78)
+leg_variation = 0.25
 outfit = 3
 height_scale = 0.99
 
 [node name="SeatC10" parent="." instance=ExtResource("3")]
 position = Vector3(1.7, 0, 1.78)
+leg_variation = -0.55
 outfit = 8
 height_scale = 1.03
 
 [node name="SeatC11" parent="." instance=ExtResource("2")]
 position = Vector3(2.2, 0, 1.78)
+leg_variation = 0.65
 outfit = 1
 height_scale = 1.0
 
 [node name="SeatC12" parent="." instance=ExtResource("3")]
 position = Vector3(3.225, 0, 1.78)
+leg_variation = -0.15
 outfit = 6
 height_scale = 0.97
 
 [node name="SeatC13" parent="." instance=ExtResource("1")]
 position = Vector3(3.725, 0, 1.78)
+leg_variation = 0.45
 outfit = 11
 height_scale = 1.02
 
 [node name="SeatC14" parent="." instance=ExtResource("3")]
 position = Vector3(4.225, 0, 1.78)
+leg_variation = -0.8
 outfit = 4
 height_scale = 0.98
 
 [node name="SeatD01" parent="." instance=ExtResource("3")]
 position = Vector3(-4.225, 0, 3.58)
+leg_variation = 0.1
 outfit = 9
 height_scale = 1.0
 
 [node name="SeatD02" parent="." instance=ExtResource("1")]
 position = Vector3(-3.725, 0, 3.58)
+leg_variation = 0.0
 outfit = 2
 height_scale = 0.97
 
 [node name="SeatD03" parent="." instance=ExtResource("3")]
 position = Vector3(-3.225, 0, 3.58)
+leg_variation = 0.55
 outfit = 7
 height_scale = 1.02
 
 [node name="SeatD04" parent="." instance=ExtResource("2")]
 position = Vector3(-2.2, 0, 3.58)
+leg_variation = -0.7
 outfit = 12
 height_scale = 0.98
 
 [node name="SeatD05" parent="." instance=ExtResource("3")]
 position = Vector3(-1.7, 0, 3.58)
+leg_variation = 0.9
 outfit = 5
 height_scale = 1.01
 
 [node name="SeatD06" parent="." instance=ExtResource("1")]
 position = Vector3(-1.2, 0, 3.58)
+leg_variation = -0.35
 outfit = 10
 height_scale = 0.99
 
 [node name="SeatD07" parent="." instance=ExtResource("3")]
 position = Vector3(-0.7, 0, 3.58)
+leg_variation = 0.75
 outfit = 3
 height_scale = 1.03
 
 [node name="SeatD08" parent="." instance=ExtResource("2")]
 position = Vector3(0.7, 0, 3.58)
+leg_variation = -0.9
 outfit = 8
 height_scale = 1.0
 
 [node name="SeatD09" parent="." instance=ExtResource("3")]
 position = Vector3(1.2, 0, 3.58)
+leg_variation = 0.25
 outfit = 1
 height_scale = 0.97
 
 [node name="SeatD10" parent="." instance=ExtResource("1")]
 position = Vector3(1.7, 0, 3.58)
+leg_variation = -0.55
 outfit = 6
 height_scale = 1.02
 
 [node name="SeatD11" parent="." instance=ExtResource("3")]
 position = Vector3(2.2, 0, 3.58)
+leg_variation = 0.65
 outfit = 11
 height_scale = 0.98
 
 [node name="SeatD12" parent="." instance=ExtResource("2")]
 position = Vector3(3.225, 0, 3.58)
+leg_variation = -0.15
 outfit = 4
 height_scale = 1.01
 
 [node name="SeatD13" parent="." instance=ExtResource("3")]
 position = Vector3(3.725, 0, 3.58)
+leg_variation = 0.45
 outfit = 9
 height_scale = 0.99
 
 [node name="SeatD14" parent="." instance=ExtResource("1")]
 position = Vector3(4.225, 0, 3.58)
+leg_variation = -0.8
 outfit = 2
 height_scale = 1.03
