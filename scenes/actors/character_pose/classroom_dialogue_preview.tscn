@@ -1,0 +1,163 @@
+[gd_scene load_steps=24 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/classroom_static.tscn" id="1"]
+[ext_resource type="PackedScene" path="res://scenes/actors/character_pose/teacher_stand.tscn" id="2"]
+[ext_resource type="PackedScene" path="res://scenes/actors/character_pose/stand_talk.tscn" id="3"]
+[ext_resource type="PackedScene" path="res://scenes/actors/character_pose/event_cover_mouth.tscn" id="4"]
+[ext_resource type="PackedScene" path="res://scenes/actors/character_pose/event_side_glance.tscn" id="5"]
+[ext_resource type="PackedScene" path="res://scenes/actors/character_pose/event_nod.tscn" id="6"]
+[ext_resource type="PackedScene" path="res://scenes/actors/character_pose/classmate_farmer_whisper_r.tscn" id="7"]
+[ext_resource type="PackedScene" path="res://scenes/actors/character_pose/classmate_womenscasual_whisper_l.tscn" id="8"]
+[ext_resource type="PackedScene" path="res://scenes/actors/character_pose/classmate_beach_whisper_r.tscn" id="9"]
+[ext_resource type="PackedScene" path="res://scenes/actors/character_pose/classmate_womenspunk_whisper_l.tscn" id="10"]
+[ext_resource type="PackedScene" path="res://scenes/actors/character_pose/classmate_punk_whisper_r.tscn" id="11"]
+[ext_resource type="PackedScene" path="res://scenes/actors/character_pose/classmate_womensworker_whisper_l.tscn" id="12"]
+[ext_resource type="PackedScene" path="res://scenes/actors/character_pose/classmate_casual2_sit.tscn" id="13"]
+[ext_resource type="PackedScene" path="res://scenes/actors/character_pose/classmate_adventurer_sit.tscn" id="14"]
+[ext_resource type="PackedScene" path="res://scenes/actors/character_pose/classmate_beach_sit.tscn" id="15"]
+[ext_resource type="PackedScene" path="res://scenes/actors/character_pose/classmate_farmer_sit.tscn" id="16"]
+[ext_resource type="PackedScene" path="res://scenes/actors/character_pose/classmate_womenscasual_sit.tscn" id="17"]
+[ext_resource type="PackedScene" path="res://scenes/actors/character_pose/classmate_womensformal_sit.tscn" id="18"]
+[ext_resource type="PackedScene" path="res://scenes/actors/character_pose/classmate_worker_sit.tscn" id="19"]
+[ext_resource type="PackedScene" path="res://scenes/actors/character_pose/classmate_womensworker_sit.tscn" id="20"]
+[ext_resource type="PackedScene" path="res://scenes/actors/character_pose/classmate_punk_sit.tscn" id="21"]
+[ext_resource type="PackedScene" path="res://scenes/actors/character_pose/classmate_womenspunk_sit.tscn" id="22"]
+[ext_resource type="PackedScene" path="res://scenes/actors/character_pose/classmate_womensadventurer_sit.tscn" id="23"]
+
+
+[node name="ClassroomDialoguePreview" type="Node3D"]
+
+[node name="Classroom" parent="." instance=ExtResource("1")]
+
+[node name="TeacherStand" parent="." instance=ExtResource("2")]
+position = Vector3(-2.8, 0, -3.05)
+rotation_degrees = Vector3(0, 180.0, 0)
+
+[node name="ProtagonistStand" parent="." instance=ExtResource("3")]
+position = Vector3(-0.7, 0, 1.78)
+
+[node name="EventE02Laugh" parent="." instance=ExtResource("4")]
+position = Vector3(-1.2, 0, 1.78)
+
+[node name="EventE02Watch" parent="." instance=ExtResource("5")]
+position = Vector3(0.7, 0, 1.78)
+
+[node name="EventE03Nod" parent="." instance=ExtResource("6")]
+position = Vector3(-0.7, 0, -0.02)
+
+[node name="WhisperA" parent="." instance=ExtResource("7")]
+position = Vector3(-2.2, 0, -0.02)
+
+[node name="WhisperB" parent="." instance=ExtResource("8")]
+position = Vector3(-1.7, 0, -0.02)
+
+[node name="WhisperC" parent="." instance=ExtResource("9")]
+position = Vector3(1.7, 0, 1.78)
+
+[node name="WhisperD" parent="." instance=ExtResource("10")]
+position = Vector3(2.2, 0, 1.78)
+
+[node name="WhisperE" parent="." instance=ExtResource("11")]
+position = Vector3(-3.725, 0, 3.58)
+
+[node name="WhisperF" parent="." instance=ExtResource("12")]
+position = Vector3(-3.225, 0, 3.58)
+
+[node name="Seat01" parent="." instance=ExtResource("13")]
+position = Vector3(-4.225, 0, -0.02)
+
+[node name="Seat02" parent="." instance=ExtResource("14")]
+position = Vector3(-3.725, 0, -0.02)
+
+[node name="Seat03" parent="." instance=ExtResource("15")]
+position = Vector3(-3.225, 0, -0.02)
+
+[node name="Seat04" parent="." instance=ExtResource("16")]
+position = Vector3(-0.7, 0, -0.02)
+
+[node name="Seat05" parent="." instance=ExtResource("17")]
+position = Vector3(0.7, 0, -0.02)
+
+[node name="Seat06" parent="." instance=ExtResource("18")]
+position = Vector3(1.2, 0, -0.02)
+
+[node name="Seat07" parent="." instance=ExtResource("19")]
+position = Vector3(1.7, 0, -0.02)
+
+[node name="Seat08" parent="." instance=ExtResource("20")]
+position = Vector3(2.2, 0, -0.02)
+
+[node name="Seat09" parent="." instance=ExtResource("21")]
+position = Vector3(3.225, 0, -0.02)
+
+[node name="Seat10" parent="." instance=ExtResource("22")]
+position = Vector3(3.725, 0, -0.02)
+
+[node name="Seat11" parent="." instance=ExtResource("13")]
+position = Vector3(4.225, 0, -0.02)
+
+[node name="Seat12" parent="." instance=ExtResource("14")]
+position = Vector3(-4.225, 0, 1.78)
+
+[node name="Seat13" parent="." instance=ExtResource("19")]
+position = Vector3(-3.725, 0, 1.78)
+
+[node name="Seat14" parent="." instance=ExtResource("23")]
+position = Vector3(-3.225, 0, 1.78)
+
+[node name="Seat15" parent="." instance=ExtResource("18")]
+position = Vector3(-2.2, 0, 1.78)
+
+[node name="Seat16" parent="." instance=ExtResource("15")]
+position = Vector3(-1.7, 0, 1.78)
+
+[node name="Seat17" parent="." instance=ExtResource("16")]
+position = Vector3(1.2, 0, 1.78)
+
+[node name="Seat18" parent="." instance=ExtResource("20")]
+position = Vector3(2.2, 0, 1.78)
+
+[node name="Seat19" parent="." instance=ExtResource("13")]
+position = Vector3(3.225, 0, 1.78)
+
+[node name="Seat20" parent="." instance=ExtResource("14")]
+position = Vector3(3.725, 0, 1.78)
+
+[node name="Seat21" parent="." instance=ExtResource("21")]
+position = Vector3(4.225, 0, 1.78)
+
+[node name="Seat22" parent="." instance=ExtResource("17")]
+position = Vector3(-4.225, 0, 3.58)
+
+[node name="Seat23" parent="." instance=ExtResource("13")]
+position = Vector3(-2.2, 0, 3.58)
+
+[node name="Seat24" parent="." instance=ExtResource("19")]
+position = Vector3(-1.7, 0, 3.58)
+
+[node name="Seat25" parent="." instance=ExtResource("18")]
+position = Vector3(-1.2, 0, 3.58)
+
+[node name="Seat26" parent="." instance=ExtResource("14")]
+position = Vector3(-0.7, 0, 3.58)
+
+[node name="Seat27" parent="." instance=ExtResource("16")]
+position = Vector3(0.7, 0, 3.58)
+
+[node name="Seat28" parent="." instance=ExtResource("20")]
+position = Vector3(1.2, 0, 3.58)
+
+[node name="Seat29" parent="." instance=ExtResource("15")]
+position = Vector3(1.7, 0, 3.58)
+
+[node name="Seat30" parent="." instance=ExtResource("23")]
+position = Vector3(2.2, 0, 3.58)
+
+[node name="Seat31" parent="." instance=ExtResource("19")]
+position = Vector3(3.225, 0, 3.58)
+
+[node name="Seat32" parent="." instance=ExtResource("22")]
+position = Vector3(3.725, 0, 3.58)
+
+[node name="Seat33" parent="." instance=ExtResource("13")]
+position = Vector3(4.225, 0, 3.58)

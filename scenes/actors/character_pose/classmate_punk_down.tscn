@@ -1,0 +1,14 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="PackedScene" path="res://assets/characters/quaternius/Punk.glb" id="1_model"]
+[ext_resource type="Script" path="res://scripts/character_pose.gd" id="2_pose"]
+
+[node name="ClassmatePunkDown" type="Node3D"]
+script = ExtResource("2_pose")
+pose = 2
+
+[node name="Model" parent="." instance=ExtResource("1_model")]
+rotation_degrees = Vector3(0, 180, 0)
+
+[node name="ViewAnchor" type="Marker3D" parent="."]
+position = Vector3(0, 1.36, 0)
