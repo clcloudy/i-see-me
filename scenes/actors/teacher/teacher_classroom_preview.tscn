@@ -1,0 +1,54 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/classroom_static.tscn" id="1_classroom"]
+[ext_resource type="PackedScene" path="res://scenes/actors/teacher/teacher_animated.tscn" id="2_teacher"]
+[ext_resource type="Script" path="res://scripts/teacher_anim_demo.gd" id="3_demo"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_hud"]
+content_margin_left = 18.0
+content_margin_top = 12.0
+content_margin_right = 18.0
+content_margin_bottom = 12.0
+bg_color = Color(0.05, 0.07, 0.1, 0.72)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[sub_resource type="LabelSettings" id="LabelSettings_hud"]
+font_size = 18
+font_color = Color(0.94, 0.95, 0.97, 1)
+outline_size = 4
+outline_color = Color(0.02, 0.03, 0.05, 0.85)
+
+[node name="TeacherClassroomPreview" type="Node3D"]
+
+[node name="Classroom" parent="." instance=ExtResource("1_classroom")]
+
+[node name="Teacher" parent="." instance=ExtResource("2_teacher")]
+position = Vector3(0.9, 0.15, -4.44)
+rotation_degrees = Vector3(0, 180, 0)
+action = 0
+emotion = 0
+
+[node name="Demo" type="Node" parent="."]
+script = ExtResource("3_demo")
+teacher_path = NodePath("../Teacher")
+auto_cycle = true
+action_interval = 6.0
+emotion_interval = 3.5
+hud_path = NodePath("../HUD/Panel/Label")
+
+[node name="HUD" type="CanvasLayer" parent="."]
+
+[node name="Panel" type="PanelContainer" parent="HUD"]
+offset_left = 24.0
+offset_top = 24.0
+offset_right = 620.0
+offset_bottom = 130.0
+theme_override_styles/panel = SubResource("StyleBox_hud")
+
+[node name="Label" type="Label" parent="HUD/Panel"]
+layout_mode = 2
+text = "教师动效演示"
+label_settings = SubResource("LabelSettings_hud")

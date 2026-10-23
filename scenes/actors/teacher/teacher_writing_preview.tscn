@@ -1,0 +1,125 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/actors/teacher/teacher_animated.tscn" id="1_teacher"]
+[ext_resource type="PackedScene" path="res://scenes/props/blackboard.tscn" id="2_board"]
+
+
+[sub_resource type="Environment" id="Environment_preview"]
+background_mode = 1
+background_color = Color(0.62, 0.72, 0.77, 1)
+ambient_light_source = 3
+ambient_light_color = Color(0.88, 0.93, 1, 1)
+ambient_light_energy = 0.7
+tonemap_mode = 0
+
+[sub_resource type="PlaneMesh" id="Mesh_floor"]
+size = Vector2(22, 16)
+
+[node name="TeacherWritingPreview" type="Node3D"]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_preview")
+
+[node name="Daylight" type="DirectionalLight3D" parent="."]
+rotation_degrees = Vector3(-48, -28, 0)
+light_color = Color(1, 0.96, 0.89, 1)
+light_energy = 1.1
+shadow_enabled = true
+directional_shadow_max_distance = 30.0
+
+[node name="Floor" type="MeshInstance3D" parent="."]
+mesh = SubResource("Mesh_floor")
+
+[node name="Camera3D" type="Camera3D" parent="."]
+position = Vector3(6.4, 2.9, 0.4)
+rotation_degrees = Vector3(-9.0, 52.0, 0)
+fov = 46
+
+[node name="Board" parent="." instance=ExtResource("2_board")]
+position = Vector3(0, 0, -4.9)
+scale = Vector3(2.2, 1, 1)
+
+[node name="WriteNeutral" parent="." instance=ExtResource("1_teacher")]
+position = Vector3(-4.4, 0, -4.4)
+rotation_degrees = Vector3(0, 180, 0)
+action = 3
+emotion = 0
+phase_offset = 0.29
+
+[node name="WriteNeutralLabel" type="Label3D" parent="."]
+position = Vector3(-4.4, 2.3, -4.4)
+billboard = 1
+modulate = Color(0.08, 0.1, 0.14, 1)
+outline_modulate = Color(0.92, 0.94, 0.97, 1)
+outline_size = 8
+text = "板书 · 普通"
+font_size = 40
+pixel_size = 0.0035
+
+[node name="WriteExcited" parent="." instance=ExtResource("1_teacher")]
+position = Vector3(-2.2, 0, -4.4)
+rotation_degrees = Vector3(0, 180, 0)
+action = 3
+emotion = 1
+phase_offset = 0.82
+
+[node name="WriteExcitedLabel" type="Label3D" parent="."]
+position = Vector3(-2.2, 2.3, -4.4)
+billboard = 1
+modulate = Color(0.08, 0.1, 0.14, 1)
+outline_modulate = Color(0.92, 0.94, 0.97, 1)
+outline_size = 8
+text = "板书 · 激昂"
+font_size = 40
+pixel_size = 0.0035
+
+[node name="WriteDown" parent="." instance=ExtResource("1_teacher")]
+position = Vector3(0.0, 0, -4.4)
+rotation_degrees = Vector3(0, 180, 0)
+action = 3
+emotion = 2
+phase_offset = 1.35
+
+[node name="WriteDownLabel" type="Label3D" parent="."]
+position = Vector3(0.0, 2.3, -4.4)
+billboard = 1
+modulate = Color(0.08, 0.1, 0.14, 1)
+outline_modulate = Color(0.92, 0.94, 0.97, 1)
+outline_size = 8
+text = "板书 · 失落"
+font_size = 40
+pixel_size = 0.0035
+
+[node name="WritePuzzled" parent="." instance=ExtResource("1_teacher")]
+position = Vector3(2.2, 0, -4.4)
+rotation_degrees = Vector3(0, 180, 0)
+action = 3
+emotion = 3
+phase_offset = 1.88
+
+[node name="WritePuzzledLabel" type="Label3D" parent="."]
+position = Vector3(2.2, 2.3, -4.4)
+billboard = 1
+modulate = Color(0.08, 0.1, 0.14, 1)
+outline_modulate = Color(0.92, 0.94, 0.97, 1)
+outline_size = 8
+text = "板书 · 疑惑"
+font_size = 40
+pixel_size = 0.0035
+
+[node name="WriteHappy" parent="." instance=ExtResource("1_teacher")]
+position = Vector3(4.4, 0, -4.4)
+rotation_degrees = Vector3(0, 180, 0)
+action = 3
+emotion = 4
+phase_offset = 2.41
+
+[node name="WriteHappyLabel" type="Label3D" parent="."]
+position = Vector3(4.4, 2.3, -4.4)
+billboard = 1
+modulate = Color(0.08, 0.1, 0.14, 1)
+outline_modulate = Color(0.92, 0.94, 0.97, 1)
+outline_size = 8
+text = "板书 · 开心"
+font_size = 40
+pixel_size = 0.0035
