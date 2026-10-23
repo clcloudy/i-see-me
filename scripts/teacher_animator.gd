@@ -39,6 +39,10 @@ enum Emotion {
 @export var phase_offset: float = 0.0
 ## 是否显示粉笔/点名册道具。
 @export var show_props: bool = true
+## 是否说话（嘴部口型开合）。板书动作背对教室时自动闭嘴。
+@export var talking: bool = true
+## 口型语速倍率（1 = 正常）。
+@export var speech_speed: float = 1.0
 ## 转身速度（板书动作会转 180°；数值越大转身越快）。
 @export var turn_speed: float = 3.5
 ## 手部目标点平滑速度（越大越跟手，越小过渡越柔）。
@@ -94,6 +98,51 @@ const EMOTION_CONFIG := {
 	},
 }
 
+## 面部表情：情绪决定笑意、挑眉/皱眉与眯眼，动作只决定是否开口说话。
+## brow_raise 单位是米，brow_tilt 是度（正值 = 眉内侧上挑 = 难过/犹豫）。
+const FACE_CONFIG := {
+	Emotion.NEUTRAL: {
+		"smile": 0.12, "brow_raise": 0.0, "brow_tilt": 0.0, "squint": 0.10, "speak_energy": 1.0,
+	},
+	Emotion.EXCITED: {
+		"smile": 0.45, "brow_raise": 0.0045, "brow_tilt": -6.0, "squint": 0.04, "speak_energy": 1.22,
+	},
+	Emotion.DOWN: {
+		"smile": -0.42, "brow_raise": -0.003, "brow_tilt": 9.0, "squint": 0.34, "speak_energy": 0.72,
+	},
+	Emotion.PUZZLED: {
+		"smile": -0.05, "brow_raise": 0.003, "brow_tilt": -12.0, "squint": 0.16, "speak_energy": 0.9,
+		"brow_raise_r": 0.006,
+	},
+	Emotion.HAPPY: {
+		"smile": 0.62, "brow_raise": 0.0035, "brow_tilt": -4.0, "squint": 0.30, "speak_energy": 1.05,
+	},
+}
+
+## 四指弯曲权重：近节 / 中节 / 远节。这是真人握持时各节的相对弯曲量。
+const FINGER_CURL := {
+	"Index": [1.0, 1.05, 0.80],
+	"Middle": [1.06, 1.05, 0.85],
+	"Ring": [1.12, 1.02, 0.85],
+	"Pinky": [1.16, 0.98, 0.80],
+}
+## 各动作的手指弯曲量（0 伸直，1 握拳）。
+const GRIP_CURL := {
+	Action.LECTURE: 0.18,
+	Action.ASK: 0.12,
+	Action.CALL_ROLL: 0.12,
+	Action.WRITE_BOARD: 0.72,
+}
+## 握持时各指的分工倍率（在 GRIP_CURL 基础上再乘）。
+## 捏粉笔：食指、中指夹住笔身，无名指和小指收进掌心；托册子：四指平均些。
+const HOLD_SCALES := {
+	"pinch": {"Index": 0.92, "Middle": 1.00, "Ring": 1.16, "Pinky": 1.22, "thumb": 1.45, "thumb_tip": 1.25},
+	"hold": {"Index": 0.82, "Middle": 0.88, "Ring": 0.95, "Pinky": 1.00, "thumb": 1.2, "thumb_tip": 1.1},
+}
+const CHALK_LENGTH := 0.11
+const CHALK_RADIUS := 0.0075
+const ROSTER_SIZE := Vector3(0.20, 0.28, 0.012)
+
 var _emo: Dictionary = {}
 var _time: float = 0.0
 var _model: Node3D
@@ -104,6 +153,9 @@ var _has_smooth_hand: bool = false
 var _chalk: MeshInstance3D
 var _roster_cover: MeshInstance3D
 var _roster_paper: MeshInstance3D
+var _face: TeacherFace
+var _head_idx: int = -1
+var _grip_frame: Dictionary = {}
 
 
 func _ready() -> void:
@@ -113,6 +165,13 @@ func _ready() -> void:
 	# 父类负责找骨架、统一材质、便装配色、身高缩放，并调用一次 apply_pose()。
 	super._ready()
 	_create_props()
+	_head_idx = _skeleton.find_bone("Head") if _skeleton != null else -1
+	if _skeleton != null and _head_idx != -1:
+		_face = TeacherFace.new()
+		_face.name = "Face"
+		add_child(_face)
+		_face.setup(_skeleton, _head_idx, _model)
+		apply_pose()
 	set_process(true)
 
 
@@ -254,14 +313,22 @@ func apply_pose() -> void:
 	var pole := (Vector3.DOWN * 1.1 + right * 0.9 - fwd * 0.15).normalized()
 	_ik_hand_to_world(_smooth_hand, "R", pole)
 	_aim_hand("R", _finger_dir(frame))
-	if action == Action.ASK:
-		# 发问手势：手掌翻向上（沿手指轴滚 90°），避免看起来像“举手示意停止”。
-		_roll_hand("R", 90.0)
+	# 掌心朝向：手先摆到位，再沿手指轴滚手腕把掌面转向动作需要的一侧。
+	_align_palm("R", _palm_dir(frame))
+	# 记录把住道具前的手掌坐标系：弯曲手指后指根会转，坐标必须用弯曲前的。
+	_grip_frame = _hand_frame("R")
+	var scales: Dictionary = {}
+	if action == Action.WRITE_BOARD:
+		scales = HOLD_SCALES["pinch"]
+	elif action == Action.CALL_ROLL:
+		scales = HOLD_SCALES["hold"]
+	_curl_fingers("R", float(GRIP_CURL[action]), _grip_frame, scales)
 
 	# 左手：疑惑托腮、激昂双手张开（板书时都不做，避免和黑板打架），其余自然下垂。
 	if emotion == Emotion.PUZZLED and action != Action.WRITE_BOARD:
 		var head_world := _bone_world("Head")
-		var chin := head_world + fwd * 0.06 - right * 0.055 - up * 0.07
+		# 托腮点压在脸颊外侧偏下：太高会挡住眼睛/嘴，看不出表情。
+		var chin := head_world + fwd * 0.05 - right * 0.085 - up * 0.115
 		var left_pole := (Vector3.DOWN + right * -1.0 + fwd * 0.2).normalized()
 		_ik_hand_to_world(chin, "L", left_pole)
 		_aim_hand("L", (up * 0.8 + fwd * 0.35).normalized())
@@ -279,8 +346,12 @@ func apply_pose() -> void:
 		_aim_arm("L")
 		# 自然下垂时让手指朝下，避免手背翻向前方像在“摊手”。
 		_aim_hand("L", Vector3.DOWN)
+	# 左手始终略弯，直挺挺的五指张开像假人。
+	_curl_fingers("L", 0.12 if action != Action.WRITE_BOARD else 0.08,
+		_hand_frame("L"))
 
 	_update_props(frame)
+	_update_face()
 
 
 func _action_torso_pitch() -> float:
@@ -476,8 +547,13 @@ func _bone_world(bone: String) -> Vector3:
 
 
 func _create_props() -> void:
-	var chalk_mesh := BoxMesh.new()
-	chalk_mesh.size = Vector3(0.16, 0.016, 0.016)
+	# 粉笔：八棱柱，比盒子更像真的粉笔，也方便绕自身轴摆放。
+	var chalk_mesh := CylinderMesh.new()
+	chalk_mesh.top_radius = CHALK_RADIUS
+	chalk_mesh.bottom_radius = CHALK_RADIUS * 0.86
+	chalk_mesh.height = CHALK_LENGTH
+	chalk_mesh.radial_segments = 8
+	chalk_mesh.rings = 1
 	_chalk = MeshInstance3D.new()
 	_chalk.name = "PropChalk"
 	_chalk.mesh = chalk_mesh
@@ -486,7 +562,7 @@ func _create_props() -> void:
 	add_child(_chalk)
 
 	var cover_mesh := BoxMesh.new()
-	cover_mesh.size = Vector3(0.24, 0.32, 0.014)
+	cover_mesh.size = ROSTER_SIZE
 	_roster_cover = MeshInstance3D.new()
 	_roster_cover.name = "PropRosterCover"
 	_roster_cover.mesh = cover_mesh
@@ -495,7 +571,7 @@ func _create_props() -> void:
 	add_child(_roster_cover)
 
 	var paper_mesh := BoxMesh.new()
-	paper_mesh.size = Vector3(0.22, 0.30, 0.004)
+	paper_mesh.size = Vector3(ROSTER_SIZE.x * 0.93, ROSTER_SIZE.y * 0.95, 0.008)
 	_roster_paper = MeshInstance3D.new()
 	_roster_paper.name = "PropRosterPaper"
 	_roster_paper.mesh = paper_mesh
@@ -512,8 +588,9 @@ func _prop_material(color: Color) -> StandardMaterial3D:
 	return mat
 
 
-## 每帧把粉笔/点名册摆到右手和身体坐标系里；关掉 show_props 时全部隐藏。
-func _update_props(frame: Dictionary) -> void:
+## 每帧把粉笔/点名册摆进右手；关掉 show_props 时全部隐藏。
+## 位置不再用固定偏移，而是取弯曲后真实的拇指/食指关节，所以无论手摆到哪都握得住。
+func _update_props(_frame: Dictionary) -> void:
 	if _chalk == null or _roster_cover == null or _roster_paper == null:
 		return
 	var show_chalk := show_props and action == Action.WRITE_BOARD
@@ -521,22 +598,185 @@ func _update_props(frame: Dictionary) -> void:
 	_chalk.visible = show_chalk
 	_roster_cover.visible = show_roster
 	_roster_paper.visible = show_roster
-	if not (show_chalk or show_roster):
+	if not (show_chalk or show_roster) or _grip_frame.is_empty():
 		return
-	var hand := _bone_world("Hand.R")
-	var fwd: Vector3 = frame["forward"]
-	var right: Vector3 = frame["right"]
-	var up: Vector3 = frame["up"]
 	if show_chalk:
-		# 粉笔放在指尖位置，略微向下斜着抵住黑板，像被拇指和食指捏住。
-		var axis := (fwd * 0.92 - up * 0.30).normalized()
-		var y_axis := (up - axis * up.dot(axis)).normalized()
-		var basis := Basis(axis, y_axis, axis.cross(y_axis))
-		_chalk.global_transform = Transform3D(
-			basis, hand + fwd * 0.09 + up * 0.095 + right * 0.045
-		)
+		_place_chalk()
 	if show_roster:
-		# 点名册：封面朝学生，纸面朝教师自己（法线 -forward）；手正好握在上边缘。
-		var basis := Basis(right, up, right.cross(up))
-		_roster_cover.global_transform = Transform3D(basis, hand + fwd * 0.02 - up * 0.16)
-		_roster_paper.global_transform = Transform3D(basis, hand - fwd * 0.005 - up * 0.16)
+		_place_roster()
+
+
+## 粉笔：夹在拇指指尖与食指中节之间，笔身沿手指斜向伸出。
+## 笔尖指向“手指方向 + 掌心法线”的合方向——正好是写字时粉笔自然探出的角度。
+func _place_chalk() -> void:
+	var f := _grip_frame
+	var palm: Vector3 = f["palm"]
+	var finger: Vector3 = f["finger"]
+	var index2 := _bone_world("Index2.R")
+	var index3 := _bone_world("Index3.R")
+	# 粉笔压在食指中节的掌侧凹槽里（拇指再压上去），比取拇指指尖中点稳定：
+	# 拇指再弯也够不到食指时，笔也不会浮在虎口外。
+	var grip: Vector3 = (index2 + index3) * 0.5 - palm * 0.012
+	var axis := (finger * 0.70 + palm * 0.38).normalized()
+	# 用世界向上做滚转基准，保证粉笔八棱面的朝向稳定
+	var up := Vector3.UP
+	var y_axis := (up - axis * up.dot(axis))
+	if y_axis.length_squared() < 0.01:
+		y_axis = (Vector3.RIGHT - axis * axis.x)
+	y_axis = y_axis.normalized()
+	var basis := Basis(axis, y_axis, axis.cross(y_axis))
+	# 捏点之后露出约 10 cm，笔尾留在虎口里
+	var center := grip + axis * 0.055
+	_chalk.global_transform = Transform3D(basis, center)
+
+
+## 点名册：托在掌心上，册面法线朝掌心外侧，长边顺着手指。
+## 手指弯曲后正好扣住近端书脊，拇指压在上表面。
+func _place_roster() -> void:
+	var f := _grip_frame
+	var palm: Vector3 = f["palm"]
+	var finger: Vector3 = f["finger"]
+	var hand: Vector3 = f["hand"]
+	var basis := Basis(finger.cross(palm).normalized(), finger, palm)
+	# 册子背面要贴在指背高度上，否则手指会穿出封面：
+	# 逐节（含指尖）测量离掌平面的高度，取最高点再留 4mm。
+	var support := 0.0
+	for finger_name in ["Index", "Middle", "Ring", "Pinky"]:
+		for seg in [2, 3, 4]:
+			support = maxf(support, (_bone_world("%s%d.R" % [finger_name, seg]) - hand).dot(palm))
+		support = maxf(support, (_bone_tip_world("%s4.R" % finger_name) - hand).dot(palm))
+	var back := support + 0.004
+	var center := hand + palm * (back + ROSTER_SIZE.z * 0.5) + finger * 0.09
+	_roster_cover.global_transform = Transform3D(basis, center)
+	_roster_paper.global_transform = Transform3D(basis, center - palm * (ROSTER_SIZE.z * 0.5 + 0.002))
+
+
+# ---------------------------------------------------------------- 手掌坐标系与握持
+
+## 手掌坐标系：全部用当前姿态下的骨骼位置实测，不依赖模型 rest 朝向。
+## finger 指根→指尖的平均方向；thumb 腕→拇指根；palm 掌心外法线（右手 拇指×手指）。
+func _hand_frame(side: String) -> Dictionary:
+	var hand := _bone_world("Hand." + side)
+	var index := _bone_world("Index2." + side)
+	var middle := _bone_world("Middle2." + side)
+	var ring := _bone_world("Ring2." + side)
+	var pinky := _bone_world("Pinky2." + side)
+	var thumb := _bone_world("Thumb2." + side)
+	var finger := ((index + middle + ring + pinky) * 0.25 - hand)
+	var thumb_dir := (thumb - hand)
+	if finger.length_squared() < 1e-8 or thumb_dir.length_squared() < 1e-8:
+		return {}
+	finger = finger.normalized()
+	thumb_dir = thumb_dir.normalized()
+	# 右手：掌心朝上、手指前伸时拇指在小指一侧的外侧（旋后），所以掌法线 = 拇指 × 手指；
+	# 左手镜像，叉积顺序相反。
+	var palm := thumb_dir.cross(finger) if side == "R" else finger.cross(thumb_dir)
+	palm = palm.normalized()
+	return {
+		"hand": hand, "finger": finger, "thumb": thumb_dir, "palm": palm,
+		"knuckle": palm.cross(finger).normalized(),
+	}
+
+
+## 掌心转向：手已摆好后，绕手指轴滚腕，把掌面法线转到目标方向。
+func _align_palm(side: String, desired_world: Vector3) -> void:
+	var f := _hand_frame(side)
+	if f.is_empty():
+		return
+	var axis: Vector3 = f["finger"]
+	var cur: Vector3 = f["palm"]
+	var proj_cur := cur - axis * cur.dot(axis)
+	var proj_des := desired_world - axis * desired_world.dot(axis)
+	if proj_cur.length_squared() < 1e-6 or proj_des.length_squared() < 1e-6:
+		return
+	var angle := rad_to_deg(proj_cur.normalized().signed_angle_to(proj_des.normalized(), axis))
+	_roll_hand(side, angle)
+
+
+## 五指弯曲：每节绕“掌心法线 × 手指方向”的轴旋转，正角度即弯向掌心。
+func _curl_fingers(side: String, amount: float, frame: Dictionary, scales: Dictionary = {}) -> void:
+	if amount <= 0.001 or frame.is_empty():
+		return
+	var axis: Vector3 = (frame["palm"] as Vector3).cross(frame["finger"] as Vector3)
+	var base := amount * 55.0
+	for finger_name in FINGER_CURL:
+		var weights: Array = FINGER_CURL[finger_name]
+		var scale := float(scales.get(finger_name, 1.0))
+		for seg in 3:
+			_bend_bone_world(
+				"%s%d.%s" % [finger_name, seg + 2, side], axis,
+				base * float(weights[seg]) * scale
+			)
+	# 拇指对掌：绕“掌心法线 × 拇指方向”弯，指尖压向食指一侧。
+	# 捏细长物（粉笔）时拇指要压得更狠，否则笔会浮在虎口外。
+	var thumb_axis: Vector3 = (frame["palm"] as Vector3).cross(frame["thumb"] as Vector3)
+	_bend_bone_world("Thumb2." + side, thumb_axis, base * 0.55 * float(scales.get("thumb", 1.0)))
+	_bend_bone_world("Thumb3." + side, thumb_axis, base * 0.60 * float(scales.get("thumb_tip", 1.0)))
+
+
+## 绕世界轴旋转某根骨骼（与 _roll_hand 同一套 L' = L·(G⁻¹QG) 换算）。
+func _bend_bone_world(bone: String, axis_world: Vector3, angle_deg: float) -> void:
+	if absf(angle_deg) < 0.01:
+		return
+	var idx := _skeleton.find_bone(bone)
+	if idx == -1:
+		return
+	var axis := (_skeleton.global_transform.basis.inverse() * axis_world).normalized()
+	var gpose := _skeleton.get_bone_global_pose(idx)
+	var grot := gpose.basis.get_rotation_quaternion()
+	var local_delta := grot.inverse() * Quaternion(axis, deg_to_rad(angle_deg)) * grot
+	_skeleton.set_bone_pose_rotation(idx, _skeleton.get_bone_pose_rotation(idx) * local_delta)
+
+
+## 末端骨骼的指尖位置。末节骨骼没有子骨，拿不到真实长度：
+## 沿它自己的 +Y（骨骼生长方向）延伸上一节长度的 0.8 倍近似远节指骨。
+func _bone_tip_world(bone: String) -> Vector3:
+	var idx := _skeleton.find_bone(bone)
+	if idx == -1:
+		return Vector3.ZERO
+	var pose := _skeleton.get_bone_global_pose(idx)
+	var dir := pose.basis.y.normalized()
+	var seg := 0.006
+	var parent := _skeleton.get_bone_parent(idx)
+	if parent != -1:
+		var parent_pose := _skeleton.get_bone_global_pose(parent)
+		seg = pose.origin.distance_to(parent_pose.origin) * 0.8
+	return _skeleton.global_transform * (pose.origin + dir * seg)
+
+
+# ---------------------------------------------------------------- 面部
+
+func _update_face() -> void:
+	if _face == null or _head_idx == -1:
+		return
+	var cfg: Dictionary = FACE_CONFIG[emotion]
+	var expr := {
+		"smile": cfg["smile"],
+		"brow_raise": cfg["brow_raise"],
+		"brow_tilt": cfg["brow_tilt"],
+		"squint": cfg["squint"],
+		"speak": talking and action != Action.WRITE_BOARD,
+		"speak_energy": cfg["speak_energy"],
+		"speak_speed": maxf(0.2, time_scale * speech_speed * float(_emo.get("speed", 1.0))),
+	}
+	if cfg.has("brow_raise_r"):
+		expr["brow_raise_r"] = cfg["brow_raise_r"]
+	var head_xf: Transform3D = _skeleton.global_transform * _skeleton.get_bone_global_pose(_head_idx)
+	_face.update_face(clampf(_frame_delta, 0.0, 0.05), head_xf, expr)
+
+
+## 掌心朝向：每个动作给一个世界方向，_align_palm 负责把手腕顺过来。
+## 讲课/提问掌心偏上（开放、欢迎发言）；点名朝上托册；板书掌心朝黑板。
+func _palm_dir(frame: Dictionary) -> Vector3:
+	var fwd: Vector3 = frame["forward"]
+	var up: Vector3 = frame["up"]
+	match action:
+		Action.LECTURE:
+			return (up * 0.55 + fwd * 0.75).normalized()
+		Action.ASK:
+			return (up * 0.85 + fwd * 0.30).normalized()
+		Action.CALL_ROLL:
+			return (up * 0.80 + fwd * 0.25).normalized()
+		Action.WRITE_BOARD:
+			return fwd
+	return up

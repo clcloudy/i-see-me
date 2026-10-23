@@ -3,6 +3,7 @@ extends Node
 ## 自动轮播动作/情绪，同时支持键盘手动切换，便于肉眼检查全部组合。
 ##   1~4：讲课 / 提问 / 点名 / 板书
 ##   Q W E R T：普通 / 激昂 / 失落 / 疑惑 / 开心
+##   S：开关说话口型
 ##   空格：暂停/继续动效；A：开关自动轮播
 ## 该脚本只是演示工具，正式流程请直接调用 TeacherAnimator 的 set_action/set_state。
 
@@ -67,6 +68,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			_teacher.set_emotion(3)
 		KEY_T:
 			_teacher.set_emotion(4)
+		KEY_S:
+			_teacher.talking = not _teacher.talking
 		KEY_SPACE:
 			_teacher.playing = not _teacher.playing
 		KEY_A:
@@ -90,9 +93,10 @@ func _refresh() -> void:
 		return
 	var action_name: String = _teacher.get_action_label()
 	var emotion_name: String = _teacher.get_emotion_label()
-	_label.text = "教师动效演示\n动作：%s    情绪：%s    播放：%s\n1-4 动作 | QWERT 情绪 | 空格 暂停 | A 自动轮播（%s）" % [
+	_label.text = "教师动效演示\n动作：%s    情绪：%s    说话：%s    播放：%s\n1-4 动作 | QWERT 情绪 | S 说话 | 空格 暂停 | A 自动轮播（%s）" % [
 		action_name,
 		emotion_name,
+		"开" if _teacher.talking else "关",
 		"开" if _teacher.playing else "暂停",
 		"开" if auto_cycle else "关",
 	]

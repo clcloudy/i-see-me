@@ -57,6 +57,21 @@ func _check_single_teacher() -> void:
 				teacher._roster_cover.visible == (action == TeacherAnimator.Action.CALL_ROLL),
 				"roster visibility matches action (%d)" % action
 			)
+			if action == TeacherAnimator.Action.WRITE_BOARD:
+				var finger: Vector3 = (teacher._bone_world("Index2.R") + teacher._bone_world("Index3.R")) * 0.5
+				_check(
+					finger.distance_to(teacher._chalk.global_position) < 0.12,
+					"chalk is inside the hand grip (%d/%d)" % [action, emotion]
+				)
+			if action == TeacherAnimator.Action.CALL_ROLL:
+				var hand2: Vector3 = teacher._bone_world("Hand.R")
+				_check(
+					hand2.distance_to(teacher._roster_cover.global_position) < 0.22,
+					"roster is held by the hand (%d/%d)" % [action, emotion]
+				)
+
+	await _check_face(teacher)
+	await _check_grip(teacher)
 
 	# 板书会转身 180°；immediate 时立即到位。
 	teacher.set_state(TeacherAnimator.Action.WRITE_BOARD, TeacherAnimator.Emotion.NEUTRAL, true)
@@ -95,6 +110,73 @@ func _check_single_teacher() -> void:
 
 	teacher.queue_free()
 	await process_frame
+
+
+## 面部：嘴/眉/眼睑面片存在，说话时嘴会开合，talking=false 后闭嘴。
+func _check_face(teacher: TeacherAnimator) -> void:
+	var face: TeacherFace = teacher.get_node_or_null("Face") as TeacherFace
+	_check(face != null, "face overlay node exists")
+	if face == null:
+		return
+	_check(face._mouth != null, "mouth mesh created")
+	_check(face._brows.size() == 2, "two eyebrow overlays created")
+	_check(face._lids.size() == 2, "two eyelid overlays created")
+	_check(face._mouth_half_w > 0.01 and face._mouth_half_w < 0.06, "mouth width measured from head mesh")
+
+	teacher.set_state(TeacherAnimator.Action.LECTURE, TeacherAnimator.Emotion.NEUTRAL, true)
+	teacher.talking = true
+	teacher.playing = true
+	var max_open := 0.0
+	var min_open := 1.0
+	for i in 90:
+		await process_frame
+		max_open = maxf(max_open, face.get_mouth_open())
+		min_open = minf(min_open, face.get_mouth_open())
+	_check(max_open > 0.45, "mouth opens while speaking (max %.2f)" % max_open)
+	_check(max_open - min_open > 0.2, "mouth changes shape between visemes")
+
+	teacher.talking = false
+	for i in 60:
+		await process_frame
+	_check(face.get_mouth_open() < 0.06, "mouth closes when talking is off (%.3f)" % face.get_mouth_open())
+
+	# 表情：失落要低头、眉内侧上挑；眼睑在疑惑/失落时更闭合。
+	teacher.talking = true
+	teacher.set_emotion(TeacherAnimator.Emotion.DOWN)
+	for i in 30:
+		await process_frame
+	var sad_lid: float = face.get_squint()
+	teacher.set_emotion(TeacherAnimator.Emotion.EXCITED)
+	for i in 30:
+		await process_frame
+	_check(sad_lid > face.get_squint() + 0.05, "sad emotion narrows the eyes more than excited")
+
+
+## 握持：手指弯曲后粉笔落在指节之间，点名册贴在掌侧且不穿过手指。
+func _check_grip(teacher: TeacherAnimator) -> void:
+	teacher.set_state(TeacherAnimator.Action.WRITE_BOARD, TeacherAnimator.Emotion.NEUTRAL, true)
+	for i in 10:
+		await process_frame
+	var skel := _find_skeleton(teacher)
+	var rest := skel.get_bone_rest(skel.find_bone("Middle2.R")).basis.get_rotation_quaternion()
+	var now := skel.get_bone_pose_rotation(skel.find_bone("Middle2.R"))
+	_check(rest.angle_to(now) > 0.1, "fingers curl while holding chalk")
+	var grip: Vector3 = (teacher._bone_world("Index2.R") + teacher._bone_world("Index3.R")) * 0.5
+	_check(
+		grip.distance_to(teacher._chalk.global_position) < 0.14,
+		"chalk sits at the finger pinch"
+	)
+	var palm: Vector3 = (teacher._grip_frame["palm"] as Vector3)
+	var hand: Vector3 = teacher._bone_world("Hand.R")
+	var to_book: Vector3 = teacher._roster_cover.global_position - hand
+	teacher.set_state(TeacherAnimator.Action.CALL_ROLL, TeacherAnimator.Emotion.NEUTRAL, true)
+	for i in 10:
+		await process_frame
+	palm = teacher._grip_frame["palm"]
+	hand = teacher._bone_world("Hand.R")
+	to_book = teacher._roster_cover.global_position - hand
+	_check(to_book.dot(palm) > 0.0, "roster sits on the palm side of the hand")
+	_check(to_book.dot(palm) < 0.08, "roster is not floating above the hand")
 
 
 func _check_preview_scene(path: String, min_teachers: int, label: String) -> void:
