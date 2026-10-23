@@ -6,6 +6,7 @@
 [node name="EventCoverMouth" type="Node3D"]
 script = ExtResource("2_pose")
 pose = 9
+outfit = 4
 
 [node name="Model" parent="." instance=ExtResource("1_model")]
 rotation_degrees = Vector3(0, 180, 0)

@@ -59,7 +59,67 @@ const POSE_OVERRIDES := {
 	Pose.LOOK_AROUND: {"Torso": Vector3(0, -6, 0), "Neck": Vector3(0, -25, 0), "Head": Vector3(0, -10, 0)},
 }
 
+## 学生便装配色（2026-10-23）。教室里的同学统一穿便装（T 恤/卫衣 + 长裤），
+## 不再使用工装、草帽、朋克等非学生造型；靠配色、发色、肤色和身高区分个体，
+## 避免满座像克隆人。索引 0 = 保留模型原色（主角与教师用）。
+## 只覆盖内存中导入材质的颜色，不改 .glb 源文件；每个实例复制自己的材质，互不影响。
+const OUTFIT_PALETTES := [
+	{},  # 0 原色（主角/教师）
+	{  # 1 白衬衫·藏蓝裤
+		"shirt": Color(0.929, 0.937, 0.941), "pants": Color(0.184, 0.247, 0.353),
+		"shoes": Color(0.141, 0.149, 0.165), "hair": Color(0.082, 0.071, 0.059), "skin_tone": 1.00,
+	},
+	{  # 2 浅蓝衬衫·藏蓝裤
+		"shirt": Color(0.659, 0.765, 0.847), "pants": Color(0.184, 0.247, 0.353),
+		"shoes": Color(0.169, 0.176, 0.192), "hair": Color(0.106, 0.078, 0.063), "skin_tone": 0.94,
+	},
+	{  # 3 藏青上衣·黑裤
+		"shirt": Color(0.212, 0.286, 0.416), "pants": Color(0.141, 0.149, 0.169),
+		"shoes": Color(0.122, 0.129, 0.145), "hair": Color(0.078, 0.075, 0.071), "skin_tone": 1.04,
+	},
+	{  # 4 白衬衫·深灰裤
+		"shirt": Color(0.918, 0.914, 0.894), "pants": Color(0.294, 0.314, 0.337),
+		"shoes": Color(0.173, 0.173, 0.184), "hair": Color(0.129, 0.102, 0.075), "skin_tone": 0.90,
+	},
+	{  # 5 米白上衣·卡其裤
+		"shirt": Color(0.890, 0.855, 0.769), "pants": Color(0.416, 0.353, 0.271),
+		"shoes": Color(0.231, 0.184, 0.145), "hair": Color(0.114, 0.086, 0.063), "skin_tone": 1.00,
+	},
+	{  # 6 灰T·藏蓝牛仔
+		"shirt": Color(0.541, 0.541, 0.541), "pants": Color(0.220, 0.294, 0.376),
+		"shoes": Color(0.651, 0.235, 0.235), "hair": Color(0.169, 0.114, 0.075), "skin_tone": 1.02,
+	},
+	{  # 7 浅绿T·深蓝裤
+		"shirt": Color(0.498, 0.627, 0.506), "pants": Color(0.176, 0.220, 0.282),
+		"shoes": Color(0.200, 0.200, 0.212), "hair": Color(0.086, 0.078, 0.075), "skin_tone": 1.08,
+	},
+	{  # 8 奶油黄T·蓝牛仔
+		"shirt": Color(0.878, 0.796, 0.522), "pants": Color(0.239, 0.333, 0.439),
+		"shoes": Color(0.184, 0.184, 0.192), "hair": Color(0.333, 0.220, 0.098), "skin_tone": 0.88,
+	},
+	{  # 9 浅粉T·灰裤
+		"shirt": Color(0.839, 0.627, 0.643), "pants": Color(0.341, 0.357, 0.380),
+		"shoes": Color(0.227, 0.227, 0.239), "hair": Color(0.110, 0.082, 0.067), "skin_tone": 1.05,
+	},
+	{  # 10 天蓝T·黑裤
+		"shirt": Color(0.490, 0.678, 0.784), "pants": Color(0.161, 0.169, 0.184),
+		"shoes": Color(0.129, 0.129, 0.137), "hair": Color(0.145, 0.106, 0.071), "skin_tone": 0.96,
+	},
+	{  # 11 烟紫T·深灰裤
+		"shirt": Color(0.529, 0.486, 0.612), "pants": Color(0.231, 0.243, 0.275),
+		"shoes": Color(0.176, 0.176, 0.184), "hair": Color(0.082, 0.071, 0.059), "skin_tone": 1.00,
+	},
+	{  # 12 砖红T·牛仔
+		"shirt": Color(0.647, 0.353, 0.306), "pants": Color(0.216, 0.275, 0.353),
+		"shoes": Color(0.169, 0.169, 0.176), "hair": Color(0.129, 0.098, 0.063), "skin_tone": 1.03,
+	},
+]
+
 @export var pose: Pose = Pose.STAND
+## 便装配色索引，见 OUTFIT_PALETTES。0 = 原色。
+@export_range(0, 12) var outfit: int = 0
+## 整体身高缩放（0.97~1.03）。满座时避免所有人等高，坐姿不影响座面高度。
+@export var height_scale: float = 1.0
 
 var _skeleton: Skeleton3D
 
@@ -70,6 +130,11 @@ func _ready() -> void:
 		push_error("CharacterPose (%s): Skeleton3D not found under Model." % name)
 		return
 	_unify_materials(self)
+	_apply_outfit(self)
+	if not is_equal_approx(height_scale, 1.0):
+		var model := get_node_or_null("Model") as Node3D
+		if model != null:
+			model.scale = Vector3.ONE * height_scale
 	apply_pose()
 
 
@@ -240,3 +305,84 @@ func _style(mat: Material) -> void:
 		bm.metallic = 0.0
 		bm.specular_mode = BaseMaterial3D.SPECULAR_DISABLED
 		bm.cull_mode = BaseMaterial3D.CULL_BACK
+
+
+## 按 OUTFIT_PALETTES 给便装改色。Quaternius 模型按 Body/Legs/Feet/Head 拆成
+## 四块网格、材质是纯色，所以按网格部位 + 材质名判断角色即可，无需改模型：
+##   _Body 非 Skin → 上衣；_Legs/_Pants 非 Skin → 裤子；_Feet 非 Skin/White → 鞋
+##   _Head 顶点数最多的非五官材质 → 头发；所有 Skin → 肤色乘 skin_tone
+func _apply_outfit(node: Node) -> void:
+	if outfit <= 0 or outfit >= OUTFIT_PALETTES.size():
+		return
+	_apply_outfit_recursive(node, OUTFIT_PALETTES[outfit])
+
+
+func _apply_outfit_recursive(node: Node, pal: Dictionary) -> void:
+	if node is MeshInstance3D:
+		_apply_outfit_mesh(node as MeshInstance3D, pal)
+	for child in node.get_children():
+		_apply_outfit_recursive(child, pal)
+
+
+func _apply_outfit_mesh(mi: MeshInstance3D, pal: Dictionary) -> void:
+	var mesh := mi.mesh as ArrayMesh
+	if mesh == null:
+		return
+	var mesh_name := String(mi.name)
+	var is_body := mesh_name.ends_with("_Body")
+	var is_legs := mesh_name.ends_with("_Legs") or mesh_name.ends_with("_Pants")
+	var is_feet := mesh_name.ends_with("_Feet")
+	var is_head := mesh_name.ends_with("_Head")
+	if not (is_body or is_legs or is_feet or is_head):
+		return
+	var hair_surface := _hair_surface(mi, mesh) if is_head else -1
+	for i in mesh.get_surface_count():
+		var bm := _surface_material(mi, i)
+		if bm == null:
+			continue
+		var mat_name := String(bm.resource_name)
+		var target := Color(0, 0, 0, 0)
+		if is_body and not mat_name.begins_with("Skin"):
+			target = pal["shirt"]
+		elif is_legs and not mat_name.begins_with("Skin"):
+			target = pal["pants"]
+		elif is_feet and not mat_name.begins_with("Skin") and mat_name != "White":
+			# White 是袜子，保留；只改鞋面颜色
+			target = pal["shoes"]
+		elif is_head and i == hair_surface:
+			target = pal["hair"]
+		elif mat_name.begins_with("Skin"):
+			target = bm.albedo_color * float(pal["skin_tone"])
+		else:
+			continue
+		# 复制一份材质再改色，避免同模型的其他实例跟着变
+		var dup := bm.duplicate() as BaseMaterial3D
+		dup.albedo_color = target
+		mi.set_surface_override_material(i, dup)
+
+
+## 头发 = 头部网格里顶点数最多的非肤色、非眼睛/眉毛材质。
+## 女模头部同时有 Hair_Blond（头发）、Hair_Brown（眉毛）、Brown（眼睛），
+## 按材质名判断会误改眉毛，按顶点数最稳。
+func _hair_surface(mi: MeshInstance3D, mesh: ArrayMesh) -> int:
+	var best := -1
+	var best_count := 0
+	for i in mesh.get_surface_count():
+		var bm := _surface_material(mi, i)
+		if bm == null:
+			continue
+		var mat_name := String(bm.resource_name)
+		if mat_name.begins_with("Skin") or mat_name.begins_with("Eye") or mat_name.begins_with("Eyebrow"):
+			continue
+		var count := mesh.surface_get_array_len(i)
+		if count > best_count:
+			best_count = count
+			best = i
+	return best
+
+
+func _surface_material(mi: MeshInstance3D, idx: int) -> BaseMaterial3D:
+	var mat := mi.get_surface_override_material(idx)
+	if mat == null and mi.mesh != null:
+		mat = mi.mesh.surface_get_material(idx)
+	return mat as BaseMaterial3D

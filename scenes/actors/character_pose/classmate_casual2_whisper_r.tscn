@@ -1,11 +1,11 @@
 [gd_scene load_steps=3 format=3]
 
-[ext_resource type="PackedScene" path="res://assets/characters/quaternius/Adventurer.glb" id="1_model"]
+[ext_resource type="PackedScene" path="res://assets/characters/quaternius/Casual2.glb" id="1_model"]
 [ext_resource type="Script" path="res://scripts/character_pose.gd" id="2_pose"]
 
-[node name="ClassmateAdventurerSit" type="Node3D"]
+[node name="ClassmateCasual2WhisperR" type="Node3D"]
 script = ExtResource("2_pose")
-pose = 1
+pose = 8
 
 [node name="Model" parent="." instance=ExtResource("1_model")]
 rotation_degrees = Vector3(0, 180, 0)

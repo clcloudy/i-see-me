@@ -1,9 +1,9 @@
 [gd_scene load_steps=3 format=3]
 
-[ext_resource type="PackedScene" path="res://assets/characters/quaternius/WomensPunk.glb" id="1_model"]
+[ext_resource type="PackedScene" path="res://assets/characters/quaternius/Casual.glb" id="1_model"]
 [ext_resource type="Script" path="res://scripts/character_pose.gd" id="2_pose"]
 
-[node name="ClassmateWomensPunkDown" type="Node3D"]
+[node name="ClassmateCasualDown" type="Node3D"]
 script = ExtResource("2_pose")
 pose = 2
 

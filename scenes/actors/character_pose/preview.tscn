@@ -7,12 +7,12 @@
 [ext_resource type="PackedScene" path="res://scenes/actors/character_pose/rebut.tscn" id="5_rebut"]
 [ext_resource type="PackedScene" path="res://scenes/actors/character_pose/writing.tscn" id="6_writing"]
 [ext_resource type="PackedScene" path="res://scenes/actors/character_pose/teacher_stand.tscn" id="7_teacher"]
-[ext_resource type="PackedScene" path="res://scenes/actors/character_pose/classmate_worker_sit.tscn" id="8_worker"]
+[ext_resource type="PackedScene" path="res://scenes/actors/character_pose/classmate_casual_sit.tscn" id="8_casual"]
 [ext_resource type="PackedScene" path="res://scenes/actors/character_pose/classmate_casual2_sit.tscn" id="9_casual2"]
-[ext_resource type="PackedScene" path="res://scenes/actors/character_pose/classmate_adventurer_down.tscn" id="10_adv"]
+[ext_resource type="PackedScene" path="res://scenes/actors/character_pose/classmate_casual_down.tscn" id="10_casual_down"]
 [ext_resource type="PackedScene" path="res://scenes/actors/character_pose/classmate_womenscasual_sit.tscn" id="11_wcasual"]
-[ext_resource type="PackedScene" path="res://scenes/actors/character_pose/classmate_womensformal_down.tscn" id="12_wformal"]
-[ext_resource type="PackedScene" path="res://scenes/actors/character_pose/classmate_womensworker_sit.tscn" id="13_wworker"]
+[ext_resource type="PackedScene" path="res://scenes/actors/character_pose/classmate_womenscasual_down.tscn" id="12_wcasual_down"]
+[ext_resource type="PackedScene" path="res://scenes/actors/character_pose/classmate_casual2_down.tscn" id="13_casual2_down"]
 
 [sub_resource type="Environment" id="Environment_preview"]
 background_mode = 1
@@ -61,23 +61,29 @@ position = Vector3(5, 0, 0)
 [node name="TeacherStand" parent="." instance=ExtResource("7_teacher")]
 position = Vector3(-7, 0, -3)
 
-[node name="ClassmateWorkerSit" parent="." instance=ExtResource("8_worker")]
+[node name="ClassmateCasualSit" parent="." instance=ExtResource("8_casual")]
 position = Vector3(-5, 0, -3)
+outfit = 3
 
 [node name="ClassmateCasual2Sit" parent="." instance=ExtResource("9_casual2")]
 position = Vector3(-3, 0, -3)
+outfit = 6
 
-[node name="ClassmateAdventurerDown" parent="." instance=ExtResource("10_adv")]
+[node name="ClassmateCasualDown" parent="." instance=ExtResource("10_casual_down")]
 position = Vector3(-1, 0, -3)
+outfit = 8
 
 [node name="ClassmateWomensCasualSit" parent="." instance=ExtResource("11_wcasual")]
 position = Vector3(1, 0, -3)
+outfit = 2
 
-[node name="ClassmateWomensFormalDown" parent="." instance=ExtResource("12_wformal")]
+[node name="ClassmateWomensCasualDown" parent="." instance=ExtResource("12_wcasual_down")]
 position = Vector3(3, 0, -3)
+outfit = 9
 
-[node name="ClassmateWomensWorkerSit" parent="." instance=ExtResource("13_wworker")]
+[node name="ClassmateCasual2Down" parent="." instance=ExtResource("13_casual2_down")]
 position = Vector3(5, 0, -3)
+outfit = 11
 
 [node name="PreviewCamera" type="Camera3D" parent="."]
 position = Vector3(0, 3, 11)
