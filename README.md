@@ -85,7 +85,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\Start-Godot.ps1 -Mod
 ```gdscript
 const TEACHER := preload("res://scenes/actors/teacher/teacher_animated.tscn")
 
-var teacher: TeacherAnimator = TEACHER.instantiate()
+var teacher := TEACHER.instantiate() as TeacherAnimator
 teacher.position = Vector3(0.9, 0.15, -4.44)  # 真教室讲台平台
 teacher.rotation_degrees.y = 180.0            # 面向 +Z 的学生
 add_child(teacher)
