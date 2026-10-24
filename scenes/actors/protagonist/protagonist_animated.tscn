@@ -1,0 +1,13 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="PackedScene" path="res://assets/characters/quaternius/Casual.glb" id="1_model"]
+[ext_resource type="Script" path="res://scripts/character_action.gd" id="2_action"]
+
+[node name="ProtagonistAnimated" type="Node3D"]
+script = ExtResource("2_action")
+
+[node name="Model" parent="." instance=ExtResource("1_model")]
+rotation_degrees = Vector3(0, 180, 0)
+
+[node name="ViewAnchor" type="Marker3D" parent="."]
+position = Vector3(0, 1.7, 0)
