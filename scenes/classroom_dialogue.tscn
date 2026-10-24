@@ -1,0 +1,61 @@
+[gd_scene load_steps=10 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/classroom_static.tscn" id="1_classroom"]
+[ext_resource type="PackedScene" path="res://scenes/actors/character_pose/classroom_seating.tscn" id="2_seating"]
+[ext_resource type="PackedScene" path="res://scenes/actors/teacher/teacher_animated.tscn" id="3_teacher"]
+[ext_resource type="PackedScene" path="res://scenes/actors/character_pose/stand_talk.tscn" id="4_stand"]
+[ext_resource type="PackedScene" path="res://scenes/actors/character_pose/look_around.tscn" id="5_look"]
+[ext_resource type="PackedScene" path="res://scenes/effects/l2_flow_state.tscn" id="6_flow_state"]
+[ext_resource type="PackedScene" path="res://scenes/ui/dialogue_ui.tscn" id="7_ui"]
+[ext_resource type="Script" path="res://scripts/dialogue_camera.gd" id="8_camera"]
+[ext_resource type="Script" path="res://scripts/dialogue_flow.gd" id="9_flow"]
+
+[node name="ClassroomDialogue" type="Node3D"]
+
+[node name="Classroom" parent="." instance=ExtResource("1_classroom")]
+
+[node name="Seating" parent="." instance=ExtResource("2_seating")]
+
+[node name="ProtagonistStand" parent="." instance=ExtResource("4_stand")]
+position = Vector3(-0.7, 0, 1.78)
+visible = false
+
+[node name="ProtagonistLook" parent="." instance=ExtResource("5_look")]
+position = Vector3(-0.7, 0, 1.78)
+visible = false
+
+[node name="Teacher" parent="." instance=ExtResource("3_teacher")]
+position = Vector3(0.9, 0.15, -4.44)
+rotation_degrees = Vector3(0, 180, 0)
+action = 3
+emotion = 0
+
+[node name="CameraRig" type="Node3D" parent="."]
+script = ExtResource("8_camera")
+
+[node name="Camera3D" type="Camera3D" parent="CameraRig"]
+current = true
+fov = 65.0
+near = 0.05
+far = 50.0
+
+[node name="L2FlowState" parent="." instance=ExtResource("6_flow_state")]
+target_root_path = NodePath("..")
+focus_node_path = NodePath("../Seating/ProtagonistSit/ViewAnchor")
+focus_height = 0.0
+focus_radius = 2.0
+focus_falloff = 1.2
+transition_seconds = 0.6
+
+[node name="DialogueUI" parent="." instance=ExtResource("7_ui")]
+
+[node name="Flow" type="Node3D" parent="." node_paths=PackedStringArray("camera", "teacher", "seating", "protagonist_sit", "protagonist_stand", "protagonist_look", "flow_state", "interface")]
+script = ExtResource("9_flow")
+camera = NodePath("../CameraRig")
+teacher = NodePath("../Teacher")
+seating = NodePath("../Seating")
+protagonist_sit = NodePath("../Seating/ProtagonistSit")
+protagonist_stand = NodePath("../ProtagonistStand")
+protagonist_look = NodePath("../ProtagonistLook")
+flow_state = NodePath("../L2FlowState")
+interface = NodePath("../DialogueUI")
