@@ -17,6 +17,12 @@ enum Action {
 	ASK,          # 提问：身体略前倾，右手前伸发问
 	CALL_ROLL,    # 点名：右手持点名册，头部左右停留式扫视
 	WRITE_BOARD,  # 板书：转身面向黑板，右手抬高来回书写，手持粉笔
+	# 2026-10-24 补全任务五缺失动作 17~21
+	CHALK_DOWN,   # 放下粉笔：把粉笔送回讲台粉笔盒，再转回面向学生
+	BOOK_PLACE,   # 把课本放到讲台上
+	POINT,        # 明确指向某处（点名“点到你”）
+	WALK,         # 讲台 ↔ 黑板走路（原地循环腿 + 场景位移，起停带缓冲）
+	BOOK_FLIP,    # 讲课中翻课本（两页）
 }
 
 enum Emotion {
@@ -47,15 +53,41 @@ enum Emotion {
 @export var turn_speed: float = 3.5
 ## 手部目标点平滑速度（越大越跟手，越小过渡越柔）。
 @export var target_smoothing: float = 12.0
+## 讲台台面锚点（Marker3D）。放课本、放粉笔的目标点；不设时按身体前方推算。
+@export var lectern_node: Node3D
+## 粉笔盒锚点。不设时取讲台台面右侧。
+@export var chalk_box_node: Node3D
+## “指向”动作的目标（如主角座位）。不设时指向正前方 0.5 m。
+@export var point_target: Node3D
 
 signal action_changed(new_action: int)
 signal emotion_changed(new_emotion: int)
+signal action_finished(new_action: int)
+signal walk_finished
 
 const ACTION_LABELS := {
 	Action.LECTURE: "讲课",
 	Action.ASK: "提问",
 	Action.CALL_ROLL: "点名",
 	Action.WRITE_BOARD: "板书",
+	Action.CHALK_DOWN: "放下粉笔",
+	Action.BOOK_PLACE: "放课本",
+	Action.POINT: "指向你",
+	Action.WALK: "走路",
+	Action.BOOK_FLIP: "翻课本",
+}
+
+## 一次性动作时长（秒）。0 表示循环/保持。
+const ACTION_DURATION := {
+	Action.LECTURE: 0.0,
+	Action.ASK: 0.0,
+	Action.CALL_ROLL: 0.0,
+	Action.WRITE_BOARD: 0.0,
+	Action.CHALK_DOWN: 1.60,
+	Action.BOOK_PLACE: 2.00,
+	Action.POINT: 0.0,
+	Action.WALK: 0.0,
+	Action.BOOK_FLIP: 2.60,
 }
 
 const EMOTION_LABELS := {
@@ -156,6 +188,23 @@ var _roster_paper: MeshInstance3D
 var _face: TeacherFace
 var _head_idx: int = -1
 var _grip_frame: Dictionary = {}
+## 2026-10-24：讲台道具与一次性动作状态
+var _textbook: Node3D
+var _chalk_box: Node3D
+var _page_pivot: Node3D
+var _page: MeshInstance3D
+var _action_time: float = 0.0
+var _action_done: bool = false
+var _book_placed: bool = false
+var _chalk_dropped: bool = false
+var _walking: bool = false
+var _walk_from := Vector3.ZERO
+var _walk_to := Vector3.ZERO
+var _walk_duration: float = 1.0
+var _walk_elapsed: float = 0.0
+var _walk_end_action: int = Action.LECTURE
+var _walk_phase: float = 0.0
+var _walk_yaw: float = 0.0
 
 
 func _ready() -> void:
@@ -185,7 +234,21 @@ func _process(delta: float) -> void:
 	for key in target_cfg:
 		_emo[key] = lerpf(float(_emo[key]), float(target_cfg[key]), blend)
 	_time += delta * time_scale * float(_emo["speed"])
-	var desired_yaw := 180.0 if action == Action.WRITE_BOARD else 0.0
+	_action_time += delta
+	var dur := float(ACTION_DURATION.get(action, 0.0))
+	if dur > 0.0 and _action_time >= dur and not _action_done:
+		_action_done = true
+		action_finished.emit(action)
+	if _walking:
+		_step_walk(delta)
+	var desired_yaw := 0.0
+	if action == Action.WRITE_BOARD:
+		desired_yaw = 180.0
+	elif action == Action.CHALK_DOWN:
+		# 从黑板前转身回讲台/学生：后半段转回 0°。
+		desired_yaw = 180.0 * (1.0 - smoothstep(0.45, 1.0, _action_u()))
+	elif action == Action.WALK:
+		desired_yaw = _walk_yaw
 	var step := 1.0 - exp(-delta * turn_speed)
 	_model_yaw = rad_to_deg(lerp_angle(deg_to_rad(_model_yaw), deg_to_rad(desired_yaw), step))
 	apply_pose()
@@ -193,6 +256,14 @@ func _process(delta: float) -> void:
 
 ## 切换动作（带平滑过渡）。immediate=true 时转身和手位立即到位。
 func set_action(new_action: Action, immediate: bool = false) -> void:
+	_action_time = 0.0
+	_action_done = false
+	if new_action != Action.WALK:
+		_walking = false
+	if new_action == Action.BOOK_PLACE:
+		_book_placed = false
+	if new_action == Action.CHALK_DOWN:
+		_chalk_dropped = false
 	if new_action == action:
 		if immediate:
 			_snap_turn()
@@ -228,7 +299,7 @@ func set_state(new_action: Action, new_emotion: Emotion, immediate: bool = false
 
 ## 按顺序循环到下一个动作 / 情绪（演示场景与键盘调试用）。
 func cycle_action() -> void:
-	set_action((action + 1) % 4)
+	set_action((action + 1) % ACTION_LABELS.size())
 
 
 func cycle_emotion() -> void:
@@ -241,6 +312,63 @@ func get_action_label() -> String:
 
 func get_emotion_label() -> String:
 	return EMOTION_LABELS.get(emotion, "?")
+
+
+## 一次性动作进度（0~1）。循环动作返回 0。
+func _action_u() -> float:
+	var dur := float(ACTION_DURATION.get(action, 0.0))
+	if dur <= 0.0001:
+		return 0.0
+	return clampf(_action_time / dur, 0.0, 1.0)
+
+
+## 跳到一次性动作的指定秒数并立即重算一帧（无头测试与截图用）。
+func seek_action(seconds: float) -> void:
+	_action_time = maxf(seconds, 0.0)
+	_action_done = false
+	apply_pose()
+
+
+## 截图用：在固定时间点连续重算若干帧，让表情与手位平滑收敛。
+func warm_action(seconds: float, steps: int = 6) -> void:
+	_action_time = maxf(seconds, 0.0)
+	_action_done = false
+	for i in steps:
+		_frame_delta = 0.05
+		apply_pose()
+
+
+## 讲台 ↔ 黑板走路：带缓起缓停的位移 + 原地走路循环。
+## 场景层不再需要匀移，调用本方法即可；到点后自动切到 end_action。
+func walk_to(target_world: Vector3, duration: float = 1.8, end_action: Action = Action.LECTURE) -> void:
+	var dir := target_world - global_position
+	dir.y = 0.0
+	if dir.length() < 0.01:
+		return
+	_walk_from = global_position
+	_walk_to = target_world
+	_walk_duration = maxf(duration, 0.15)
+	_walk_elapsed = 0.0
+	_walk_phase = 0.0
+	_walk_end_action = end_action
+	_walk_yaw = rad_to_deg(atan2(-dir.x, -dir.z))
+	_walking = true
+	_action_time = 0.0
+	_action_done = false
+	if action != Action.WALK:
+		action = Action.WALK
+		action_changed.emit(action)
+
+
+func _step_walk(delta: float) -> void:
+	_walk_elapsed += delta
+	var k := smoothstep(0.0, 1.0, clampf(_walk_elapsed / _walk_duration, 0.0, 1.0))
+	global_position = _walk_from.lerp(_walk_to, k)
+	_walk_phase = _walk_elapsed * TAU * 1.8
+	if _walk_elapsed >= _walk_duration:
+		_walking = false
+		walk_finished.emit()
+		set_action(_walk_end_action, true)
 
 
 ## 把教师摆到黑板前，便于板书动作对准（可选调用）。
@@ -269,6 +397,8 @@ func apply_pose() -> void:
 	if _model != null:
 		_model.rotation_degrees.y = 180.0 + _model_yaw
 		_model.position.y = float(_emo["bounce"]) * absf(sin(_time * 2.4))
+	if action == Action.WALK and _walking:
+		_pose_walk_legs()
 
 	var t := _time
 	var amp := float(_emo["amp"])
@@ -303,6 +433,12 @@ func apply_pose() -> void:
 	var right: Vector3 = frame["right"]
 	var up: Vector3 = frame["up"]
 
+	# 2026-10-24 新增动作需要双手持物/指向，单独处理，避免打断原四个动作的手势。
+	if _special_arms(frame):
+		_update_props(frame)
+		_update_face()
+		return
+
 	# 右手：动作手势 + 手部目标点平滑。
 	var hand_target := _hand_target(t, amp, frame)
 	if not _has_smooth_hand or _frame_delta <= 0.0:
@@ -322,7 +458,7 @@ func apply_pose() -> void:
 		scales = HOLD_SCALES["pinch"]
 	elif action == Action.CALL_ROLL:
 		scales = HOLD_SCALES["hold"]
-	_curl_fingers("R", float(GRIP_CURL[action]), _grip_frame, scales)
+	_curl_fingers("R", float(GRIP_CURL.get(action, 0.18)), _grip_frame, scales)
 
 	# 左手：疑惑托腮、激昂双手张开（板书时都不做，避免和黑板打架），其余自然下垂。
 	if emotion == Emotion.PUZZLED and action != Action.WRITE_BOARD:
@@ -364,6 +500,16 @@ func _action_torso_pitch() -> float:
 			return 3.0
 		Action.WRITE_BOARD:
 			return 6.0  # 略微前倾，够到黑板
+		Action.CHALK_DOWN:
+			return 14.0
+		Action.BOOK_PLACE:
+			return 10.0
+		Action.POINT:
+			return 2.0
+		Action.WALK:
+			return 3.0
+		Action.BOOK_FLIP:
+			return 5.0
 	return 0.0
 
 
@@ -373,7 +519,203 @@ func _action_head_pitch() -> float:
 			return -10.0  # 抬头看黑板
 		Action.ASK:
 			return 2.0
+		Action.BOOK_FLIP, Action.BOOK_PLACE:
+			return 10.0  # 低头看手里的书
+		Action.POINT:
+			return -2.0
 	return 0.0
+
+
+# ---------------------------------------------------------------- 新增动作（2026-10-24）
+
+## 走路腿部：原地循环，位移由 walk_to() 驱动。
+func _pose_walk_legs() -> void:
+	var swing := sin(_walk_phase)
+	_rot("UpperLeg.L", Vector3(-swing * 24.0, 0, 0))
+	_rot("UpperLeg.R", Vector3(swing * 24.0, 0, 0))
+	_rot("LowerLeg.L", Vector3(maxf(0.0, swing) * 30.0, 0, 0))
+	_rot("LowerLeg.R", Vector3(maxf(0.0, -swing) * 30.0, 0, 0))
+	_rot("Hips", Vector3(0, 0, swing * 1.5))
+
+
+## 新增动作的双手。返回 true 表示本帧已完全处理双手（原逻辑跳过）。
+func _special_arms(frame: Dictionary) -> bool:
+	if action == Action.WALK:
+		_walk_arms(frame)
+		return true
+	if action != Action.CHALK_DOWN and action != Action.BOOK_PLACE \
+			and action != Action.BOOK_FLIP and action != Action.POINT:
+		return false
+
+	var u := _action_u()
+	var fwd: Vector3 = frame["forward"]
+	var right: Vector3 = frame["right"]
+	var up: Vector3 = frame["up"]
+	var sh_r: Vector3 = frame["shoulder_r"]
+	var sh_l: Vector3 = frame["shoulder_l"]
+	var pole_r := (Vector3.DOWN * 1.1 + right * 0.9 - fwd * 0.15).normalized()
+	var pole_l := (Vector3.DOWN * 1.1 - right * 0.9 - fwd * 0.15).normalized()
+
+	if action == Action.POINT:
+		var target := _point_target_world(frame)
+		var dir := (target - sh_r).normalized()
+		_ik_hand_to_world(sh_r + dir * 0.47 + up * 0.01, "R", pole_r)
+		_aim_hand("R", dir)
+		_align_palm("R", Vector3.DOWN)
+		_grip_frame = _hand_frame("R")
+		# 只留食指伸直，其余三指与拇指收起：明确的“指向你”。
+		_curl_fingers("R", 0.95, _grip_frame, {}, ["Index"])
+		_aim_arm("L")
+		_aim_hand("L", Vector3.DOWN)
+		_curl_fingers("L", 0.12, _hand_frame("L"))
+		return true
+
+	if action == Action.CHALK_DOWN:
+		var start := sh_r + fwd * 0.25 + right * 0.14 + up * 0.18
+		var tray := _chalk_tray()
+		var target := start.lerp(tray, smoothstep(0.0, 0.68, u))
+		if u > 0.70:
+			target = target.lerp(sh_r + Vector3.DOWN * 0.42 + right * 0.08,
+				smoothstep(0.70, 1.0, u))
+		_ik_hand_to_world(target, "R", pole_r)
+		_aim_hand("R", (fwd * 0.4 - up * 0.8).normalized())
+		_align_palm("R", Vector3.DOWN)
+		_grip_frame = _hand_frame("R")
+		_curl_fingers("R", 0.72 if u < 0.70 else 0.14, _grip_frame, HOLD_SCALES["pinch"])
+		_chalk_dropped = u >= 0.70
+		_aim_arm("L")
+		_aim_hand("L", Vector3.DOWN)
+		_curl_fingers("L", 0.12, _hand_frame("L"))
+		return true
+
+	# BOOK_PLACE / BOOK_FLIP：双手持书
+	var place := smoothstep(0.42, 0.88, u) if action == Action.BOOK_PLACE else 0.0
+	var center := _book_hold_center(frame)
+	center = center.lerp(_lectern_top() + up * 0.02, place)
+	if action == Action.BOOK_PLACE and u >= 0.88:
+		_book_placed = true
+	var release := smoothstep(0.88, 1.0, u) if action == Action.BOOK_PLACE else 0.0
+	var half := 0.105
+	var r_target := center + right * half + up * 0.012
+	var flip := action == Action.BOOK_FLIP
+	if flip:
+		r_target = _flip_hand_target(center, frame, u)
+	var l_target := center - right * half + up * 0.012
+	var natural_r := sh_r + Vector3.DOWN * 0.40 + right * 0.07
+	var natural_l := sh_l + Vector3.DOWN * 0.40 - right * 0.07
+
+	_ik_hand_to_world(r_target.lerp(natural_r, release), "R", pole_r)
+	_aim_hand("R", (fwd * 0.35 - up * 0.65).normalized())
+	_align_palm("R", -right)
+	_grip_frame = _hand_frame("R")
+	if flip:
+		_curl_fingers("R", 0.45, _grip_frame, HOLD_SCALES["pinch"])
+	else:
+		_curl_fingers("R", 0.55 * (1.0 - release) + 0.12, _grip_frame, HOLD_SCALES["hold"])
+
+	_ik_hand_to_world(l_target.lerp(natural_l, release), "L", pole_l)
+	_aim_hand("L", (fwd * 0.35 - up * 0.65).normalized())
+	_align_palm("L", right)
+	_curl_fingers("L", 0.55 * (1.0 - release) + 0.12, _hand_frame("L"), HOLD_SCALES["hold"])
+
+	_place_held_book(center, frame)
+	if flip:
+		_place_flipping_page(center, frame, u)
+	return true
+
+
+func _walk_arms(frame: Dictionary) -> void:
+	var fwd: Vector3 = frame["forward"]
+	var right: Vector3 = frame["right"]
+	var up: Vector3 = frame["up"]
+	var swing := sin(_walk_phase) if _walking else 0.0
+	var r_target: Vector3 = frame["shoulder_r"] + Vector3.DOWN * 0.40 + right * 0.07 + fwd * (0.10 * swing)
+	var l_target: Vector3 = frame["shoulder_l"] + Vector3.DOWN * 0.40 - right * 0.07 - fwd * (0.10 * swing)
+	_ik_hand_to_world(r_target, "R", (Vector3.DOWN + right * 0.9).normalized())
+	_aim_hand("R", Vector3.DOWN)
+	_align_palm("R", -right)
+	_curl_fingers("R", 0.22, _hand_frame("R"))
+	_ik_hand_to_world(l_target, "L", (Vector3.DOWN - right * 0.9).normalized())
+	_aim_hand("L", Vector3.DOWN)
+	_align_palm("L", right)
+	_curl_fingers("L", 0.22, _hand_frame("L"))
+
+
+func _lectern_top() -> Vector3:
+	if lectern_node != null:
+		return lectern_node.global_position
+	return global_position + _body_frame()["forward"] * 0.45 + Vector3.UP * 0.82
+
+
+func _chalk_tray() -> Vector3:
+	if chalk_box_node != null:
+		return chalk_box_node.global_position + Vector3.UP * 0.03
+	return _lectern_top() + _body_frame()["right"] * 0.18 + Vector3.UP * 0.02
+
+
+func _point_target_world(frame: Dictionary) -> Vector3:
+	if point_target != null:
+		return point_target.global_position
+	return frame["shoulder_r"] + frame["forward"] * 1.2 - Vector3.UP * 0.15
+
+
+func _book_hold_center(frame: Dictionary) -> Vector3:
+	var sh_mid: Vector3 = ((frame["shoulder_r"] as Vector3) + (frame["shoulder_l"] as Vector3)) * 0.5
+	return sh_mid + frame["forward"] * 0.22 - frame["up"] * 0.10
+
+
+func _place_held_book(center: Vector3, frame: Dictionary) -> void:
+	if _textbook == null:
+		return
+	var basis := Basis(frame["right"], frame["up"], frame["forward"])
+	_textbook.global_transform = Transform3D(basis, center)
+	_textbook.visible = show_props
+
+
+## 翻页：两页，每页绕书脊（局部 Z）转 180°。右手跟着页角从右扫到左。
+func _flip_hand_target(center: Vector3, frame: Dictionary, u: float) -> Vector3:
+	var right: Vector3 = frame["right"]
+	var up: Vector3 = frame["up"]
+	var fwd: Vector3 = frame["forward"]
+	var k := 0.0
+	var active := false
+	if u >= 0.12 and u < 0.40:
+		k = smoothstep(0.12, 0.40, u)
+		active = true
+	elif u >= 0.55 and u < 0.83:
+		k = smoothstep(0.55, 0.83, u)
+		active = true
+	if not active:
+		return center + right * 0.095 + up * 0.02
+	var sweep := lerpf(0.095, -0.085, k)
+	var lift := 0.02 + 0.075 * sin(PI * k)
+	return center + right * sweep + up * lift + fwd * (-0.015 * sin(PI * k))
+
+
+func _place_flipping_page(center: Vector3, frame: Dictionary, u: float) -> void:
+	if _page_pivot == null or _page == null:
+		return
+	var k := 0.0
+	if u >= 0.12 and u < 0.40:
+		k = smoothstep(0.12, 0.40, u)
+	elif u >= 0.55 and u < 0.83:
+		k = smoothstep(0.55, 0.83, u)
+	elif u >= 0.40 and u < 0.55:
+		k = 1.0
+	var visible := u >= 0.12 and u < 0.85
+	_page_pivot.visible = show_props and visible
+	if not _page_pivot.visible:
+		return
+	var right: Vector3 = frame["right"]
+	var up: Vector3 = frame["up"]
+	var fwd: Vector3 = frame["forward"]
+	var book_basis := Basis(right, up, fwd)
+	var angle := PI * k
+	var spine := center - right * 0.10
+	_page_pivot.global_transform = Transform3D(
+		book_basis * Basis(Vector3.BACK, angle), spine + up * 0.016
+	)
+
 
 
 ## 头部扫描：讲课缓慢扫视；点名左右停留；提问基本直视；板书专注黑板。
@@ -579,6 +921,21 @@ func _create_props() -> void:
 	_roster_paper.visible = false
 	add_child(_roster_paper)
 
+	# 2026-10-24：讲台课本、粉笔盒、翻页用的单页
+	_textbook = PropKit.textbook()
+	add_child(_textbook)
+	_textbook.visible = false
+	_chalk_box = PropKit.chalk_box()
+	add_child(_chalk_box)
+	_chalk_box.visible = false
+	_page_pivot = Node3D.new()
+	_page_pivot.name = "PropPagePivot"
+	add_child(_page_pivot)
+	_page = PropKit.page()
+	_page.position = Vector3(0.10, 0.0, 0.0)
+	_page_pivot.add_child(_page)
+	_page_pivot.visible = false
+
 
 func _prop_material(color: Color) -> StandardMaterial3D:
 	var mat := StandardMaterial3D.new()
@@ -590,20 +947,47 @@ func _prop_material(color: Color) -> StandardMaterial3D:
 
 ## 每帧把粉笔/点名册摆进右手；关掉 show_props 时全部隐藏。
 ## 位置不再用固定偏移，而是取弯曲后真实的拇指/食指关节，所以无论手摆到哪都握得住。
-func _update_props(_frame: Dictionary) -> void:
+func _update_props(frame: Dictionary) -> void:
 	if _chalk == null or _roster_cover == null or _roster_paper == null:
 		return
-	var show_chalk := show_props and action == Action.WRITE_BOARD
+	var u := _action_u()
+	var show_chalk := show_props and (action == Action.WRITE_BOARD
+		or (action == Action.CHALK_DOWN and u < 0.70))
 	var show_roster := show_props and action == Action.CALL_ROLL
 	_chalk.visible = show_chalk
 	_roster_cover.visible = show_roster
 	_roster_paper.visible = show_roster
-	if not (show_chalk or show_roster) or _grip_frame.is_empty():
-		return
-	if show_chalk:
+	if show_chalk and not _grip_frame.is_empty():
 		_place_chalk()
-	if show_roster:
+	if show_roster and not _grip_frame.is_empty():
 		_place_roster()
+
+	# 讲台道具：粉笔盒常驻；课本放下后留在讲台；翻页纸只在翻页动作里出现。
+	if _chalk_box != null:
+		_chalk_box.visible = show_props
+		if _chalk_box.visible:
+			var box_pos := _chalk_box_node_pos()
+			if chalk_box_node != null:
+				_chalk_box.global_transform = chalk_box_node.global_transform
+			else:
+				_chalk_box.global_transform = Transform3D(Basis.IDENTITY, box_pos)
+	if _textbook != null:
+		var holding := action == Action.BOOK_PLACE or action == Action.BOOK_FLIP
+		if not holding:
+			_textbook.visible = show_props and _book_placed
+			if _textbook.visible:
+				var basis := Basis(frame["right"], Vector3.UP, frame["forward"])
+				_textbook.global_transform = Transform3D(basis, _lectern_top() + Vector3.UP * 0.02)
+		# 持书时由 _special_arms() 每帧摆放，这里不覆盖。
+	if _page_pivot != null:
+		_page_pivot.visible = show_props and action == Action.BOOK_FLIP \
+			and _action_u() >= 0.12 and _action_u() < 0.85
+
+
+func _chalk_box_node_pos() -> Vector3:
+	if chalk_box_node != null:
+		return chalk_box_node.global_position
+	return _lectern_top() + _body_frame()["right"] * 0.18 + Vector3.UP * 0.01
 
 
 ## 粉笔：夹在拇指指尖与食指中节之间，笔身沿手指斜向伸出。
@@ -694,12 +1078,15 @@ func _align_palm(side: String, desired_world: Vector3) -> void:
 
 
 ## 五指弯曲：每节绕“掌心法线 × 手指方向”的轴旋转，正角度即弯向掌心。
-func _curl_fingers(side: String, amount: float, frame: Dictionary, scales: Dictionary = {}) -> void:
+func _curl_fingers(side: String, amount: float, frame: Dictionary, scales: Dictionary = {},
+		skip: Array = []) -> void:
 	if amount <= 0.001 or frame.is_empty():
 		return
 	var axis: Vector3 = (frame["palm"] as Vector3).cross(frame["finger"] as Vector3)
 	var base := amount * 55.0
 	for finger_name in FINGER_CURL:
+		if skip.has(finger_name):
+			continue
 		var weights: Array = FINGER_CURL[finger_name]
 		var scale := float(scales.get(finger_name, 1.0))
 		for seg in 3:
@@ -707,6 +1094,8 @@ func _curl_fingers(side: String, amount: float, frame: Dictionary, scales: Dicti
 				"%s%d.%s" % [finger_name, seg + 2, side], axis,
 				base * float(weights[seg]) * scale
 			)
+	if skip.has("Thumb"):
+		return
 	# 拇指对掌：绕“掌心法线 × 拇指方向”弯，指尖压向食指一侧。
 	# 捏细长物（粉笔）时拇指要压得更狠，否则笔会浮在虎口外。
 	var thumb_axis: Vector3 = (frame["palm"] as Vector3).cross(frame["thumb"] as Vector3)
