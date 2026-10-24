@@ -142,6 +142,11 @@ func _check_all_clips() -> void:
 	var head: Vector3 = ch._rig.bone_world("Head")
 	_expect(hand.distance_to(head) < 0.16, "laugh_shake: hand not at mouth (%.2f)"
 		% hand.distance_to(head))
+	# 不能插进头里：手腕到嘴面片至少留 3 cm，同时不能离得太远。
+	var mouth: Vector3 = ch._face.get_mouth_world()
+	var mouth_gap := hand.distance_to(mouth)
+	_expect(mouth_gap > 0.03 and mouth_gap < 0.16,
+		"laugh_shake: hand penetrates/floats at mouth (%.2f)" % mouth_gap)
 
 	# 口型：站立说话时嘴会张开
 	ch.play_clip(CharacterAction.Clip.STAND_TALK, true)

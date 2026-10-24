@@ -95,6 +95,11 @@ func get_mouth_open() -> float:
 	return _mouth_open
 
 
+## 嘴面片当前的世界位置（供掩嘴/交头接耳的手部 IK 对准真实嘴部）。
+func get_mouth_world() -> Vector3:
+	return _mouth.global_position if _mouth != null else Vector3.ZERO
+
+
 ## 供测试/调试：基础眯眼比例，不含眨眼。
 func get_squint() -> float:
 	return _lid_base

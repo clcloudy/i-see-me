@@ -113,6 +113,7 @@ var _cur := {}          # 平滑后的躯干/头颈角度与世界手位
 var _seated_now: float = 0.0
 var _face: TeacherFace
 var _head_idx: int = -1
+var _face_ready: bool = false
 
 var _pen: Node3D
 var _book: Node3D
@@ -477,9 +478,10 @@ func _arm_specs(u: float, t: float, frame: Dictionary) -> Dictionary:
 				(frame["forward"] * 0.6 + frame["up"] * 0.25).normalized(), 0.44)
 			return {"r": r, "l": l}
 		Clip.LAUGH_SHAKE:
-			# 手背朝外、掌心贴嘴，手指并拢弯曲：像真的把笑掩住，而不是捂住整张脸。
-			var mouth: Vector3 = _mouth_point(frame) + frame["up"] * -0.018
-			var r := _hand_at(mouth, -frame["forward"], (frame["up"] * 0.85 + frame["forward"] * 0.15).normalized(), 0.78)
+			# 手腕放在嘴右侧，手指横向掠过嘴唇、掌心朝嘴：只遮嘴，不遮眼睛。
+			var mouth: Vector3 = _mouth_point(frame) + frame["right"] * 0.03 + frame["up"] * -0.006
+			var r := _hand_at(mouth, -frame["forward"],
+				(-frame["right"] * 0.92 + frame["up"] * 0.20 + frame["forward"] * 0.10).normalized(), 0.72)
 			return {"r": r, "l": lap_l}
 		Clip.NOD_FULL:
 			return {"r": lap_r, "l": lap_l}
@@ -548,27 +550,27 @@ func _arm_specs(u: float, t: float, frame: Dictionary) -> Dictionary:
 			var burst := fmod(t, 3.4) < 1.65
 			var r := lap_r
 			if side > 0 and burst:
-				var mouth: Vector3 = _mouth_point(frame) + frame["right"] * 0.02 + frame["up"] * -0.012
+				var mouth: Vector3 = _mouth_point(frame) + frame["right"] * 0.03 + frame["up"] * -0.006
 				r = _mix_spec(lap_r, _hand_at(mouth, -frame["forward"],
-					(frame["up"] * 0.8 + frame["forward"] * 0.2).normalized(), 0.58),
+					(-frame["right"] * 0.90 + frame["up"] * 0.25 + frame["forward"] * 0.10).normalized(), 0.52),
 					0.65 + 0.35 * sin(t * 2.2))
 			elif side < 0 and burst:
 				r = _hand_at(_lap_point(frame, "R") + frame["forward"] * 0.06 + frame["up"] * 0.05,
 					Vector3.DOWN, frame["forward"], 0.30)
 			var l := lap_l
 			if side < 0 and burst:
-				var mouth_l: Vector3 = _mouth_point(frame) - frame["right"] * 0.02 + frame["up"] * -0.012
-				l = _mix_spec(lap_l, _hand_at(mouth_l, frame["forward"],
-					(frame["up"] * 0.8 + frame["forward"] * 0.2).normalized(), 0.58), 0.9)
+				var mouth_l: Vector3 = _mouth_point(frame) - frame["right"] * 0.03 + frame["up"] * -0.006
+				l = _mix_spec(lap_l, _hand_at(mouth_l, -frame["forward"],
+					(frame["right"] * 0.90 + frame["up"] * 0.25 + frame["forward"] * 0.10).normalized(), 0.52), 0.9)
 			return {"r": r, "l": l}
 		Clip.QUIET_SETTLE:
 			var env := 1.0 - _ease(u)
 			var r := lap_r
 			var l := lap_l
 			if side > 0:
-				var mouth: Vector3 = _mouth_point(frame) + frame["right"] * 0.02 + frame["up"] * -0.012
+				var mouth: Vector3 = _mouth_point(frame) + frame["right"] * 0.03 + frame["up"] * -0.006
 				r = _mix_spec(lap_r, _hand_at(mouth, -frame["forward"],
-					(frame["up"] * 0.8 + frame["forward"] * 0.2).normalized(), 0.58), env * 0.6)
+					(-frame["right"] * 0.90 + frame["up"] * 0.25 + frame["forward"] * 0.10).normalized(), 0.52), env * 0.6)
 			return {"r": r, "l": l}
 		_:
 			return {"r": natural_r, "l": natural_l}
@@ -630,8 +632,12 @@ func _desk_point(frame: Dictionary, right_off: float, fwd_off: float, y: float) 
 
 
 func _mouth_point(frame: Dictionary) -> Vector3:
+	# 手骨原点是手腕，不是掌心。用实测嘴面片的位置再往前 4.5 cm，
+	# 手掌正好盖在嘴前，不会插进头里；首帧面片尚未摆放时退回头部骨近似。
+	if _face != null and _face_ready:
+		return _face.get_mouth_world() + frame["forward"] * 0.045 - frame["up"] * 0.016
 	var head_xf := _rig.head_world()
-	return head_xf.origin + frame["forward"] * 0.075 + frame["up"] * 0.004
+	return head_xf.origin + frame["forward"] * 0.145 - frame["up"] * 0.064
 
 
 # ---------------------------------------------------------------- 道具
@@ -765,6 +771,7 @@ func _update_face(u: float, t: float) -> void:
 			expr["smile"] = 0.20
 	var head_xf := _rig.head_world()
 	_face.update_face(clampf(_frame_delta, 0.0, 0.05), head_xf, expr)
+	_face_ready = true
 
 
 func _is_speaking(t: float) -> bool:
