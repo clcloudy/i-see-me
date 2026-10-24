@@ -19,6 +19,7 @@
 | [第一周骨架与接入说明](docs/week1-runtime-skeleton.md) | 本地任务、模块接口、坐标约定、验收记录和剩余工作 |
 | [L2 心流状态](docs/L2心流状态.md) | 灰黑无贴图 + 2 m 清晰球的状态接口、预览场景与主场景接线 |
 | [教师动作与情绪动效](docs/教师动作与情绪动效-2026-10-23.md) | 教师 4 动作 × 5 情绪动效、完整调用方式、黑板对位与演示场景 |
+| [角色动作补全（24 项）](docs/角色动作补全-24项-2026-10-24.md) | 主角/同学/教师/道具 24 项缺失动作：逐项说明、效果图、接入方式与演示场景 |
 | [素材登记表](docs/素材登记.md) | 模型、声音、字体的来源与使用许可 |
 | [原始大纲](大纲(unimportant).md) | 创意来源，已被简化设计取代，不作为实施依据 |
 
@@ -165,6 +166,29 @@ Quaternius 模型脸上没有嘴、没有下颌骨、也没有 blend shape，所
 ```powershell
 Godot_v4.6.1-stable_win64_console.exe --headless --path . --script res://tests/teacher_anim_check.gd
 ```
+
+## 角色动作补全（2026-10-24）
+
+任务五缺失动作 **1~24 已全部完成**（主角 6 项、同学 10 项、教师 5 项、道具 3 项），
+全部为运行时程序化动画/建模，无新增外部素材。逐项说明、效果图与接入代码见
+[角色动作补全交付记录](docs/角色动作补全-24项-2026-10-24.md)。
+
+| 预览场景 | 内容 | 操作 |
+| --- | --- | --- |
+| `scenes/actors/protagonist/protagonist_actions_preview.tscn` | 主角：起身/坐下、说话口型与手势、四处看、扶桌收回、输入站姿 | `1-7` 切换，`A` 自动，`R` 重播 |
+| `scenes/actors/classmate/classmate_actions_preview.tscn` | 同学：低笑、点头、捡笔、回头、摇头、画方格、放低课本、交头接耳、忽然安静 | `1-9` 切换，`A` 自动，`R` 重播 |
+| `scenes/actors/teacher/teacher_extra_preview.tscn` | **教师新增动作**：放下粉笔、放课本、指向你、走路、翻课本 | `1-5` 切换，`A` 自动，`R` 重播 |
+| `scenes/actors/props/props_preview.tscn` | 道具 22~24：笔、课本/粉笔盒、铅笔/橡皮/本子 | 静态展示 |
+
+在编辑器里用 **Ctrl+O** 打开上表的 `.tscn`，按 **F6** 运行当前场景即可；也可以直接：
+
+```powershell
+Godot_v4.6.1-stable_win64_console.exe --path . res://scenes/actors/teacher/teacher_extra_preview.tscn
+```
+
+可复用人物模板：`scenes/actors/protagonist/protagonist_animated.tscn`、
+`scenes/actors/classmate/classmate_animated.tscn`；运行时用 `play_clip()` 切换动作。
+正式课堂流程尚未接入（共享流程文件未改），接入方式见交付记录第八节。
 
 ## 开工前需要补齐
 - 在开发计划中填写成员姓名、GitHub 用户名。
