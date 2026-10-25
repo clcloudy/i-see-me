@@ -42,6 +42,7 @@ far = 50.0
 [node name="L2FlowState" parent="." instance=ExtResource("6_flow_state")]
 target_root_path = NodePath("..")
 focus_node_path = NodePath("../Seating/ProtagonistSit/ViewAnchor")
+protagonist_path = NodePath("../Seating/ProtagonistSit")
 focus_height = 0.0
 focus_radius = 2.0
 focus_falloff = 1.2

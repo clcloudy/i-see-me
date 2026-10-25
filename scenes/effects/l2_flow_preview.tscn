@@ -63,6 +63,7 @@ position = Vector3(1.2, 1.1, -1.6)
 
 [node name="L2FlowState" parent="." instance=ExtResource("3_effect")]
 focus_node_path = NodePath("../Protagonist/ViewAnchor")
+protagonist_path = NodePath("../Protagonist")
 focus_height = 0.0
 auto_activate = true
 
@@ -82,8 +83,8 @@ theme = SubResource("Theme_preview")
 layout_mode = 1
 offset_left = 24.0
 offset_top = 24.0
-offset_right = 548.0
-offset_bottom = 276.0
+offset_right = 616.0
+offset_bottom = 360.0
 theme_override_styles/panel = SubResource("Style_panel")
 
 [node name="Box" type="VBoxContainer" parent="UI/Screen/Panel"]
@@ -92,13 +93,13 @@ theme_override_constants/separation = 8
 
 [node name="Title" type="Label" parent="UI/Screen/Panel/Box"]
 layout_mode = 2
-text = "L2 心流状态 · 预览"
+text = "L2 → L3 · 抽离预览"
 theme_override_font_sizes/font_size = 20
 
 [node name="Hint" type="Label" parent="UI/Screen/Panel/Box"]
 layout_mode = 2
-custom_minimum_size = Vector2(470, 0)
-text = "灰黑、无贴图的模型；以主角为球心，半径 2 m 内保持清晰，之外逐渐模糊。"
+custom_minimum_size = Vector2(540, 0)
+text = "L2：灰黑、无贴图的模型，以主角为球心，半径 2 m 内清晰，之外逐渐模糊。\nL3：地面换成纯色网格并无限延伸，只留主角；模糊与颜色一起退场，只剩纯灰度。"
 autowrap_mode = 3
 theme_override_font_sizes/font_size = 14
 
@@ -106,6 +107,17 @@ theme_override_font_sizes/font_size = 14
 unique_name_in_owner = true
 layout_mode = 2
 text = "开启心流效果"
+
+[node name="Isolate" type="Button" parent="UI/Screen/Panel/Box"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "进入 L3 · 只剩地板与主角"
+
+[node name="Back" type="Button" parent="UI/Screen/Panel/Box"]
+unique_name_in_owner = true
+layout_mode = 2
+disabled = true
+text = "退回 L2"
 
 [node name="Status" type="Label" parent="UI/Screen/Panel/Box"]
 unique_name_in_owner = true
@@ -115,5 +127,5 @@ theme_override_font_sizes/font_size = 13
 
 [node name="Note" type="Label" parent="UI/Screen/Panel/Box"]
 layout_mode = 2
-text = "空格或按钮切换。F6 单独运行此场景，不影响主场景。"
+text = "空格：L2 开关 · L：进入 L3 · Backspace：退回 L2。F6 单独运行，不影响主场景。"
 theme_override_font_sizes/font_size = 12

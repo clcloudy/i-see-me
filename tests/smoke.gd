@@ -27,6 +27,7 @@ func _run() -> void:
 		quit(1)
 		return
 	flow_state.transition_seconds = 0.0
+	flow_state.isolation_seconds = 0.0
 	_check(rig.camera.current, "An active camera is required.")
 	for mesh_name in ["Floor", "Ceiling", "BackWall", "FrontWall", "LeftWall"]:
 		var mesh := classroom.room.get_node_or_null(mesh_name) as MeshInstance3D
@@ -116,10 +117,27 @@ func _test_flow(
 	flow.skip_transition()
 	_check(flow.stage == &"l3" and _finished == [&"l2", &"l3"], "Skip completes exactly once.")
 	_check_actor(classroom.observer, true, "L3 reveals the observer.")
-	_check(not flow_state.is_active(), "L3 leaves the flow state.")
-	_check(flow_state.get_clay_mesh_count() == 0, "L3 restores the original materials.")
-	_check(floor_mesh != null and floor_mesh.material_override == floor_original,
-		"Floor material is restored.")
+	_check(flow_state.is_active() and flow_state.is_l3(), "L3 keeps the flow state and isolates.")
+	_check(flow_state.is_isolated(), "L3 isolation completes with zero duration.")
+	_check(flow_state.get_kept_mesh_count() > 0, "L3 keeps at least the floor.")
+	_check(floor_mesh != null and floor_mesh.visible, "L3 keeps the floor visible.")
+	var desk_top := classroom.get_node_or_null("Furniture/DeskC1B/Top") as MeshInstance3D
+	var l3_floor := flow_state.get_l3_floor_mesh()
+	_check(desk_top != null and not desk_top.visible, "L3 fades out the furniture.")
+	_check(l3_floor != null and l3_floor.visible, "L3 shows the clean infinite floor.")
+	_check(l3_floor is MeshInstance3D and l3_floor.mesh is PlaneMesh,
+		"L3 floor is a plane large enough to avoid a visible edge.")
+	_check(flow_state.get_isolation_progress() >= 1.0, "L3 isolation reaches full strength.")
+	await process_frame
+	var flow_material := (flow_state.get_node("Screen") as MeshInstance3D).material_override as ShaderMaterial
+	_check(
+		is_zero_approx(float(flow_material.get_shader_parameter("blur_pixels"))),
+		"L3 removes the blur."
+	)
+	_check(
+		is_equal_approx(float(flow_material.get_shader_parameter("grayscale")), 1.0),
+		"L3 renders pure grayscale."
+	)
 	await create_timer(0.2).timeout
 	_check(_finished.size() == 2, "Skipped tween must not call completion later.")
 	ui.continue_button.pressed.emit()
@@ -135,6 +153,10 @@ func _test_flow(
 		_check(not rig.is_transitioning(), "Restart cancels camera at " + String(target))
 		_check(not flow_state.is_active() and flow_state.get_clay_mesh_count() == 0,
 			"Restart clears the flow state.")
+		_check(floor_mesh != null and floor_mesh.material_override == floor_original,
+			"Restart restores the floor material.")
+		_check(desk_top != null and desk_top.visible, "Restart restores hidden furniture.")
+		_check(l3_floor != null and not l3_floor.visible, "Restart hides the L3 floor.")
 		_check_actor(classroom.seated_self, false, "Reset hides seated self.")
 		_check_actor(classroom.observer, false, "Reset hides observer.")
 		_check(classroom.get_node("Room/FrontWall").visible, "Reset stage boundaries.")
@@ -166,6 +188,16 @@ func _test_flow(
 	flow_state.activate()
 	_check(flow_state.is_active() and flow_state.get_clay_mesh_count() > 0,
 		"Direct activation works with an explicit focus point.")
+	flow_state.enter_l3()
+	desk_top = classroom.get_node_or_null("Furniture/DeskC1B/Top") as MeshInstance3D
+	_check(flow_state.is_l3() and flow_state.is_isolated(), "Direct L3 isolation works.")
+	_check(flow_state.get_kept_mesh_count() > 0, "L3 keeps the floor when isolated directly.")
+	_check(desk_top != null and not desk_top.visible, "L3 hides furniture when isolated directly.")
+	_check(l3_floor != null and l3_floor.visible, "L3 shows its floor when isolated directly.")
+	flow_state.leave_l3(true)
+	_check(not flow_state.is_l3() and desk_top != null and desk_top.visible,
+		"Leaving L3 returns to the L2 scene.")
+	_check(l3_floor != null and not l3_floor.visible, "Leaving L3 hides the L3 floor.")
 	flow_state.set_focus_radius(3.5)
 	_check(is_equal_approx(flow_state.focus_radius, 3.5), "Focus radius is configurable.")
 	flow_state.deactivate(true)
@@ -230,6 +262,7 @@ func _capture(
 	DirAccess.make_dir_recursive_absolute("res://.local/captures")
 	rig.transition_seconds = 1.0
 	flow_state.transition_seconds = 0.0
+	flow_state.isolation_seconds = 0.0
 	for dimensions in [Vector2i(1280, 720), Vector2i(960, 540)]:
 		DisplayServer.window_set_size(dimensions)
 		root.size = dimensions

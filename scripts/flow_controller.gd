@@ -110,6 +110,8 @@ func _set_stage(stage_id: StringName) -> void:
 	if flow_state != null:
 		if stage == &"l2":
 			flow_state.activate()
+		elif stage == &"l3":
+			flow_state.enter_l3()
 		else:
 			flow_state.deactivate()
 	_refresh()

@@ -45,6 +45,7 @@ func _run() -> void:
 		return
 	_flow.time_scale = 0.05
 	_flow_state.transition_seconds = 0.0
+	_flow_state.isolation_seconds = 0.0
 	await _check_initial()
 	await _run_avoid_branch()
 	await _run_answer_branch()
@@ -126,6 +127,9 @@ func _run_avoid_branch() -> void:
 	_check(_flow.stage == &"l2", "Ending reaches the second layer.")
 	await _check_seated_sinks("ending")
 	await _check_l2_state()
+	await _wait_until(func() -> bool: return _flow_state.is_l3(), 800)
+	_check(_flow_state.is_l3(), "Observation cards enter the L3 isolation.")
+	_check(_flow_state.is_isolated(), "L3 isolation completes in headless mode.")
 	await _wait_until(func() -> bool: return _flow.stage == &"complete", 8000)
 	_check(_flow.stage == &"complete", "L2 cards finish at completion.")
 	_check(not _flow_state.is_active(), "Completion leaves the flow state.")

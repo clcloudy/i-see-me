@@ -84,6 +84,7 @@ var _beat_look_target := Vector3.ZERO
 var _protagonist_pose: StringName = &"sit"
 var _muted: bool = false
 var _flow_state_active: bool = false
+var _l3_entered: bool = false
 var _teacher_tween: Tween = null
 var _prop_tween: Tween = null
 var _voice: AudioStreamPlayer = null
@@ -173,6 +174,7 @@ func _enter_ending() -> void:
 func _enter_l2() -> void:
 	stage = &"l2"
 	interface.set_transition_text("")
+	_l3_entered = false
 	_build_l2_cards()
 	_l2_index = -1
 	_next_card()
@@ -430,6 +432,7 @@ func _build_l2_cards() -> void:
 			"title": observation_title + " · " + str(obs.get("concept", "")),
 			"body": str(obs.get("line", "")),
 			"seconds": 3.0,
+			"isolate": true,
 		})
 
 
@@ -441,6 +444,10 @@ func _next_card() -> void:
 		_enter_complete()
 		return
 	var card: Dictionary = _l2_cards[_l2_index]
+	if bool(card.get("isolate", false)) and not _l3_entered:
+		_l3_entered = true
+		if flow_state != null:
+			flow_state.enter_l3()
 	interface.show_card(str(card.get("title", "")), str(card.get("body", "")))
 	_schedule(float(card.get("seconds", 2.8)), func(): _next_card_if(gen))
 	_refresh_controls()
@@ -544,6 +551,7 @@ func _reset_world() -> void:
 	if _flow_state_active:
 		flow_state.deactivate(true)
 	_flow_state_active = false
+	_l3_entered = false
 	# 状态机
 	stage = &"intro"
 	_beats = []
