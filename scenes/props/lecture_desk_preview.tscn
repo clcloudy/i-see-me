@@ -1,0 +1,50 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/props/lecture_desk.tscn" id="1_desk"]
+
+[sub_resource type="StandardMaterial3D" id="Material_floor"]
+albedo_color = Color(0.66, 0.65, 0.62, 1)
+roughness = 0.9
+
+[sub_resource type="BoxMesh" id="Mesh_floor"]
+size = Vector3(6, 0.06, 6)
+
+[sub_resource type="Environment" id="Environment_preview"]
+background_mode = 1
+background_color = Color(0.7, 0.73, 0.76, 1)
+ambient_light_source = 3
+ambient_light_color = Color(0.92, 0.95, 1, 1)
+ambient_light_energy = 0.75
+
+[node name="LectureDeskPreview" type="Node3D"]
+
+[node name="Floor" type="MeshInstance3D" parent="."]
+position = Vector3(0, -0.03, 0)
+mesh = SubResource("Mesh_floor")
+material_override = SubResource("Material_floor")
+
+[node name="Desk" parent="." instance=ExtResource("1_desk")]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_preview")
+
+[node name="KeyLight" type="DirectionalLight3D" parent="."]
+rotation_degrees = Vector3(-44, -123, 0)
+light_color = Color(1, 0.98, 0.94, 1)
+light_energy = 1.0
+shadow_enabled = true
+directional_shadow_max_distance = 12.0
+
+[node name="FillLight" type="OmniLight3D" parent="."]
+position = Vector3(-1.2, 1.6, -1.6)
+light_color = Color(0.9, 0.95, 1, 1)
+light_energy = 0.35
+omni_range = 6.0
+
+[node name="InspectCamera" type="Camera3D" parent="."]
+position = Vector3(2.6, 1.45, -2.35)
+rotation_degrees = Vector3(-13.63, 132.13, 0)
+current = true
+fov = 50.0
+near = 0.05
+far = 40.0

@@ -11,8 +11,9 @@ signal pause_requested
 signal mute_requested
 signal restart_requested
 signal quit_requested
-signal answer_submitted(text: String) ## 玩家输入并提交的回答
-signal avoid_chosen ## 玩家选择躲避视线
+signal answer_submitted(text: String) ## 玩家输入并提交的回答（清晰回应）
+signal struggle_chosen ## 勉强开口（分支二，有台词）
+signal avoid_chosen ## 玩家选择躲避视线（分支二，无台词）
 
 const SPEAKER_COLORS := {
 	&"teacher": Color(0.98, 0.83, 0.55),
@@ -24,6 +25,8 @@ const SPEAKER_COLORS := {
 var _copy: Dictionary = {}
 var _muted: bool = false
 var _paused: bool = false
+## 首次进入课堂时提示“可以转头看”，只出现一次（重开后再给一次）。
+var _look_hint_done: bool = false
 ## 词条 chip 记录：{"chip": Control, "done": bool}。用字典而不是直接捕获节点，
 ## 避免提前淡出的 chip 被释放后，未决的持有计时仍调用其回调（捕获已释放对象会报错）。
 var _chip_records: Array[Dictionary] = []
@@ -41,6 +44,7 @@ var _chip_records: Array[Dictionary] = []
 @onready var choice_panel: PanelContainer = %ChoicePanel
 @onready var choice_title: Label = %ChoiceTitle
 @onready var answer_button: Button = %AnswerButton
+@onready var struggle_button: Button = %StruggleButton
 @onready var avoid_button: Button = %AvoidButton
 @onready var input_row: HBoxContainer = %InputRow
 @onready var input: LineEdit = %Input
@@ -53,6 +57,7 @@ var _chip_records: Array[Dictionary] = []
 @onready var card_restart: Button = %CardRestart
 @onready var card_quit: Button = %CardQuit
 @onready var transition_label: Label = %Transition
+@onready var look_hint: Label = %LookHint
 
 
 func _ready() -> void:
@@ -62,6 +67,7 @@ func _ready() -> void:
 	restart_button.pressed.connect(func() -> void: restart_requested.emit())
 	quit_button.pressed.connect(func() -> void: quit_requested.emit())
 	answer_button.pressed.connect(_on_answer_button)
+	struggle_button.pressed.connect(func() -> void: struggle_chosen.emit())
 	avoid_button.pressed.connect(func() -> void: avoid_chosen.emit())
 	submit_button.pressed.connect(_on_submit)
 	input_back.pressed.connect(_show_choice_buttons)
@@ -157,10 +163,12 @@ func _retire_chip(record: Dictionary) -> void:
 func show_choice(choice: Dictionary) -> void:
 	subtitle_bar.visible = false
 	card_panel.visible = false
+	look_hint.visible = false
 	choice_panel.visible = true
 	choice_title.text = str(choice.get("title", ""))
-	answer_button.text = str(choice.get("answer_button", ""))
-	avoid_button.text = str(choice.get("avoid_button", ""))
+	answer_button.text = str(choice.get("option_confident", choice.get("answer_button", "")))
+	struggle_button.text = str(choice.get("option_struggle", ""))
+	avoid_button.text = str(choice.get("option_avoid", choice.get("avoid_button", "")))
 	submit_button.text = str(choice.get("input_submit", ""))
 	input_back.text = str(choice.get("input_back", ""))
 	input.placeholder_text = str(choice.get("input_placeholder", ""))
@@ -170,6 +178,7 @@ func show_choice(choice: Dictionary) -> void:
 
 func _show_choice_buttons() -> void:
 	answer_button.visible = true
+	struggle_button.visible = true
 	avoid_button.visible = true
 	input_row.visible = false
 	answer_button.grab_focus()
@@ -177,6 +186,7 @@ func _show_choice_buttons() -> void:
 
 func _on_answer_button() -> void:
 	answer_button.visible = false
+	struggle_button.visible = false
 	avoid_button.visible = false
 	input_row.visible = true
 	input.grab_focus()
@@ -194,6 +204,7 @@ func hide_choice() -> void:
 
 func show_card(title: String, body: String) -> void:
 	subtitle_bar.visible = false
+	look_hint.visible = false
 	card_panel.visible = true
 	card_title.text = title
 	card_body.text = body
@@ -209,6 +220,8 @@ func hide_card() -> void:
 func show_intro() -> void:
 	clear_subtitle()
 	hide_choice()
+	_look_hint_done = false
+	look_hint.visible = false
 	card_panel.visible = true
 	card_title.text = _text("intro_title")
 	card_body.text = _text("intro_body")
@@ -250,6 +263,24 @@ func show_paused(paused: bool) -> void:
 func set_transition_text(text: String) -> void:
 	transition_label.text = text
 	transition_label.visible = not text.is_empty()
+
+
+## 第一人称的转头提示：首次出现后 5 秒淡出，之后不再打扰。
+func set_look_hint(text: String) -> void:
+	if text.is_empty():
+		look_hint.visible = false
+		return
+	if _look_hint_done:
+		return
+	_look_hint_done = true
+	look_hint.text = text
+	look_hint.visible = true
+	look_hint.modulate.a = 0.0
+	var tween := create_tween()
+	tween.tween_property(look_hint, "modulate:a", 1.0, 0.4)
+	tween.tween_interval(4.0)
+	tween.tween_property(look_hint, "modulate:a", 0.0, 0.8)
+	tween.tween_callback(func() -> void: look_hint.visible = false)
 
 
 ## ——— 控制条状态 ———

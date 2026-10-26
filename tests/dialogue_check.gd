@@ -1,11 +1,17 @@
 extends SceneTree
 
-## 课堂对话流程无头检查（主开发，2026-10-24）。
-## 覆盖：初始状态（单环境/教师机位/第一人称相机/交头接耳铺垫）、L1 时间轴与事件、
-## 躲避视线分支、输入回答分支、L2 第三人称与心流状态、跳过、暂停冻结、重开复位。
+## 课堂对话流程无头检查（时序依据：流程控制(veryimportant).md 的 0–11）。
+## 覆盖：初始状态、第 0 步自由转头与事件05、0–7 步顺序、唯一分支点的三个选项、
+## 三条分支的第 8–11 步（E03 只在清晰回应后）、L2 回溯、跳过、暂停冻结、重开复位、
+## 配音/音效清单（id 解析、漏登记、孤儿条目）。
 ## 运行：Godot_v4.6.1-stable_win64_console.exe --headless --path . --script res://tests/dialogue_check.gd
 
 var _failures: int = 0
+
+## 教师开场站位（讲台台面上、铁讲台后方居中）。
+const PODIUM_POS := Vector3(-0.35, 0.15, -4.35)
+
+var _initial_look: Vector3 = Vector3.ZERO
 
 var _main: Node = null
 var _flow: DialogueFlow = null
@@ -47,10 +53,13 @@ func _run() -> void:
 	_flow_state.transition_seconds = 0.0
 	_flow_state.isolation_seconds = 0.0
 	await _check_initial()
+	await _check_step_zero_free_look()
+	await _run_confident_branch()
+	await _run_struggle_branch()
 	await _run_avoid_branch()
-	await _run_answer_branch()
 	await _check_skip_and_pause()
 	await _check_restart()
+	_check_voice_manifest()
 	_main.queue_free()
 	await process_frame
 	if _failures == 0:
@@ -73,19 +82,17 @@ func _check_initial() -> void:
 		"Exactly one directional light remains (got %d)." % int(lighting["directionals"])
 	)
 	# 教师：开场站在讲台前面对大家讲课（不背身板书、不移动）
+	_check(_teacher.action == TeacherAnimator.Action.LECTURE, "Teacher opens lecturing to the class.")
 	_check(
-		_teacher.action == TeacherAnimator.Action.LECTURE,
-		"Teacher opens lecturing to the class."
-	)
-	_check(
-		_teacher.position.distance_to(Vector3(-2.8, 0.0, -3.05)) < 0.05,
-		"Teacher opens at the podium facing the class."
+		_teacher.position.distance_to(PODIUM_POS) < 0.05,
+		"Teacher opens in front of the podium facing the class."
 	)
 	# 相机：主角座位坐高，第一人称看向讲台
 	_check(
 		_camera.current_position().distance_to(Vector3(-0.7, 1.36, 1.78)) < 0.05,
 		"Camera opens at the seated eye height."
 	)
+	_initial_look = _camera.look_target()
 	# 主角模型在第一人称下隐藏
 	var seated_self := _seating.get_node_or_null("ProtagonistSit") as Node3D
 	_check(seated_self != null and not seated_self.visible, "Protagonist is hidden in first person.")
@@ -102,115 +109,217 @@ func _check_initial() -> void:
 	print("CHECK: initial state")
 
 
-# ——— 分支一：躲避视线 ———
+# ——— 第 0 步：自由转头与事件05 ———
 
-func _run_avoid_branch() -> void:
-	_ui.get_node("Screen/CardPanel/Box/CardButtons/CardPrimary").pressed.emit()
-	await _wait_until(func() -> bool: return _flow.stage == &"choice", 4000)
-	_check(_flow.stage == &"choice", "L1 timeline reaches the choice window.")
+func _check_step_zero_free_look() -> void:
+	_press_intro()
+	await process_frame
+	_check(_camera.is_free_look(), "Step 0 allows free look inside the frontal cone.")
+	# 记录初始机位，确认转头只改朝向、不改机位
+	var eye := _camera.current_position()
+	_camera.nudge_free_look(-900.0, 900.0)
+	var offset := _camera.free_look_offset()
+	_check(
+		is_equal_approx(offset.x, -_camera.free_look_yaw_limit)
+		and is_equal_approx(offset.y, _camera.free_look_pitch_up),
+		"Free look stays inside the frontal cone (got %s)." % str(offset)
+	)
+	_check(
+		_camera.current_position().distance_to(eye) < 0.02,
+		"Free look changes the view direction, not the camera position."
+	)
+	_camera.reset_free_look()
+	# 转向侧前方课桌 → 事件05 提前触发（不必等兜底时间戳）
+	_camera.nudge_free_look(16.5, -17.0)
+	await process_frame
+	await process_frame
+	_check(_flow.debug_event_labels().has("有人还在忙自己的事"),
+		"Looking at the busy desk fires event 05 (step 0)."
+	)
+	_check(_pose_of("SeatB06") == _pose_id("HEAD_DOWN"), "Busy-hands classmate keeps looking at his notebook.")
+	# 朝向交给玩家：节拍推进不改注视点，玩家自己转的视角也不会被拉回
+	_check(_camera.is_free_look(), "Free look stays available through the first-person steps.")
+	var target := _camera.look_target()
+	_camera.reset_free_look()
+	_camera.nudge_free_look(-20.0, 0.0)
+	_flow.skip()
+	for i in range(90):
+		await process_frame
+	_check(
+		_camera.look_target().is_equal_approx(target),
+		"Beats do not steer the view direction."
+	)
+	_check(
+		absf(_camera.free_look_offset().x) > 15.0,
+		"The player's own turn is not recentered (%.1f)." % _camera.free_look_offset().x
+	)
+	_camera.reset_free_look()
+	print("CHECK: step 0 free look and event 05")
+
+
+# ——— 分支一：清晰回应 ———
+
+func _run_confident_branch() -> void:
+	await _wait_until(func() -> bool: return _flow.stage == &"choice", 6000)
+	_check(_flow.stage == &"choice", "Steps 0-7 reach the choice window.")
+	# 0–7 的时序
+	var steps := _flow.debug_played_steps()
+	_check(
+		steps == [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0],
+		"Steps 0-7 play in order (got %s)." % str(steps)
+	)
+	# 第 0–7 步应触发的事件；E03 与不同意见属于回答之后（第 9 步），此处不应出现
 	var labels := _flow.debug_event_labels()
-	for expected in ["忽然安静下来", "被悄悄捡回来的笔", "E03｜轻声赞同", "被听成了另一个意思", "E02｜低笑", "听见不同意见"]:
-		_check(labels.has(expected), "L1 fires event: " + expected)
+	for expected in ["有人还在忙自己的事", "忽然安静下来", "被悄悄捡回来的笔", "同学们三两回头看主角", "E02｜低笑", "03｜被听成了另一个意思"]:
+		_check(labels.has(expected), "Steps 0-7 fire event: " + expected)
+	for late in ["E03｜轻声赞同", "04｜听见不同意见"]:
+		_check(not labels.has(late), "Event waits until after the answer: " + late)
 	# 站起后相机升到站高
-	_check(
-		_camera.current_position().y > 1.6,
-		"Camera rises to standing height while the protagonist answers."
-	)
-	# 选择窗口：同学们议论纷纷
+	_check(_camera.current_position().y > 1.6, "Camera rises to standing height while answering.")
+	# 选择窗口：议论纷纷，三个选项；镜头交回固定构图
 	_check(_pose_of("SeatC10") == _pose_id("WHISPER_R"), "Classmates whisper during the choice window.")
-	# 躲避视线分支
-	_flow.debug_choose_avoid()
-	await _wait_until(func() -> bool: return _flow.stage == &"ending" or _flow.stage == &"l2", 4000)
-	_check(_flow.debug_branch() == &"avoid", "Avoid branch is recorded.")
-	_check(_pose_of("SeatB06") == _pose_id("HEAD_DOWN"), "Busy-hands classmate keeps looking down.")
-	await _wait_until(func() -> bool: return _flow.stage == &"l2", 4000)
-	_check(_flow.stage == &"l2", "Ending reaches the second layer.")
-	await _check_seated_sinks("ending")
-	await _check_l2_state()
-	await _wait_until(func() -> bool: return _flow_state.is_l3(), 800)
-	_check(_flow_state.is_l3(), "Observation cards enter the L3 isolation.")
-	_check(_flow_state.is_isolated(), "L3 isolation completes in headless mode.")
-	await _wait_until(func() -> bool: return _flow.stage == &"complete", 8000)
-	_check(_flow.stage == &"complete", "L2 cards finish at completion.")
-	_check(not _flow_state.is_active(), "Completion leaves the flow state.")
-	print("CHECK: avoid branch")
-
-
-# ——— 分支二：输入回答 ———
-
-func _run_answer_branch() -> void:
-	_flow.restart()
-	await process_frame
-	_check(_flow.stage == &"intro", "Restart returns to the notice card.")
-	_flow.time_scale = 0.05
-	_ui.get_node("Screen/CardPanel/Box/CardButtons/CardPrimary").pressed.emit()
-	await _wait_until(func() -> bool: return _flow.stage == &"choice", 4000)
-	_ui.get_node("Screen/ChoicePanel/Box/AnswerButton").pressed.emit()
-	await process_frame
+	_check(not _camera.is_free_look(), "Free look is released at the choice window.")
 	_check(
-		_ui.get_node("Screen/ChoicePanel/Box/InputRow").visible,
-		"Choosing to answer reveals the input row."
+		_camera.look_target().is_equal_approx(_initial_look),
+		"No beat or event steers the view direction."
 	)
-	var input := _ui.get_node("Screen/ChoicePanel/Box/InputRow/Input") as LineEdit
+	var panel := _ui.get_node("Screen/ChoicePanel/Box")
+	for button_name in ["AnswerButton", "StruggleButton", "AvoidButton"]:
+		var button := panel.get_node_or_null(button_name) as Button
+		_check(button != null and button.visible, "Choice window shows " + button_name)
+	# 清晰回应：输入并提交
+	panel.get_node("AnswerButton").pressed.emit()
+	await process_frame
+	_check((panel.get_node("InputRow") as Control).visible, "Choosing to answer reveals the input row.")
+	var input := panel.get_node("InputRow/Input") as LineEdit
 	input.text = "认真试过的人，也可以保留停下的选择。"
-	# 回答节拍按真实时长走，便于检查字幕；随后加速跑完剩余流程
 	_flow.time_scale = 1.0
-	_ui.get_node("Screen/ChoicePanel/Box/InputRow/Submit").pressed.emit()
+	panel.get_node("InputRow/Submit").pressed.emit()
 	await process_frame
 	await process_frame
 	var line := _ui.get_node("Screen/SubtitleBar/Row/Line") as Label
 	_check(line.text == input.text, "The typed answer is spoken as the protagonist.")
 	_flow.time_scale = 0.05
-	await _wait_until(func() -> bool: return _flow.stage == &"l2", 4000)
-	_check(_flow.debug_branch() == &"answer", "Answer branch is recorded.")
+	await _wait_until(func() -> bool: return _flow.stage == &"l2", 6000)
+	_check(_flow.stage == &"l2", "Ending reaches the second layer.")
+	_check(_flow.debug_branch() == &"confident", "Confident branch is recorded.")
 	_check(
 		_flow.debug_protagonist_pose() == &"sit",
-		"Protagonist sits down before the second layer."
+		"Protagonist sits down before the second layer (step 10)."
 	)
-	# L2 词条包含分支一的思绪倒放与对观察的观察
+	# 第 9 / 9.1 步：不同意见 → 轻声赞同（只在清晰回应后）
+	labels = _flow.debug_event_labels()
+	_check(labels.has("04｜听见不同意见"), "Step 9 fires the dissent event after the answer.")
+	_check(labels.has("E03｜轻声赞同"), "Step 9.1 fires the agreement only after a clear answer.")
+	steps = _flow.debug_played_steps()
+	for expected_step in [8.0, 9.0, 9.1, 10.0, 11.0]:
+		_check(steps.has(expected_step), "Step %.1f is played." % expected_step)
+	# L2：回溯到 0，再按分支倒放
 	var bodies := _flow.debug_l2_card_bodies()
+	_check(bodies.has("回到你被点到名字之前。"), "L2 starts by rewinding to step 0.")
 	_check(bodies.has("我站得很直。"), "Confident replay line appears in the second layer.")
 	_check(bodies.has("我能看见自己在紧张，光是看见，就平静了一点。"), "Observation cards appear.")
-	await _wait_until(func() -> bool: return _flow.stage == &"complete", 8000)
-	print("CHECK: answer branch")
+	await _check_seated_sinks("ending")
+	await _check_l2_state()
+	await _wait_until(func() -> bool: return _flow_state.is_l3(), 1200)
+	_check(_flow_state.is_l3(), "Observation cards enter the L3 isolation.")
+	await _wait_until(func() -> bool: return _flow.stage == &"complete", 12000)
+	_check(_flow.stage == &"complete", "L2 cards finish at completion.")
+	_check(not _flow_state.is_active(), "Completion leaves the flow state.")
+	print("CHECK: confident branch")
+
+
+# ——— 分支二之一：勉强开口 ———
+
+func _run_struggle_branch() -> void:
+	_restart_and_enter()
+	await _wait_until(func() -> bool: return _flow.stage == &"choice", 6000)
+	_check(_flow.stage == &"choice", "Restart reaches the choice window again.")
+	_flow.time_scale = 1.0
+	_flow.debug_choose_struggle()
+	await process_frame
+	await process_frame
+	var line := _ui.get_node("Screen/SubtitleBar/Row/Line") as Label
+	_check(
+		line.text.begins_with("我……我是说"),
+		"Struggle branch speaks the broken line (got \"%s\")." % line.text
+	)
+	_flow.time_scale = 0.05
+	await _wait_until(func() -> bool: return _flow.stage == &"l2", 6000)
+	_check(_flow.debug_branch() == &"struggle", "Struggle branch is recorded.")
+	var labels := _flow.debug_event_labels()
+	_check(labels.has("04｜听见不同意见"), "Struggle branch still hears the dissent (step 9).")
+	_check(not labels.has("E03｜轻声赞同"), "Struggle branch has no agreement (E03 is step 9.1 only).")
+	var bodies := _flow.debug_l2_card_bodies()
+	_check(bodies.has("我的声音在抖。"), "Nervous replay line appears after a struggle.")
+	_check(_flow.debug_played_steps().has(11.0), "Struggle branch still reaches step 11 (L2).")
+	print("CHECK: struggle branch")
+
+
+# ——— 分支二之二：躲开视线 ———
+
+func _run_avoid_branch() -> void:
+	_restart_and_enter()
+	await _wait_until(func() -> bool: return _flow.stage == &"choice", 6000)
+	_flow.debug_choose_avoid()
+	await process_frame
+	await process_frame
+	_check(
+		_flow.debug_protagonist_pose() == &"look_around",
+		"Avoid branch looks around instead of answering (step 8)."
+	)
+	await _wait_until(func() -> bool: return _flow.stage == &"l2", 6000)
+	_check(_flow.debug_branch() == &"avoid", "Avoid branch is recorded.")
+	_check(_pose_of("SeatB06") == _pose_id("SIT"), "Classroom settles before the second layer.")
+	var labels := _flow.debug_event_labels()
+	_check(not labels.has("E03｜轻声赞同"), "Avoid branch has no agreement either.")
+	_check(_flow.debug_l2_card_bodies().has("我的声音在抖。"), "Avoid branch uses the nervous replay.")
+	await _check_l2_state()
+	print("CHECK: avoid branch")
 
 
 # ——— 跳过与暂停 ———
 
 func _check_skip_and_pause() -> void:
-	_flow.restart()
+	_restart_and_enter()
 	await process_frame
-	_flow.time_scale = 0.05
-	_ui.get_node("Screen/CardPanel/Box/CardButtons/CardPrimary").pressed.emit()
-	await process_frame
-	# 连续跳过整个 L1 时间轴
-	for i in range(14):
+	# 连续跳过整个 L1 时间轴（10 拍）
+	for i in range(30):
+		if _flow.stage == &"choice":
+			break
 		_flow.skip()
-	_check(_flow.stage == &"choice", "Skip finishes every L1 beat and reaches the choice window.")
+	_check(_flow.stage == &"choice", "Skip finishes every step and reaches the choice window.")
 	_check(_flow.debug_event_labels().is_empty(), "Skipped beats do not fire events.")
 	# 暂停冻结镜头
 	_flow.debug_choose_avoid()
-	await _wait_until(func() -> bool: return _flow.stage == &"ending" or _flow.stage == &"l2", 4000)
-	await _wait_until(func() -> bool: return _flow.stage == &"l2", 4000)
+	await _wait_until(func() -> bool: return _flow.stage == &"l2", 6000)
 	_flow.toggle_pause()
 	await create_timer(0.25).timeout
 	var frozen := _camera.camera.global_transform
 	await create_timer(0.25).timeout
-	_check(
-		_camera.camera.global_transform.is_equal_approx(frozen),
-		"Camera freezes while paused."
-	)
+	_check(_camera.camera.global_transform.is_equal_approx(frozen), "Camera freezes while paused.")
 	_flow.toggle_pause()
 	await create_timer(0.2).timeout
 	_check(not paused, "Resume clears the pause.")
-	# 跳过 L1→L2 转场（重开后来到 ending 的最后一拍再跳）
+	# 跳过第 11 步转场
 	_flow.restart()
 	await process_frame
-	_ui.get_node("Screen/CardPanel/Box/CardButtons/CardPrimary").pressed.emit()
-	for i in range(14):
+	_press_intro()
+	for i in range(30):
+		if _flow.stage == &"choice":
+			break
 		_flow.skip()
-	_flow.debug_choose("停一下也可以。")
-	for i in range(5):
+	_flow.debug_choose("")
+	await process_frame
+	await process_frame
+	var line := _ui.get_node("Screen/SubtitleBar/Row/Line") as Label
+	_check(
+		line.text.begins_with("认真试过的人"),
+		"An empty answer falls back to the fixed line (got \"%s\")." % line.text
+	)
+	for i in range(12):
+		if _flow.stage == &"l2":
+			break
 		_flow.skip()
 	_check(_flow.stage == &"l2", "Skip through the transition lands in the second layer.")
 	_check(_flow_state.is_active(), "Skipped transition still activates the flow state.")
@@ -227,18 +336,61 @@ func _check_restart() -> void:
 		_camera.current_position().distance_to(Vector3(-0.7, 1.36, 1.78)) < 0.05,
 		"Restart snaps the camera back to the seat."
 	)
+	_check(not _camera.is_free_look(), "Restart disables free look.")
 	_check(
-		_teacher.position.distance_to(Vector3(-2.8, 0.0, -3.05)) < 0.05,
-		"Restart walks the teacher back to the podium."
+		_teacher.position.distance_to(PODIUM_POS) < 0.05,
+		"Restart walks the teacher back in front of the podium."
 	)
 	_check(_teacher.action == TeacherAnimator.Action.LECTURE, "Restart resumes lecturing.")
 	_check(not _flow_state.is_active(), "Restart leaves the flow state.")
 	_check(_pose_of("SeatB06") == _pose_id("SIT"), "Restart resets event classmates.")
 	_check(_pose_of("SeatC10") == _pose_id("WHISPER_R"), "Restart restores ambient whispers.")
 	_check(_flow.debug_protagonist_pose() == &"sit", "Restart seats the protagonist.")
+	_check(_flow.debug_played_steps().is_empty(), "Restart clears the step record.")
 	var seated_self := _seating.get_node_or_null("ProtagonistSit") as Node3D
 	_check(seated_self != null and not seated_self.visible, "Restart hides the protagonist again.")
 	print("CHECK: restart")
+
+
+# ——— 配音清单 ———
+
+func _check_voice_manifest() -> void:
+	var report := _flow.debug_voice_report()
+	_check(report.size() > 0, "Voice manifest is loaded.")
+	var missing_path: Array[String] = []
+	for entry in report:
+		if str(entry["path"]).is_empty():
+			missing_path.append(str(entry["id"]))
+	_check(missing_path.is_empty(), "Every cue resolves to a path: " + ", ".join(missing_path))
+	var usage: Dictionary = _flow.debug_voice_usage()
+	var voice_used: Dictionary = usage["voice"]
+	var sfx_used: Dictionary = usage["sfx"]
+	var registered := {"voice": {}, "sfx": {}}
+	for entry in report:
+		registered[str(entry["section"])][str(entry["id"])] = true
+	var unregistered: Array[String] = []
+	for key in voice_used.keys():
+		if not registered["voice"].has(key):
+			unregistered.append("voice:" + str(key))
+	for key in sfx_used.keys():
+		if not registered["sfx"].has(key):
+			unregistered.append("sfx:" + str(key))
+	_check(unregistered.is_empty(), "No referenced cue is missing from the manifest: " + ", ".join(unregistered))
+	var orphans: Array[String] = []
+	for key in registered["voice"].keys():
+		if not voice_used.has(key):
+			orphans.append("voice:" + str(key))
+	for key in registered["sfx"].keys():
+		if not sfx_used.has(key):
+			orphans.append("sfx:" + str(key))
+	_check(orphans.is_empty(), "No orphan manifest entries: " + ", ".join(orphans))
+	var present: Array[String] = []
+	for entry in report:
+		if bool(entry["exists"]):
+			present.append(str(entry["id"]))
+	# 录音文件尚未提交，这里只给出现状，不作为失败条件
+	print("VOICE: %d cues registered, %d recorded (%s)" % [report.size(), present.size(), ", ".join(present)])
+	print("CHECK: voice manifest")
 
 
 # ——— L2 状态 ———
@@ -289,6 +441,17 @@ func _check_seated_sinks(where: String) -> void:
 
 
 # ——— 工具 ———
+
+func _press_intro() -> void:
+	var primary := _ui.get_node("Screen/CardPanel/Box/CardButtons/CardPrimary") as Button
+	primary.pressed.emit()
+
+
+func _restart_and_enter() -> void:
+	_flow.restart()
+	_flow.time_scale = 0.05
+	_press_intro()
+
 
 func _count_lighting(node: Node) -> Dictionary:
 	var counts := {"environments": 0, "directionals": 0}

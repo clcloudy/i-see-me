@@ -143,11 +143,16 @@ func _ready() -> void:
 
 ## 也可由主开发在运行时调用来切换姿态（当前流程为静态，通常只在 _ready 执行一次）。
 func apply_pose() -> void:
-	_char_position_y(0.0)
+	# 坐姿**不要**先把 Model 抬回 y=0：那会在等帧期间让人物在空中停 2 帧
+	# （实测浮起 0.40~0.56 m，60fps 约 33 ms，看起来像人物抽搐/闪一下）。
+	# 站立姿态模型原点本来就在地面，仍直接归零；坐姿改用增量下沉（见 _sink_hips_to）。
+	var seated := SEATED_POSES.has(pose)
+	if not seated:
+		_char_position_y(0.0)
 	for i in _skeleton.get_bone_count():
 		_skeleton.set_bone_pose_rotation(i, _skeleton.get_bone_rest(i).basis.get_rotation_quaternion())
 	var bone_angles: Dictionary = {}
-	if SEATED_POSES.has(pose):
+	if seated:
 		bone_angles.merge(SEATED_LEGS, true)
 	bone_angles.merge(POSE_OVERRIDES[pose], true)
 	for bone_name in bone_angles:
@@ -165,17 +170,32 @@ func apply_pose() -> void:
 	if pose == Pose.COVER_MOUTH:
 		# 掩嘴：手臂下垂后，用两骨 IK 把右手精确放到嘴边（男女骨架通用）
 		_ik_hand_to_mouth("R")
-	if SEATED_POSES.has(pose):
+	if seated:
 		# 男女骨架的小腿骨局部轴不同：同一组欧拉角在男模上会让小腿向外撇开，
 		# 看着像盘腿。统一按骨架空间方向收正成“端坐”：小腿朝下略向前。
 		# 目标方向取自女模校准后的自然坐姿（0, 0.386, -0.922），男女共用。
 		_aim_shin("L")
 		_aim_shin("R")
+		# 同步落座：4.6 实测 set_bone_pose_* 之后 get_bone_global_pose 立即返回新值，
+		# 所以不必等帧。下面两帧后再校一次只是保险，增量修正幂等，不会产生弹跳。
+		_sink_hips_to(SEATED_HIP_HEIGHT)
 		await get_tree().process_frame
 		await get_tree().process_frame
-		var hips := _skeleton.find_bone("Hips")
-		var hips_world_y := (_skeleton.global_transform * _skeleton.get_bone_global_pose(hips)).origin.y
-		_char_position_y(SEATED_HIP_HEIGHT - hips_world_y)
+		_sink_hips_to(SEATED_HIP_HEIGHT)
+
+
+## 按实测髋高把模型整体下沉到目标高度。
+## 关键：model.position.y 里已经含着“上一次的沉量”，所以这里做**差值**修正
+## （+= 目标 - 当前），而不是写成绝对值——重复调用幂等，中途不会把人抬起再落下。
+func _sink_hips_to(target_hip_y: float) -> void:
+	var model := get_node_or_null("Model") as Node3D
+	if model == null:
+		return
+	var hips := _skeleton.find_bone("Hips")
+	if hips == -1:
+		return
+	var hips_y := (_skeleton.global_transform * _skeleton.get_bone_global_pose(hips)).origin.y
+	model.position.y += target_hip_y - hips_y
 
 
 func _skel_set_rot(idx: int, delta: Quaternion) -> void:

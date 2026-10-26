@@ -1,16 +1,23 @@
 class_name DialogueFlow
 extends Node3D
 
-## 课堂对话（事件四）流程与时间轴控制器（主开发，2026-10-24）。
+## 课堂对话流程与时间轴控制器。
 ##
-## 阶段：intro → l1（第一人称时间轴） → choice（唯一分支点） → answer / avoid（分支演出）
-##       → ending（坐下与收束） → l2（第三人称词条） → complete。
+## 时序依据：仓库根目录《流程控制(veryimportant).md》的 0–11 步（2026-10-25 实现）。
+## 阶段：intro → l1（第 0–7 步） → choice（第 8 步，唯一分支点）
+##       → answer / struggle / avoid（第 8 步的分支演出） → ending（第 9–11 步） → l2 → complete。
 ##
 ## 数据全部来自 content/classroom_dialogue.json：
-## - beats：L1 节拍，每拍可带 teacher / teacher_at / protagonist / camera / cues / events / segments；
-## - segments：字幕分段（speaker + text + seconds + 可选 voice 配音路径）；
-## - events：六个补充事件与 E02/E03，按时间戳触发（姿态切换、台词、道具、词条）；
-## - 配音：voice 路径存在时播放，节拍时长取 max(预留时长, 音频长度 + 0.25)，未接入时按预留时长走。
+## - beats：L1 节拍，`step` 标记对应的流程步号；每拍可带 teacher / teacher_move / protagonist /
+##   protagonist_clip / camera / free_look / cues / events / segments；
+## - branch_avoid：躲避视线的第 8 步演出；
+## - ending：第 9–11 步，带 `only_branch` 的节拍只在对应分支播放（E03 只在清晰回应后）；
+## - segments：字幕分段（speaker + text + seconds + 可选 voice 配音 id）；
+## - events：事件按时间戳触发（姿态/动作、台词、道具、词条）；可带 gaze，玩家转到该方向即提前触发；
+## - voice / sfx：配音与音效清单（id → 文件名，root 统一前缀）。台词 id 未登记时报警并静默跳过，
+##   文件缺失时只按预留时长走，不阻塞流程。
+##
+## 配音接口：节拍时长取 max(hold, 字幕结束, 音频长度 + padding)。文件就位即自动播放，无需改脚本。
 ##
 ## 时间基准：所有定时器以 time_scale 缩放（无头检查用）；定时器不随暂停推进
 ## （create_timer 的 process_always=false），配合 _generation 代守卫，跳过/重开立即使旧回调失效。
@@ -28,6 +35,31 @@ const ACTION_IDS := {
 	"ASK": TeacherAnimator.Action.ASK,
 	"CALL_ROLL": TeacherAnimator.Action.CALL_ROLL,
 	"WRITE_BOARD": TeacherAnimator.Action.WRITE_BOARD,
+	"CHALK_DOWN": TeacherAnimator.Action.CHALK_DOWN,
+	"BOOK_PLACE": TeacherAnimator.Action.BOOK_PLACE,
+	"POINT": TeacherAnimator.Action.POINT,
+	"BOOK_FLIP": TeacherAnimator.Action.BOOK_FLIP,
+}
+## 程序化动作名 → CharacterAction.Clip。人物场景换成 CharacterAction 后自动生效，
+## 仍是静态姿态场景时静默跳过，由 events.poses 的静态姿兜底。
+const CLIP_IDS := {
+	"NONE": CharacterAction.Clip.NONE,
+	"SIT_TO_STAND": CharacterAction.Clip.SIT_TO_STAND,
+	"STAND_TO_SIT": CharacterAction.Clip.STAND_TO_SIT,
+	"STAND_TALK": CharacterAction.Clip.STAND_TALK,
+	"LOOK_AROUND": CharacterAction.Clip.LOOK_AROUND,
+	"HAND_ON_DESK": CharacterAction.Clip.HAND_ON_DESK,
+	"HAND_RETRACT": CharacterAction.Clip.HAND_RETRACT,
+	"STAND_INPUT": CharacterAction.Clip.STAND_INPUT,
+	"LAUGH_SHAKE": CharacterAction.Clip.LAUGH_SHAKE,
+	"NOD_FULL": CharacterAction.Clip.NOD_FULL,
+	"PICK_PEN": CharacterAction.Clip.PICK_PEN,
+	"LOOK_BACK": CharacterAction.Clip.LOOK_BACK,
+	"HEAD_SHAKE": CharacterAction.Clip.HEAD_SHAKE,
+	"DRAW_GRID": CharacterAction.Clip.DRAW_GRID,
+	"LOWER_BOOK": CharacterAction.Clip.LOWER_BOOK,
+	"WHISPER_LOOP": CharacterAction.Clip.WHISPER_LOOP,
+	"QUIET_SETTLE": CharacterAction.Clip.QUIET_SETTLE,
 }
 const EMOTION_IDS := {
 	"NEUTRAL": TeacherAnimator.Emotion.NEUTRAL,
@@ -50,6 +82,10 @@ const SIT_CLEAR_DISTANCE := 0.65
 @export var content_path: String = DEFAULT_CONTENT_PATH
 ## 时间缩放：1.0 正常；无头检查设小值加速整条时间轴（含镜头补间）。
 @export_range(0.01, 4.0) var time_scale: float = 1.0
+## 是否由流程引导视线（自动把镜头转向老师/同学/黑板）。
+## 默认关闭：第一人称的朝向完全交给玩家（拖动鼠标或方向键），
+## 流程只在开场定位和进入 L2 第三人称时改镜头。
+@export var auto_look: bool = false
 
 var _content: Dictionary = {}
 var _pose_ids: Dictionary = {}
@@ -88,8 +124,20 @@ var _l3_entered: bool = false
 var _teacher_tween: Tween = null
 var _prop_tween: Tween = null
 var _voice: AudioStreamPlayer = null
+var _sfx: AudioStreamPlayer = null
+var _ambient: AudioStreamPlayer = null
 var _pen: MeshInstance3D = null
 var _textbook: MeshInstance3D = null
+## 语音/音效缺失只在首次登记时提醒一次，避免每个节拍刷屏。
+var _missing_voice: Dictionary = {}
+## 玩家自由转头的注视目标（事件05 这类“看到了才发生”的事件）。
+var _gaze_events: Array[Dictionary] = []
+## 当前节拍已触发过的事件 id，保证 gaze 与兜底时间戳不会重复触发同一事件。
+var _beat_fired: Dictionary = {}
+var _teacher_move_target: Vector3 = Vector3.ZERO
+var _teacher_moving: bool = false
+## 已播放过的流程步号（供无头检查核对 0–11 的时序）。
+var _played_steps: Array[float] = []
 
 
 func _ready() -> void:
@@ -117,7 +165,9 @@ func _ready() -> void:
 	interface.restart_requested.connect(restart)
 	interface.quit_requested.connect(quit)
 	interface.answer_submitted.connect(_on_answer_submitted)
+	interface.struggle_chosen.connect(_on_struggle)
 	interface.avoid_chosen.connect(_on_avoid_chosen)
+	_build_audio()
 	_place_teacher_opening()
 	_build_props()
 	_read_config()
@@ -127,8 +177,9 @@ func _ready() -> void:
 
 func _start_l1() -> void:
 	stage = &"l1"
-	_beats = _content.get("beats", [])
+	_beats = _load_beats(_content.get("beats", []))
 	_beat_index = -1
+	_played_steps.clear()
 	interface.hide_card() # 收起内容提示卡，进入课堂
 	_advance_phase()
 	_refresh_controls()
@@ -157,7 +208,9 @@ func _next_phase() -> void:
 func _enter_choice() -> void:
 	stage = &"choice"
 	_generation += 1
+	camera.set_free_look(false) # 选择窗口交给鼠标操作，视线自动回正
 	_set_ambient_whispers(true) # 同学们此时议论纷纷
+	_start_ambient_loop("murmur_loop")
 	interface.show_choice(_content.get("choice", {}))
 	_refresh_controls()
 	stage_changed.emit(stage)
@@ -165,7 +218,7 @@ func _enter_choice() -> void:
 
 func _enter_ending() -> void:
 	stage = &"ending"
-	_beats = _content.get("ending", [])
+	_beats = _load_beats(_content.get("ending", []))
 	_beat_index = -1
 	_advance_phase()
 	_refresh_controls()
@@ -196,9 +249,14 @@ func _enter_complete() -> void:
 func _play_beat(beat: Dictionary) -> void:
 	_generation += 1
 	var gen: int = _generation
+	_gaze_events.clear()
+	_beat_fired.clear()
+	_record_step(beat)
+	# 上一拍的教师走位若被跳过/超时，先收尾，避免与新节拍的动作打架
+	if _teacher_moving:
+		_move_teacher(_teacher_move_target, 0.0)
 	interface.clear_subtitle()
 	interface.set_transition_text("")
-	camera.set_scan(0.0)
 	# 教师动作与走位
 	var teacher_cue: Dictionary = beat.get("teacher", {})
 	if teacher_cue.has("action"):
@@ -207,46 +265,83 @@ func _play_beat(beat: Dictionary) -> void:
 			EMOTION_IDS.get(str(teacher_cue.get("emotion", "NEUTRAL")), TeacherAnimator.Emotion.NEUTRAL)
 		)
 	var teacher_at := str(beat.get("teacher_at", ""))
-	if teacher_at == "board":
+	var teacher_move: Dictionary = beat.get("teacher_move", {})
+	if not teacher_move.is_empty():
+		var move_target := (
+			_board_position if str(teacher_move.get("to", "board")) == "board" else _podium_position
+		)
+		_move_teacher_walking(
+			move_target,
+			float(teacher_move.get("seconds", _walk_seconds)),
+			str(teacher_move.get("action", "LECTURE")),
+			str(teacher_move.get("emotion", "NEUTRAL")),
+			gen
+		)
+	elif teacher_at == "board":
 		_move_teacher(_board_position, _walk_seconds)
 	elif teacher_at == "podium":
 		_move_teacher(_podium_position, _walk_seconds)
 	# 主角姿态（第一人称下不可见，但驱动头部高度与 L2 状态）
 	if beat.has("protagonist"):
 		_set_protagonist_pose(str(beat["protagonist"]))
-	# 镜头
+	if beat.has("protagonist_clip"):
+		_play_protagonist_clip(str(beat["protagonist_clip"]))
+	# 镜头：朝向默认交给玩家；auto_look 打开时才按节拍引导
 	var cam: Dictionary = beat.get("camera", {})
-	if cam.has("look"):
+	if auto_look and cam.has("look"):
 		_beat_look_target = _camera_target(str(cam["look"]))
 		camera.set_look_target(_beat_look_target)
-	if cam.has("scan"):
-		camera.set_scan(float(cam["scan"]))
-	if cam.get("third_person", false):
+		camera.recenter_free_look() # 新节拍把视线拉回流程给定的方向
+	camera.set_scan(float(cam.get("scan", 0.0)) if auto_look else 0.0)
+	# 第一人称段全程可以自由转头（正面锥形内）；转第三人称时关闭
+	var third_person := bool(cam.get("third_person", false))
+	camera.set_free_look(not third_person)
+	if not third_person:
+		interface.set_look_hint(str(_content.get("ui", {}).get("look_hint", "")))
+	if third_person:
 		camera.transition_to(_l2_position, _camera_target("self_head"), _l2_seconds * time_scale)
 	if beat.has("transition_text"):
 		interface.set_transition_text(str(beat["transition_text"]))
 	# 通用 cue
 	for cue in beat.get("cues", []):
 		_schedule(float(cue.get("at", 0.0)), func(): _run_cue(str(cue["do"]), gen))
-	# 时间戳事件
+	# 时间戳事件；带 gaze 的事件在玩家转到该方向时提前触发，at 只作兜底
 	for event_cue in beat.get("events", []):
-		_schedule(float(event_cue.get("at", 0.0)), func(): _fire_event(str(event_cue["id"]), gen))
-	# 字幕分段与配音预留（segments 可带 at 指定偏移，否则顺序衔接）
+		var event_def: Dictionary = event_cue
+		if event_def.has("gaze"):
+			_gaze_events.append({
+				"id": str(event_def["id"]),
+				"target": _camera_target(str(event_def["gaze"])),
+				"angle": float(event_def.get("gaze_angle", 12.0)),
+				"gen": gen,
+			})
+		_schedule(float(event_def.get("at", 0.0)), func(): _fire_event(str(event_def["id"]), gen))
+	# 字幕分段与配音（segments 可带 at 指定偏移，否则顺序衔接）
 	var t := 0.0
-	var voice_length := 0.0
+	var audio_end := 0.0
+	var padding := float(_content.get("voice", {}).get("padding", 0.25))
 	for segment in beat.get("segments", []):
 		var seg: Dictionary = segment
 		var seg_seconds := float(seg.get("seconds", 1.0))
 		var seg_at := float(seg.get("at", t))
+		var voice_path := _resolve_cue("voice", str(seg.get("voice", "")))
 		_schedule(seg_at, func(): _show_segment(seg))
-		if str(seg.get("voice", "")) != "":
-			_schedule(seg_at, func(): _play_voice(str(seg["voice"])))
-			voice_length = maxf(voice_length, _voice_length(str(seg["voice"])))
+		if not voice_path.is_empty():
+			_schedule(seg_at, func(): _play_voice(voice_path))
+			audio_end = maxf(audio_end, seg_at + _voice_length(voice_path) + padding)
 		t = seg_at + seg_seconds
-	var hold := float(beat.get("hold", t))
-	hold = maxf(hold, voice_length + 0.25)
+	# 时长取三者较大值：作者预留、字幕结束、配音实际长度
+	var hold := maxf(float(beat.get("hold", t)), maxf(t, audio_end))
 	_schedule(hold, func(): _finish_beat_if(gen))
 	_refresh_controls()
+
+
+func _record_step(beat: Dictionary) -> void:
+	if not beat.has("step"):
+		return
+	var step := float(beat["step"])
+	if _played_steps.is_empty() or _played_steps[_played_steps.size() - 1] != step:
+		_played_steps.append(step)
 
 
 func _finish_beat_if(gen: int) -> void:
@@ -271,13 +366,18 @@ func _current_beat() -> Dictionary:
 func _fire_event(event_id: String, gen: int) -> void:
 	if gen != _generation:
 		return
+	if _beat_fired.has(event_id):
+		return # gaze 与兜底时间戳只触发一次
+	_beat_fired[event_id] = true
+	_gaze_events = _gaze_events.filter(func(entry: Dictionary) -> bool: return str(entry["id"]) != event_id)
 	var event: Dictionary = _content.get("events", {}).get(event_id, {})
 	if event.is_empty():
 		push_warning("DialogueFlow: 未知事件 " + event_id)
 		return
-	# 第二层词条：事件发生时登记，L2 回看
+	# 第二层词条：事件发生时登记，L2 回看（按 step 记录时序，回溯从第 0 步开始）
 	_event_log.append({
 		"label": str(event.get("label", event_id)),
+		"step": float(event.get("step", 0.0)),
 		"thoughts": event.get("thoughts", []),
 	})
 	# 感受词条 chip（事件发生时直接加入）
@@ -289,6 +389,13 @@ func _fire_event(event_id: String, gen: int) -> void:
 		_set_ambient_whispers(false)
 	if event.get("all_managed_to_sit", false):
 		_reset_managed_actors()
+	# 程序化动作（人物场景支持 play_clip 时生效，否则由 poses 的静态姿兜底）
+	for clip_cue in event.get("clips", []):
+		var clip_def: Dictionary = clip_cue
+		_schedule(
+			float(clip_def.get("at", 0.0)),
+			func(): _play_actor_clip(str(clip_def["actor"]), str(clip_def["clip"]))
+		)
 	# 同学姿态（可带 recover 回到坐姿）
 	for pose_cue in event.get("poses", []):
 		var pose: Dictionary = pose_cue
@@ -301,14 +408,16 @@ func _fire_event(event_id: String, gen: int) -> void:
 	var voice: Dictionary = event.get("voice", {})
 	if not voice.is_empty():
 		var voice_at := float(voice.get("at", 0.0))
-		if str(voice.get("kind", "speech")) == "speech":
+		var kind := str(voice.get("kind", "speech"))
+		if kind == "speech":
 			_schedule(voice_at, func(): _show_segment({
 				"speaker": str(voice.get("speaker", "classmate")),
 				"text": str(voice.get("text", "")),
 				"seconds": float(voice.get("seconds", 2.0)),
 			}))
-		if str(voice.get("audio", "")) != "":
-			_schedule(voice_at, func(): _play_voice(str(voice["audio"])))
+		var cue_path := _resolve_cue("voice" if kind == "speech" else "sfx", str(voice.get("cue", "")))
+		if not cue_path.is_empty():
+			_schedule(voice_at, func(): _play_cue(cue_path, kind != "speech"))
 	# 道具
 	for prop_cue in event.get("props", []):
 		var prop: Dictionary = prop_cue
@@ -316,9 +425,10 @@ func _fire_event(event_id: String, gen: int) -> void:
 			float(prop.get("at", 0.0)),
 			func(): _apply_prop_action(str(prop["prop"]), str(prop["action"]))
 		)
-	# 镜头吸引：第一人称下邻座/后排不在默认画面里，事件时“转头看向”，结束后回位
+	# 镜头吸引：auto_look 打开时事件才转头（默认关闭，朝向交给玩家）
 	var event_camera: Dictionary = event.get("camera", {})
-	if event_camera.has("look"):
+	if auto_look and event_camera.has("look"):
+		camera.recenter_free_look() # 先交还视线控制权，事件才框得住
 		camera.set_look_target(_camera_target(str(event_camera["look"])))
 		if event_camera.has("recover"):
 			var recover_after := float(event_camera["recover"])
@@ -342,62 +452,128 @@ func _show_segment(segment: Dictionary) -> void:
 	interface.set_subtitle(label, str(segment.get("text", "")))
 
 
-# ——— 分支 ———
+# ——— 分支（第 8 步是唯一分支点） ———
 
+## 清晰回应：玩家输入（可留空走固定句）→ 分支一（自信）。
 func _on_answer_submitted(text: String) -> void:
 	if stage != &"choice":
 		return
+	_branch = &"confident"
 	stage = &"answer"
-	_branch = &"answer"
 	interface.hide_choice()
+	_stop_ambient()
 	var choice: Dictionary = _content.get("choice", {})
 	var line := text.strip_edges()
+	var fallback := str(choice.get("answer_fallback", ""))
 	if line.is_empty():
-		line = str(choice.get("answer_fallback", ""))
+		line = fallback
+	# 留空时走固定句，可以预录配音；玩家自己输入的文字按字数预留时长，不接音频
+	var voice := str(choice.get("answer_fallback_voice", "")) if line == fallback else ""
 	var per_char := float(choice.get("answer_seconds_per_char", 4.6))
 	var seconds := clampf(
 		line.length() / per_char,
 		float(choice.get("answer_min_seconds", 2.5)),
 		float(choice.get("answer_max_seconds", 12.0))
 	)
-	var accept: Dictionary = choice.get("teacher_accept", {})
-	var answer_beats: Array[Dictionary] = []
-	answer_beats.append({
-		"id": "player_answer",
-		"hold": seconds + 0.4,
-		"teacher": {"action": "LECTURE", "emotion": "NEUTRAL"},
-		"segments": [{"speaker": "protagonist", "text": line, "seconds": seconds}],
-	})
-	answer_beats.append({
-		"id": "teacher_accept",
-		"hold": float(accept.get("seconds", 3.8)) + 0.3,
-		"teacher": {
-			"action": str(accept.get("action", "LECTURE")),
-			"emotion": str(accept.get("emotion", "HAPPY")),
-		},
-		"segments": [{
-			"speaker": "teacher",
-			"text": str(accept.get("text", "")),
-			"seconds": float(accept.get("seconds", 3.8)),
-			"voice": str(accept.get("voice", "")),
-		}],
-	})
-	_beats = answer_beats
+	_beats = [
+		_player_answer_beat(line, seconds, "STAND_TALK", voice),
+		_teacher_reply_beat(choice.get("confident", {}), "s08_teacher_accept", "HAPPY"),
+	]
 	_beat_index = -1
 	_advance_phase()
 	_refresh_controls()
 
 
+## 勉强开口：断断续续说完同一立场 → 分支二（紧张）。
+func _on_struggle() -> void:
+	if stage != &"choice":
+		return
+	_branch = &"struggle"
+	stage = &"answer"
+	interface.hide_choice()
+	_stop_ambient()
+	var choice: Dictionary = _content.get("choice", {})
+	var seconds := float(choice.get("struggle_seconds", 4.2))
+	_beats = [
+		_player_answer_beat(
+			str(choice.get("struggle_line", "")), seconds, "STAND_TALK",
+			str(choice.get("struggle_voice", ""))
+		),
+		_teacher_reply_beat(choice.get("struggle", {}), "s08_teacher_nervous", "DOWN"),
+	]
+	_beat_index = -1
+	_advance_phase()
+	_refresh_controls()
+
+
+## 躲开视线：低头四处看 → 分支二（紧张，无台词）。
 func _on_avoid_chosen() -> void:
 	if stage != &"choice":
 		return
-	stage = &"avoid"
 	_branch = &"avoid"
+	stage = &"avoid"
 	interface.hide_choice()
-	_beats = _content.get("branch_avoid", [])
+	_stop_ambient()
+	var choice: Dictionary = _content.get("choice", {})
+	var beats := _load_beats(_content.get("branch_avoid", []))
+	beats.append(_teacher_reply_beat(choice.get("avoid", {}), "s08_teacher_nervous", "DOWN"))
+	_beats = beats
 	_beat_index = -1
 	_advance_phase()
 	_refresh_controls()
+
+
+func _player_answer_beat(
+	line: String, seconds: float, clip: String, voice: String = ""
+) -> Dictionary:
+	return {
+		"step": float(_content.get("choice", {}).get("step", 8)),
+		"id": "s08_player_answer",
+		"hold": seconds + 0.4,
+		"teacher": { "action": "LECTURE", "emotion": "NEUTRAL" },
+		"protagonist": "stand",
+		"protagonist_clip": clip,
+		"segments": [{
+			"speaker": "protagonist",
+			"text": line,
+			"seconds": seconds,
+			"voice": voice,
+		}],
+	}
+
+
+func _teacher_reply_beat(cfg: Dictionary, beat_id: String, fallback_emotion: String) -> Dictionary:
+	var reply: Dictionary = cfg.get("teacher", {})
+	var seconds := float(reply.get("seconds", 3.8))
+	return {
+		"step": float(_content.get("choice", {}).get("step", 8)),
+		"id": beat_id,
+		"hold": seconds + 0.3,
+		"teacher": {
+			"action": str(reply.get("action", "LECTURE")),
+			"emotion": str(reply.get("emotion", fallback_emotion)),
+		},
+		"segments": [{
+			"speaker": "teacher",
+			"text": str(reply.get("text", "")),
+			"seconds": seconds,
+			"voice": str(reply.get("voice", "")),
+		}],
+	}
+
+
+## 按分支过滤 only_branch 节拍（E03 只在清晰回应后出现）。
+func _load_beats(source: Variant) -> Array:
+	var out: Array = []
+	if not source is Array:
+		return out
+	for item in source:
+		var beat: Dictionary = item
+		var only := str(beat.get("only_branch", ""))
+		if not only.is_empty() and StringName(only) != _branch:
+			continue
+		out.append(beat)
+	return out
 
 
 # ——— L2 词条序列 ———
@@ -407,8 +583,17 @@ func _build_l2_cards() -> void:
 	var l2: Dictionary = _content.get("l2", {})
 	var base := float(l2.get("card_base_seconds", 1.8))
 	var per_line := float(l2.get("card_seconds_per_line", 0.55))
-	# 1) 事件词条：主角想法
-	for entry in _event_log:
+	# 0) 回溯起点：进入 L2 后从第 0 步重新看一遍（“回溯到 0”）
+	var rewind_line := str(l2.get("rewind_line", ""))
+	if not rewind_line.is_empty():
+		_l2_cards.append({
+			"title": str(l2.get("rewind_title", "思绪倒放 · 回到最开始")),
+			"body": rewind_line,
+			"seconds": float(l2.get("rewind_seconds", 2.6)),
+			"voice": str(l2.get("rewind_voice", "")),
+		})
+	# 1) 事件词条：主角想法，按发生的流程步号从第 0 步排起
+	for entry in _sorted_event_log():
 		var thoughts: Array = entry.get("thoughts", [])
 		if thoughts.is_empty():
 			continue
@@ -419,11 +604,16 @@ func _build_l2_cards() -> void:
 		})
 	# 2) 思绪倒放（按分支）
 	var replay: Array = (
-		l2.get("replay_confident", []) if _branch == &"answer" else l2.get("replay_nervous", [])
+		l2.get("replay_confident", []) if _branch == &"confident" else l2.get("replay_nervous", [])
 	)
 	var replay_title := str(l2.get("replay_title", "思绪倒放"))
 	for line in replay:
-		_l2_cards.append({"title": replay_title, "body": str(line), "seconds": 2.6})
+		var text := str(line)
+		var voice := ""
+		if line is Dictionary:
+			text = str(line.get("text", ""))
+			voice = str(line.get("voice", ""))
+		_l2_cards.append({"title": replay_title, "body": text, "seconds": 2.8, "voice": voice})
 	# 3) 对观察的观察（心理概念）
 	var observation_title := str(l2.get("observations_title", "对观察的观察"))
 	for observation in l2.get("observations", []):
@@ -433,7 +623,17 @@ func _build_l2_cards() -> void:
 			"body": str(obs.get("line", "")),
 			"seconds": 3.0,
 			"isolate": true,
+			"voice": str(obs.get("voice", "")),
 		})
+
+
+func _sorted_event_log() -> Array:
+	var entries := _event_log.duplicate()
+	entries.sort_custom(
+		func(a: Dictionary, b: Dictionary) -> bool:
+			return float(a.get("step", 0.0)) < float(b.get("step", 0.0))
+	)
+	return entries
 
 
 func _next_card() -> void:
@@ -449,7 +649,12 @@ func _next_card() -> void:
 		if flow_state != null:
 			flow_state.enter_l3()
 	interface.show_card(str(card.get("title", "")), str(card.get("body", "")))
-	_schedule(float(card.get("seconds", 2.8)), func(): _next_card_if(gen))
+	var voice_path := _resolve_cue("voice", str(card.get("voice", "")))
+	var seconds := float(card.get("seconds", 2.8))
+	if not voice_path.is_empty():
+		_play_voice(voice_path)
+		seconds = maxf(seconds, _voice_length(voice_path) + float(_content.get("voice", {}).get("padding", 0.25)))
+	_schedule(seconds, func(): _next_card_if(gen))
 	_refresh_controls()
 
 
@@ -560,7 +765,14 @@ func _reset_world() -> void:
 	_event_log.clear()
 	_l2_cards.clear()
 	_l2_index = -1
+	_played_steps.clear()
+	_gaze_events.clear()
+	_beat_fired.clear()
+	_teacher_moving = false
 	_beat_look_target = _camera_target("podium_teacher")
+	# 音频与自由转头
+	_stop_all_audio()
+	camera.set_free_look(false)
 	# 界面与镜头
 	interface.show_intro()
 	interface.clear_subtitle()
@@ -573,6 +785,7 @@ func _kill_tweens() -> void:
 	if _teacher_tween != null and _teacher_tween.is_valid():
 		_teacher_tween.kill()
 	_teacher_tween = null
+	_teacher_moving = false
 	if _prop_tween != null and _prop_tween.is_valid():
 		_prop_tween.kill()
 	_prop_tween = null
@@ -615,6 +828,28 @@ func _set_actor_pose(actor: String, pose: String) -> void:
 	node.pose = pose_id
 	node.apply_pose()
 	_schedule_sink_check(node)
+
+
+## 程序化动作：人物节点换成 character_action.gd 后自动生效；静态姿态场景静默跳过。
+func _play_actor_clip(actor: String, clip_name: String) -> void:
+	var node := _actor_node(actor)
+	if node == null or not node.has_method("play_clip"):
+		return
+	var clip_id: int = CLIP_IDS.get(clip_name, -1)
+	if clip_id < 0:
+		push_warning("DialogueFlow: 未知动作 " + clip_name)
+		return
+	node.play_clip(clip_id, true)
+
+
+## 主角动作（起身/坐下/说话/四处看）。当前主角为静态姿态场景，接入动画场景后生效。
+func _play_protagonist_clip(clip_name: String) -> void:
+	var clip_id: int = CLIP_IDS.get(clip_name, -1)
+	if clip_id < 0:
+		return
+	for node in [protagonist_stand, protagonist_look]:
+		if node != null and node.has_method("play_clip"):
+			node.play_clip(clip_id, true)
 
 
 ## apply_pose() 内部会 await 两帧再把模型下沉到坐姿髋高，且不是可重入的：
@@ -690,17 +925,41 @@ func _set_protagonist_pose(pose: String, immediate: bool = false) -> void:
 
 # ——— 教师走位 ———
 
-func _move_teacher(target: Vector3, seconds: float) -> void:
+func _move_teacher(target: Vector3, seconds: float, then_callable: Callable = Callable()) -> void:
 	if _teacher_tween != null and _teacher_tween.is_valid():
 		_teacher_tween.kill()
+	_teacher_tween = null
+	_teacher_move_target = target
+	_teacher_moving = seconds > 0.0
 	if seconds <= 0.0:
 		teacher.position = target
+		if then_callable.is_valid():
+			then_callable.call()
 		return
 	var from := teacher.position
 	_teacher_tween = teacher.create_tween().set_pause_mode(Tween.TWEEN_PAUSE_BOUND)
 	_teacher_tween.tween_method(
 		func(value: Vector3) -> void: teacher.position = value, from, target, seconds * time_scale
 	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	if then_callable.is_valid():
+		_teacher_tween.tween_callback(then_callable)
+
+
+## 讲台 ↔ 黑板：走路姿态 + 场景位移（位移补间可被重开/跳过打断），到位后切到目标动作。
+func _move_teacher_walking(
+	target: Vector3, seconds: float, end_action: String, end_emotion: String, gen: int
+) -> void:
+	teacher.set_state(TeacherAnimator.Action.WALK, TeacherAnimator.Emotion.NEUTRAL, true)
+	var finish := func() -> void:
+		_teacher_moving = false
+		if gen != _generation:
+			return
+		teacher.set_state(
+			ACTION_IDS.get(end_action, TeacherAnimator.Action.LECTURE),
+			EMOTION_IDS.get(end_emotion, TeacherAnimator.Emotion.NEUTRAL),
+			true
+		)
+	_move_teacher(target, seconds, finish)
 
 
 func _place_teacher_opening() -> void:
@@ -779,28 +1038,109 @@ func _tween_prop(node: MeshInstance3D, target: Vector3, seconds: float, rolling:
 		)
 
 
-# ——— 配音挂载 ———
+# ——— 配音与音效（voice / sfx 清单，id → 文件） ———
+
+## 三条独立通道：台词、音效、环境底噪。全部走 Master，静音按钮直接静音 Master。
+func _build_audio() -> void:
+	_voice = AudioStreamPlayer.new()
+	_voice.name = "Voice"
+	add_child(_voice)
+	_sfx = AudioStreamPlayer.new()
+	_sfx.name = "Sfx"
+	add_child(_sfx)
+	_ambient = AudioStreamPlayer.new()
+	_ambient.name = "Ambient"
+	_ambient.volume_db = -9.0
+	add_child(_ambient)
+
+
+## 把配置里的配音 id 解析成资源路径；也接受直接写 res:// 路径（旧配置）。
+## 清单里没有的 id 只提醒一次并静默跳过，不影响流程推进。
+func _resolve_cue(section: String, key: String) -> String:
+	if key.is_empty():
+		return ""
+	if key.begins_with("res://"):
+		return key
+	var cfg: Dictionary = _content.get(section, {})
+	var table: Dictionary = cfg.get("cues", {})
+	var file := ""
+	if table.has(key):
+		var value: Variant = table[key]
+		file = str(value.get("file", "")) if value is Dictionary else str(value)
+	else:
+		var missing_key := section + ":" + key
+		if not _missing_voice.has(missing_key):
+			_missing_voice[missing_key] = true
+			push_warning("DialogueFlow: %s 清单里没有配音 id %s" % [section, key])
+		return ""
+	if file.is_empty():
+		return ""
+	if file.begins_with("res://"):
+		return file
+	return str(cfg.get("root", "")).path_join(file)
+
+
+func _stream(path: String) -> AudioStream:
+	if path.is_empty():
+		return null
+	var stream: Variant = load(path) if ResourceLoader.exists(path) else null
+	return stream as AudioStream
+
 
 func _play_voice(path: String) -> void:
-	if path.is_empty() or not ResourceLoader.exists(path):
-		return
-	var stream: Variant = load(path)
-	if not stream is AudioStream:
-		return
 	if _voice == null:
-		_voice = AudioStreamPlayer.new()
-		add_child(_voice)
-	_voice.stream = stream as AudioStream
+		return
+	var stream := _stream(path)
+	if stream == null:
+		return
+	_voice.stream = stream
 	_voice.play()
 
 
+## 事件里的环境音/同学低声说话。as_sfx=true 时走音效通道，不打断台词。
+func _play_cue(path: String, as_sfx: bool) -> void:
+	var player := _sfx if as_sfx else _voice
+	if player == null:
+		return
+	var stream := _stream(path)
+	if stream == null:
+		return
+	player.stream = stream
+	player.play()
+
+
 func _voice_length(path: String) -> float:
-	if path.is_empty() or not ResourceLoader.exists(path):
+	var stream := _stream(path)
+	if stream == null:
 		return 0.0
-	var stream: Variant = load(path)
-	if not stream is AudioStream:
-		return 0.0
-	return (stream as AudioStream).get_length()
+	return stream.get_length()
+
+
+func _start_ambient_loop(key: String) -> void:
+	if _ambient == null:
+		return
+	var stream := _stream(_resolve_cue("sfx", key))
+	if stream == null:
+		return
+	# 复制一份再开循环，避免改动导入资源缓存。
+	var looped := stream.duplicate() as AudioStream
+	if looped is AudioStreamOggVorbis:
+		(looped as AudioStreamOggVorbis).loop = true
+	elif looped is AudioStreamMP3:
+		(looped as AudioStreamMP3).loop = true
+	_ambient.stream = looped
+	_ambient.play()
+
+
+func _stop_ambient() -> void:
+	if _ambient != null:
+		_ambient.stop()
+
+
+func _stop_all_audio() -> void:
+	for player in [_voice, _sfx, _ambient]:
+		if player != null:
+			(player as AudioStreamPlayer).stop()
 
 
 # ——— 心流状态（L2） ———
@@ -836,6 +1176,10 @@ func _read_config() -> void:
 	_l2_seconds = float(cam.get("l2_seconds", 2.5))
 	camera.idle_position_amplitude = float(cam.get("idle_position_amplitude", 0.004))
 	camera.idle_look_amplitude = float(cam.get("idle_look_amplitude", 0.035))
+	camera.free_look_yaw_limit = float(cam.get("free_look_yaw_limit", camera.free_look_yaw_limit))
+	camera.free_look_pitch_up = float(cam.get("free_look_pitch_up", camera.free_look_pitch_up))
+	camera.free_look_pitch_down = float(cam.get("free_look_pitch_down", camera.free_look_pitch_down))
+	camera.free_look_speed = float(cam.get("free_look_speed", camera.free_look_speed))
 	var teacher_cfg: Dictionary = _content.get("teacher", {})
 	_podium_position = _vec(teacher_cfg.get("podium_position", [-2.8, 0.0, -3.05]))
 	_walk_seconds = float(teacher_cfg.get("walk_seconds", 2.8))
@@ -856,6 +1200,7 @@ func _vec(value: Variant) -> Vector3:
 # ——— 每帧：主角模型只在相机离开头部后显示 ———
 
 func _process(_delta: float) -> void:
+	_check_gaze_events()
 	var anchor := protagonist_sit.get_node_or_null("ViewAnchor") as Node3D if protagonist_sit != null else null
 	if anchor == null:
 		return
@@ -865,6 +1210,27 @@ func _process(_delta: float) -> void:
 	protagonist_look.visible = clear and _protagonist_pose == &"look_around"
 
 
+## 第 0 步的“看见才发生”：玩家把视线转到侧前方课桌（或到兜底时间）时触发事件05。
+func _check_gaze_events() -> void:
+	if _gaze_events.is_empty() or get_tree().paused:
+		return
+	var forward := camera.forward()
+	var eye := camera.current_position()
+	var remaining: Array[Dictionary] = []
+	for entry in _gaze_events:
+		var gen: int = int(entry.get("gen", -1))
+		if gen != _generation:
+			continue
+		var to_target: Vector3 = Vector3(entry["target"]) - eye
+		if to_target.length_squared() < 0.0001:
+			continue
+		if rad_to_deg(forward.angle_to(to_target.normalized())) <= float(entry["angle"]):
+			_fire_event(str(entry["id"]), gen)
+			continue
+		remaining.append(entry)
+	_gaze_events = remaining
+
+
 ## 供无头检查：强制结束当前分支窗口（不经过 UI）。
 func debug_choose(answer_text: String) -> void:
 	_on_answer_submitted(answer_text)
@@ -872,6 +1238,69 @@ func debug_choose(answer_text: String) -> void:
 
 func debug_choose_avoid() -> void:
 	_on_avoid_chosen()
+
+
+func debug_choose_struggle() -> void:
+	_on_struggle()
+
+
+## 供无头检查：已播放过的流程步号顺序（0–11，同号只记一次）。
+func debug_played_steps() -> Array:
+	return _played_steps.duplicate()
+
+
+## 供无头检查：配音清单逐条解析结果（缺失文件不报错，只标记 exists=false）。
+func debug_voice_report() -> Array:
+	var report: Array = []
+	for section in ["voice", "sfx"]:
+		var table: Dictionary = _content.get(section, {}).get("cues", {})
+		for key in table.keys():
+			var path := _resolve_cue(section, str(key))
+			report.append({
+				"section": section,
+				"id": str(key),
+				"path": path,
+				"exists": ResourceLoader.exists(path),
+			})
+	return report
+
+
+## 供无头检查：配置里实际被引用的配音/音效 id（用于查漏登记与孤儿条目）。
+func debug_voice_usage() -> Dictionary:
+	var used := {"voice": {}, "sfx": {}}
+	var add := func(section: String, key: String) -> void:
+		if key.is_empty() or key.begins_with("res://"):
+			return
+		used[section][key] = true
+	for source in ["beats", "ending", "branch_avoid"]:
+		for beat in _content.get(source, []):
+			_scan_beat_voice(beat, add)
+	for event in _content.get("events", {}).values():
+		var voice: Dictionary = event.get("voice", {})
+		var kind := str(voice.get("kind", "speech"))
+		add.call("voice" if kind == "speech" else "sfx", str(voice.get("cue", "")))
+	# 第 8 步三条分支的老师回应与勉强开口的台词
+	var choice: Dictionary = _content.get("choice", {})
+	for branch_key in ["confident", "struggle", "avoid"]:
+		var block: Dictionary = choice.get(branch_key, {})
+		add.call("voice", str(block.get("teacher", {}).get("voice", "")))
+	add.call("voice", str(choice.get("struggle_voice", "")))
+	add.call("voice", str(choice.get("answer_fallback_voice", "")))
+	var l2: Dictionary = _content.get("l2", {})
+	add.call("voice", str(l2.get("rewind_voice", "")))
+	for key in ["replay_confident", "replay_nervous"]:
+		for line in l2.get(key, []):
+			if line is Dictionary:
+				add.call("voice", str(line.get("voice", "")))
+	for observation in l2.get("observations", []):
+		add.call("voice", str(observation.get("voice", "")))
+	add.call("sfx", "murmur_loop") # 第 8 步选择窗口的议论纷纷底噪
+	return used
+
+
+func _scan_beat_voice(beat: Dictionary, add: Callable) -> void:
+	for segment in beat.get("segments", []):
+		add.call("voice", str(segment.get("voice", "")))
 
 
 ## 供无头检查：当前阶段、分支、已触发事件与主角姿态。
