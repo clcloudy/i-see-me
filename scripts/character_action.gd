@@ -527,31 +527,35 @@ func _arm_specs(u: float, t: float, frame: Dictionary) -> Dictionary:
 		Clip.HEAD_SHAKE:
 			return {"r": lap_r, "l": lap_l}
 		Clip.DRAW_GRID:
-			var note := _desk_point(frame, 0.04, 0.33, 0.765)
+			# 本子平放在课桌上（台面 desk_height），手腕在桌面上方、手指朝前下方画；
+			# 前缘 0.455 m 是教室课桌的近边，预览小桌近边 0.26 m，点位取 0.47~0.52 两边都在桌上。
 			var drawing := 1.0
 			if u > 0.66 and u < 0.80:
 				drawing = 0.25
-			var wobble: Vector3 = frame["right"] * (0.030 * sin(t * 3.1)) \
-				+ frame["forward"] * (0.024 * sin(t * 1.7)) \
-				+ frame["up"] * (0.004 + 0.002 * sin(t * 5.3))
-			var r_target: Vector3 = note + wobble * drawing + frame["up"] * (0.03 * (1.0 - drawing))
-			var r := _hand_at(r_target, Vector3.DOWN, (frame["forward"] * 0.55 - frame["up"] * 0.7).normalized(), 0.32)
+			var wobble: Vector3 = frame["right"] * (0.012 * sin(t * 3.1) * drawing) \
+				+ frame["forward"] * (0.010 * sin(t * 1.7) * drawing) \
+				+ frame["up"] * (0.002 * sin(t * 5.3) * drawing)
+			var r_target: Vector3 = _desk_point(frame, 0.04, 0.47, desk_height + 0.085) + wobble
+			var r := _hand_at(r_target, Vector3.DOWN,
+				(frame["forward"] * 0.90 - frame["up"] * 0.44).normalized(), 0.32)
 			var l := lap_l
 			if u > 0.62 and u < 0.84:
 				var erase_k := sin(PI * clampf((u - 0.62) / 0.22, 0.0, 1.0))
-				var erase_p: Vector3 = note + frame["right"] * (0.02 - 0.04 * erase_k) + frame["forward"] * 0.02
-				l = _mix_spec(lap_l, _hand_at(erase_p + frame["up"] * 0.03, Vector3.DOWN, frame["forward"], 0.34), erase_k)
+				var erase_p: Vector3 = _desk_point(frame, 0.01, 0.50, desk_height + 0.090)
+				l = _mix_spec(lap_l, _hand_at(erase_p, Vector3.DOWN,
+					(frame["forward"] * 0.92 - frame["up"] * 0.38).normalized(), 0.30), erase_k)
 			return {"r": r, "l": l}
 		Clip.LOWER_BOOK:
 			var hold := _ease(clampf(u / 0.12, 0.0, 1.0))
 			var place := _ease(clampf((u - 0.45) / 0.38, 0.0, 1.0))
 			var release := _ease(clampf((u - 0.82) / 0.18, 0.0, 1.0))
 			var chest: Vector3 = _rig.bone_world("Torso") + frame["forward"] * 0.24 + frame["up"] * 0.16
-			var desk := _desk_point(frame, 0.02, 0.34, 0.79)
+			# 落点 = 课本中心贴桌面：书厚 0.027，中心在台面 + 0.014。
+			var desk := _desk_point(frame, 0.02, 0.52, desk_height + 0.014)
 			var center: Vector3 = chest.lerp(desk, place)
 			var half := 0.115
-			var r_target: Vector3 = center + frame["right"] * half + frame["up"] * 0.02
-			var l_target: Vector3 = center - frame["right"] * half + frame["up"] * 0.02
+			var r_target: Vector3 = center + frame["right"] * half + frame["up"] * 0.03
+			var l_target: Vector3 = center - frame["right"] * half + frame["up"] * 0.03
 			var r := _hand_at(r_target, -frame["right"], frame["forward"], 0.55)
 			var l := _hand_at(l_target, frame["right"], frame["forward"], 0.55)
 			r = _mix_spec(r, lap_r, release)
@@ -685,6 +689,23 @@ func _create_props() -> void:
 		p.visible = false
 
 
+## 画方格时的铅笔：笔尖落在本子面上，笔杆从指间指向笔尖。
+## 与 _place_writing_pen 同一解法——通用握持会让铅笔沿手腕俯角插到桌面以下。
+func _place_drawing_pencil(frame: Dictionary) -> void:
+	var grip: Vector3 = (_rig.bone_world("Index2.R") + _rig.bone_world("Index3.R")) * 0.5
+	var tip_target: Vector3 = _desk_point(frame, 0.04, 0.53, desk_height + 0.014)
+	var delta: Vector3 = tip_target - grip
+	var axis: Vector3 = (frame["forward"] * 0.80 - frame["up"] * 0.60).normalized()
+	if delta.length() > 0.001:
+		axis = delta.normalized()
+	var y_axis: Vector3 = frame["up"] - axis * frame["up"].dot(axis)
+	if y_axis.length_squared() < 0.01:
+		y_axis = frame["right"]
+	y_axis = y_axis.normalized()
+	var z_axis: Vector3 = axis.cross(y_axis).normalized()
+	_pencil.global_transform = Transform3D(Basis(axis, y_axis, z_axis), grip - axis * 0.010)
+
+
 func _update_props(u: float) -> void:
 	var show := show_props
 	var pen_visible := show and (clip == Clip.PICK_PEN or clip == Clip.DESK_PEN_IDLE)
@@ -755,17 +776,17 @@ func _place_pick_pen(u: float, frame: Dictionary) -> void:
 func _place_lowered_book(u: float, frame: Dictionary) -> void:
 	var place := _ease(clampf((u - 0.45) / 0.38, 0.0, 1.0))
 	var chest: Vector3 = _rig.bone_world("Torso") + frame["forward"] * 0.24 + frame["up"] * 0.16
-	var desk := _desk_point(frame, 0.02, 0.34, 0.795)
+	var desk := _desk_point(frame, 0.02, 0.52, desk_height + 0.014)
 	var center: Vector3 = chest.lerp(desk, place)
 	var basis := Basis(frame["right"], frame["up"], frame["forward"])
 	_book.global_transform = Transform3D(basis, center)
 
 
 func _place_drawing_props(u: float, frame: Dictionary) -> void:
-	var note := _desk_point(frame, 0.04, 0.33, 0.760)
+	var note := _desk_point(frame, 0.04, 0.52, desk_height + 0.006)
 	var basis := Basis(frame["right"], frame["up"], frame["forward"])
 	_notebook.global_transform = Transform3D(basis, note)
-	_place_in_hand(_pencil, "R", 0.035)
+	_place_drawing_pencil(frame)
 	# 橡皮：擦线时在左手，其余时间放在本子右上角
 	if u > 0.60 and u < 0.86:
 		_place_in_hand(_eraser, "L", 0.006)

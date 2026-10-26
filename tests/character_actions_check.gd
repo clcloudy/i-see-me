@@ -115,25 +115,39 @@ func _check_all_clips() -> void:
 	_expect(ch._pen.visible, "pick_pen: pen missing after placing")
 	_expect(ch._pen.global_position.y > 0.5, "pick_pen: pen not placed on desk")
 
-	# 画方格：本子/铅笔/橡皮都在
+	# 画方格：本子/铅笔/橡皮都在，且都贴在桌面之上（2026-10-26 修正回归）
 	ch.play_clip(CharacterAction.Clip.DRAW_GRID, true)
 	ch.seek(1.0)
 	await process_frame
 	_expect(ch._notebook.visible and ch._pencil.visible and ch._eraser.visible,
 		"draw_grid: desk props missing")
-	ch.seek(3.5)  # 擦线窗口
+	var note_box := _global_aabb(ch._notebook)
+	_expect(absf(note_box.position.y - ch.desk_height) < 0.02,
+		"draw_grid: notebook not on desk (bottom %.3f vs %.3f)"
+		% [note_box.position.y, ch.desk_height])
+	var pencil_box := _global_aabb(ch._pencil)
+	_expect(pencil_box.position.y > ch.desk_height - 0.01,
+		"draw_grid: pencil below desk (%.3f)" % pencil_box.position.y)
+	_expect(ch._rig.bone_world("Hand.R").y > ch.desk_height + 0.02,
+		"draw_grid: right hand below desk (%.3f)" % ch._rig.bone_world("Hand.R").y)
+	ch.seek(3.8)  # 擦线窗口中部（3.22–4.37 s），左手已到本子上
 	await process_frame
 	_expect(ch._eraser.visible, "draw_grid: eraser missing during erase")
+	var eraser_box := _global_aabb(ch._eraser)
+	_expect(eraser_box.position.y > ch.desk_height - 0.01,
+		"draw_grid: eraser below desk (%.3f)" % eraser_box.position.y)
 
-	# 放低课本：书可见，结尾落到桌面高度
+	# 放低课本：书可见，结尾落到桌面高度（书底贴台面，不悬空）
 	ch.play_clip(CharacterAction.Clip.LOWER_BOOK, true)
 	ch.seek(0.3)
 	await process_frame
 	_expect(ch._book.visible, "lower_book: book missing")
 	ch.seek(ch.get_clip_duration())
 	await process_frame
-	_expect(ch._book.global_position.y > 0.6, "lower_book: book not lowered (%.2f)"
-		% ch._book.global_position.y)
+	var book_box := _global_aabb(ch._book)
+	_expect(absf(book_box.position.y - ch.desk_height) < 0.02,
+		"lower_book: book floating/embedded (bottom %.3f vs desk %.3f)"
+		% [book_box.position.y, ch.desk_height])
 
 	# 桌面持笔（2026-10-26 追补）：双手在课桌上、右手持笔、面前摊开课本
 	ch.play_clip(CharacterAction.Clip.DESK_PEN_IDLE, true)
@@ -308,6 +322,23 @@ func _torso_pitch(ch: Node3D) -> float:
 		return 0.0
 	var q := skel.get_bone_pose_rotation(idx)
 	return rad_to_deg(q.get_euler().x)
+
+
+## 一个节点下所有 MeshInstance3D 的世界 AABB（道具是否落到桌面用）。
+func _global_aabb(node: Node) -> AABB:
+	var out := AABB()
+	var first := true
+	for c in node.find_children("*", "MeshInstance3D", true, false):
+		var mi := c as MeshInstance3D
+		if mi.mesh == null:
+			continue
+		var b: AABB = mi.global_transform * mi.mesh.get_aabb()
+		if first:
+			out = b
+			first = false
+		else:
+			out = out.merge(b)
+	return out
 
 
 ## 低头幅度：躯干 + 颈 + 头三段俯仰之和（只看 Head 会低估）。
