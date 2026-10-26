@@ -35,6 +35,7 @@ enum Clip {
 	LOWER_BOOK,     # 13 手持课本→放低到桌面
 	WHISPER_LOOP,   # 14 交头接耳循环
 	QUIET_SETTLE,   # 15 交头接耳→忽然安静（转回前方）
+	DESK_PEN_IDLE,  # 17 桌面持笔：手放桌上、持笔、面前有书（2026-10-26 追补）
 }
 
 ## 表情预设：smile / brow_raise（米）/ brow_tilt（度，正=内侧上挑）/ squint。
@@ -67,6 +68,7 @@ const CLIP_INFO := {
 	Clip.LOWER_BOOK:    {"label": "放低课本", "seated": true, "duration": 2.20, "loop": false},
 	Clip.WHISPER_LOOP:  {"label": "交头接耳", "seated": true, "duration": 3.40, "loop": true},
 	Clip.QUIET_SETTLE:  {"label": "忽然安静", "seated": true, "duration": 0.55, "loop": false},
+	Clip.DESK_PEN_IDLE: {"label": "桌面持笔", "seated": true, "duration": 8.00, "loop": true},
 }
 
 ## 四处看的视线落点（秒, 头部偏航角）。两端停留，中间慢转。
@@ -97,6 +99,9 @@ const INPUT_KEYS := [
 @export var expression: String = "neutral"
 ## 交头接耳方向：+1 向右邻座，-1 向左邻座。
 @export_range(-1, 1) var whisper_side: int = 1
+## 课桌台面高度（米），桌面持笔动作按它摆放书本/笔/手。
+## 教室课桌台面 0.775（课桌中心 0.75、厚 0.05）；动作预览的小桌台面 0.74。
+@export var desk_height: float = 0.775
 
 signal clip_changed(new_clip: int)
 signal clip_finished
@@ -397,6 +402,14 @@ func _base_pose(u: float, t: float) -> Dictionary:
 			torso = Vector3(2.0, 8.0 * side * env, 1.4 * side * env)
 			neck = Vector3(3.0, 24.0 * side * env, 0)
 			head = Vector3(1.0, 10.0 * side * env, 2.0 * side * env)
+		Clip.DESK_PEN_IDLE:
+			# 坐在课桌前：身体略前倾、低头看桌上的书，右手持笔在书上慢慢写，
+			# 左手平放在桌面。幅度刻意压小，满座时不会像在抽搐。
+			var breathe := sin(t * 0.8)
+			var stir := 0.5 + 0.5 * sin(t * 1.9)
+			torso = Vector3(8.0 + 0.6 * breathe, 1.2 * sin(t * 0.35), 1.0)
+			neck = Vector3(13.0 + 0.9 * breathe, 2.0 * sin(t * 0.42), 0.0)
+			head = Vector3(8.0 + 0.7 * breathe + 1.1 * stir, 1.5 * sin(t * 0.5), 0.8)
 		_:
 			torso = Vector3(1.0, 1.0 * sin(t * 0.5), 0)
 			neck = Vector3(0, 0.8 * sin(t * 0.4), 0)
@@ -572,6 +585,21 @@ func _arm_specs(u: float, t: float, frame: Dictionary) -> Dictionary:
 				r = _mix_spec(lap_r, _hand_at(mouth, -frame["forward"],
 					(-frame["right"] * 0.90 + frame["up"] * 0.25 + frame["forward"] * 0.10).normalized(), 0.52), env * 0.6)
 			return {"r": r, "l": l}
+		Clip.DESK_PEN_IDLE:
+			# 桌面高度按教室实际课桌（台面 0.775 m）取点：书在身前 0.62 m，
+			# 右手在书上 0.55 m 处持笔写字，左手平放在书左侧的桌面。
+			# 指骨沿笔杆方向，笔尖才会落在书面上（见 _place_writing_pen）。
+			var stir := 0.5 + 0.5 * sin(t * 1.9)
+			var wobble: Vector3 = frame["right"] * (0.010 * sin(t * 2.3) * stir) \
+				+ frame["forward"] * (0.008 * cos(t * 1.7) * stir) \
+				+ frame["up"] * (0.003 * sin(t * 3.1) * stir)
+			var r_target: Vector3 = _desk_point(frame, 0.06, 0.50, desk_height + 0.080) + wobble
+			var r := _hand_at(r_target, Vector3.DOWN,
+				(frame["forward"] * 0.98 - frame["up"] * 0.20).normalized(), 0.35)
+			var l_target: Vector3 = _desk_point(frame, -0.18, 0.52, desk_height + 0.020)
+			var l := _hand_at(l_target, Vector3.DOWN,
+				(frame["forward"] * 0.90 - frame["up"] * 0.35).normalized(), 0.12)
+			return {"r": r, "l": l}
 		_:
 			return {"r": natural_r, "l": natural_l}
 
@@ -659,8 +687,8 @@ func _create_props() -> void:
 
 func _update_props(u: float) -> void:
 	var show := show_props
-	var pen_visible := show and clip == Clip.PICK_PEN
-	var book_visible := show and clip == Clip.LOWER_BOOK
+	var pen_visible := show and (clip == Clip.PICK_PEN or clip == Clip.DESK_PEN_IDLE)
+	var book_visible := show and (clip == Clip.LOWER_BOOK or clip == Clip.DESK_PEN_IDLE)
 	var note_visible := show and clip == Clip.DRAW_GRID
 	_pen.visible = pen_visible
 	_book.visible = book_visible
@@ -671,11 +699,43 @@ func _update_props(u: float) -> void:
 		return
 	var frame := _rig.body_frame()
 	if pen_visible:
-		_place_pick_pen(u, frame)
+		if clip == Clip.DESK_PEN_IDLE:
+			_place_writing_pen(frame)
+		else:
+			_place_pick_pen(u, frame)
 	if book_visible:
-		_place_lowered_book(u, frame)
+		if clip == Clip.DESK_PEN_IDLE:
+			_place_desk_book(frame)
+		else:
+			_place_lowered_book(u, frame)
 	if note_visible:
 		_place_drawing_props(u, frame)
+
+
+## 桌面持笔：摊开的课本平放在课桌前（台面 0.775 m，书心在身前 0.62 m）。
+func _place_desk_book(frame: Dictionary) -> void:
+	var book := _desk_point(frame, 0.0, 0.62, desk_height + 0.014)
+	var basis := Basis(frame["right"], frame["up"], frame["forward"])
+	_book.global_transform = Transform3D(basis, book)
+
+
+## 写字时的笔：笔杆从指间出发、笔尖（局部 +X 端）落在书面上。
+## 通用握持（_place_in_hand）按“手指 + 掌心”合成笔杆方向，写字俯角下笔尖会
+## 插进书本与桌面 16 cm；这里把笔根放在指间握点，笔杆方向直接指向书面落点，
+## 笔尖高度由目标点保证，手抬高或晃动时笔尖始终贴纸。
+func _place_writing_pen(frame: Dictionary) -> void:
+	var grip: Vector3 = (_rig.bone_world("Index2.R") + _rig.bone_world("Index3.R")) * 0.5
+	var tip_target: Vector3 = _desk_point(frame, 0.06, 0.68, desk_height + 0.029)
+	var delta: Vector3 = tip_target - grip
+	var axis: Vector3 = (frame["forward"] * 0.82 - frame["up"] * 0.57).normalized()
+	if delta.length() > 0.001:
+		axis = delta.normalized()
+	var y_axis: Vector3 = frame["up"] - axis * frame["up"].dot(axis)
+	if y_axis.length_squared() < 0.01:
+		y_axis = frame["right"]
+	y_axis = y_axis.normalized()
+	var z_axis: Vector3 = axis.cross(y_axis).normalized()
+	_pen.global_transform = Transform3D(Basis(axis, y_axis, z_axis), grip - axis * 0.010)
 
 
 func _place_pick_pen(u: float, frame: Dictionary) -> void:
@@ -769,6 +829,9 @@ func _update_face(u: float, t: float) -> void:
 			expr["smile"] = 0.0
 		Clip.WHISPER_LOOP, Clip.QUIET_SETTLE:
 			expr["smile"] = 0.20
+		Clip.DESK_PEN_IDLE:
+			expr["smile"] = 0.0
+			expr["squint"] = 0.16
 	var head_xf := _rig.head_world()
 	_face.update_face(clampf(_frame_delta, 0.0, 0.05), head_xf, expr)
 	_face_ready = true

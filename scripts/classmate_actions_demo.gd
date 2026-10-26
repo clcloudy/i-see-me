@@ -12,10 +12,11 @@ const CLIPS: Array[int] = [
 	CharacterAction.Clip.LOWER_BOOK,
 	CharacterAction.Clip.WHISPER_LOOP,
 	CharacterAction.Clip.QUIET_SETTLE,
+	CharacterAction.Clip.DESK_PEN_IDLE,
 ]
 const EXPRESSIONS := [
 	"amused", "warm", "neutral", "neutral", "doubt",
-	"focused", "neutral", "amused", "neutral",
+	"focused", "neutral", "amused", "neutral", "focused",
 ]
 
 var character: CharacterAction
@@ -43,6 +44,8 @@ func _spawn_character() -> CharacterAction:
 	# 必须在进入场景树（_ready 应用配色）之前设置。
 	holder.set("outfit", 3)
 	holder.set("whisper_side", 1)
+	# 演示小桌台面 0.74（ActionDemoStage.desk 的桌面 0.72 + 厚 0.04）。
+	holder.set("desk_height", 0.74)
 	var model: Node3D = load("res://assets/characters/quaternius/Casual2.glb").instantiate()
 	model.name = "Model"
 	model.rotation_degrees = Vector3(0, 180, 0)
@@ -66,6 +69,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	if key >= KEY_1 and key <= KEY_9:
 		_auto = false
 		play_index(key - KEY_1)
+	elif key == KEY_0:
+		_auto = false
+		play_index(9)
 	elif key == KEY_A:
 		_auto = not _auto
 		_wait = 0.1 if _auto else 1e9
@@ -105,7 +111,7 @@ func _update_hud() -> void:
 	if hud == null:
 		return
 	var mode := "自动轮播" if _auto else "手动"
-	hud.text = "同学动作补全 · %d/%d  %s（%.2fs）\n数字键 1-9 切换 · A 自动 · R 重播 · 模式：%s" % [
+	hud.text = "同学动作补全 · %d/%d  %s（%.2fs）\n数字键 1-9 / 0 切换 · A 自动 · R 重播 · 模式：%s" % [
 		_index + 1, CLIPS.size(), character.get_clip_label(),
 		character.get_clip_duration(), mode,
 	]

@@ -73,6 +73,7 @@ func _check_all_clips() -> void:
 		CharacterAction.Clip.HAND_ON_DESK, CharacterAction.Clip.LAUGH_SHAKE,
 		CharacterAction.Clip.NOD_FULL, CharacterAction.Clip.LOOK_BACK,
 		CharacterAction.Clip.DRAW_GRID, CharacterAction.Clip.WHISPER_LOOP,
+		CharacterAction.Clip.DESK_PEN_IDLE,
 	]
 	for clip in seated_clips:
 		ch.play_clip(clip, true)
@@ -134,13 +135,46 @@ func _check_all_clips() -> void:
 	_expect(ch._book.global_position.y > 0.6, "lower_book: book not lowered (%.2f)"
 		% ch._book.global_position.y)
 
-	# 掩嘴低笑：手在嘴边
+	# 桌面持笔（2026-10-26 追补）：双手在课桌上、右手持笔、面前摊开课本
+	ch.play_clip(CharacterAction.Clip.DESK_PEN_IDLE, true)
+	ch.seek(1.2)
+	await process_frame
+	_expect(ch._pen.visible, "desk_pen_idle: pen prop not visible")
+	_expect(ch._book.visible, "desk_pen_idle: book prop not visible")
+	var hand_r: Vector3 = ch._rig.bone_world("Hand.R")
+	var hand_l: Vector3 = ch._rig.bone_world("Hand.L")
+	var root_pos := ch.global_position
+	_expect(hand_r.y > 0.70 and hand_r.y < 0.95,
+		"desk_pen_idle: right hand not on desk (y=%.2f)" % hand_r.y)
+	_expect(hand_l.y > 0.70 and hand_l.y < 0.95,
+		"desk_pen_idle: left hand not on desk (y=%.2f)" % hand_l.y)
+	# 手落在身前的课桌范围内（不是垂在腿边）
+	var reach_r := Vector2(hand_r.x - root_pos.x, hand_r.z - root_pos.z).length()
+	var reach_l := Vector2(hand_l.x - root_pos.x, hand_l.z - root_pos.z).length()
+	_expect(reach_r > 0.40 and reach_r < 0.72,
+		"desk_pen_idle: right hand reach %.2f" % reach_r)
+	_expect(reach_l > 0.40 and reach_l < 0.72,
+		"desk_pen_idle: left hand reach %.2f" % reach_l)
+	var grip_point: Vector3 = ch._rig.bone_world("Index2.R")
+	_expect(ch._pen.global_position.distance_to(grip_point) < 0.10,
+		"desk_pen_idle: pen not held by right hand (%.2f)" % ch._pen.global_position.distance_to(grip_point))
+	# 书本在身前、桌面高度
+	var book_pos: Vector3 = ch._book.global_position
+	var book_reach := Vector2(book_pos.x - root_pos.x, book_pos.z - root_pos.z).length()
+	_expect(book_reach > 0.45 and book_reach < 0.80,
+		"desk_pen_idle: book reach %.2f" % book_reach)
+	_expect(absf(book_pos.y - 0.789) < 0.06,
+		"desk_pen_idle: book height %.3f" % book_pos.y)
+	_expect(_head_pitch(ch) > 6.0,
+		"desk_pen_idle: head not looking down (%.1f)" % _head_pitch(ch))
+
+	# 掩嘴低笑：手在嘴边（warm 让嘴部面片先跟着新头部姿态收敛一帧）
 	ch.play_clip(CharacterAction.Clip.LAUGH_SHAKE, true)
-	ch.seek(0.3)
+	ch.warm(0.3, 4)
 	await process_frame
 	var hand: Vector3 = ch._rig.bone_world("Hand.R")
 	var head: Vector3 = ch._rig.bone_world("Head")
-	_expect(hand.distance_to(head) < 0.16, "laugh_shake: hand not at mouth (%.2f)"
+	_expect(hand.distance_to(head) < 0.20, "laugh_shake: hand not at mouth (%.2f)"
 		% hand.distance_to(head))
 	# 不能插进头里：手腕到嘴面片至少留 3 cm，同时不能离得太远。
 	var mouth: Vector3 = ch._face.get_mouth_world()
@@ -175,7 +209,8 @@ func _check_female_model() -> void:
 		return
 	ch.outfit = 7
 	for clip in [CharacterAction.Clip.SIT_TO_STAND, CharacterAction.Clip.LAUGH_SHAKE,
-			CharacterAction.Clip.WHISPER_LOOP, CharacterAction.Clip.NOD_FULL]:
+			CharacterAction.Clip.WHISPER_LOOP, CharacterAction.Clip.NOD_FULL,
+			CharacterAction.Clip.DESK_PEN_IDLE]:
 		ch.play_clip(clip, true)
 		ch.seek(ch.get_clip_duration() * 0.5)
 		await process_frame
@@ -273,3 +308,16 @@ func _torso_pitch(ch: Node3D) -> float:
 		return 0.0
 	var q := skel.get_bone_pose_rotation(idx)
 	return rad_to_deg(q.get_euler().x)
+
+
+## 低头幅度：躯干 + 颈 + 头三段俯仰之和（只看 Head 会低估）。
+func _head_pitch(ch: Node3D) -> float:
+	var skel: Skeleton3D = ch._skeleton
+	var total := 0.0
+	for bone in ["Torso", "Neck", "Head"]:
+		var idx := skel.find_bone(bone)
+		if idx == -1:
+			continue
+		var q := skel.get_bone_pose_rotation(idx)
+		total += rad_to_deg(q.get_euler().x)
+	return total

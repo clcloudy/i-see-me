@@ -97,7 +97,7 @@ static func chair(parent: Node3D, pos: Vector3, with_back: bool = true) -> Node3
 	return root
 
 
-## 课桌：桌面 0.72 m。
+## 课桌：桌面 0.72 m（台面 0.74）。
 static func desk(parent: Node3D, pos: Vector3, size: Vector3 = Vector3(1.05, 0.04, 0.52)) -> Node3D:
 	var root := Node3D.new()
 	root.name = "DemoDesk"
