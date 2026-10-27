@@ -53,6 +53,7 @@ func _run() -> void:
 	_flow_state.transition_seconds = 0.0
 	_flow_state.isolation_seconds = 0.0
 	await _check_initial()
+	await _check_pose_transition()
 	await _check_step_zero_free_look()
 	await _run_confident_branch()
 	await _run_struggle_branch()
@@ -101,12 +102,98 @@ func _check_initial() -> void:
 	# 开场前已有同学交头接耳（为“忽然安静”铺垫）
 	_check(_pose_of("SeatB04") == _pose_id("WHISPER_R"), "Ambient whisper pair murmurs before the call.")
 	_check(_pose_of("SeatB05") == _pose_id("WHISPER_L"), "Ambient whisper partner leans the other way.")
+	# 开场不是全班端坐：有人写字（拿笔）、有人看书、有人抬头听讲
+	_check(_pose_of("SeatB03") == _pose_id("WRITING"), "Someone in the front row is writing at the open.")
+	_check(_pose_of("SeatB01") == _pose_id("READ"), "Someone in the front row is reading a textbook.")
+	_check(_pose_of("SeatB02") == _pose_id("SIT"), "Someone in the front row simply listens to the lecture.")
+	_check(_pose_of("SeatC06") == _pose_id("WRITING"), "The desk neighbour is writing at the open.")
+	# 桌面道具跟着姿态走：写字的人有本子和笔，看书的人有课本
+	var desk_props := _flow.get_node_or_null("DeskProps") as Node3D
+	_check(desk_props != null and desk_props.get_child_count() >= 20, "Every varied seat gets desk props.")
+	if desk_props != null:
+		var writer := desk_props.get_node_or_null("Desk_SeatB03") as Node3D
+		_check(
+			writer != null and writer.get_node_or_null("PropNotebook") != null
+			and writer.get_node_or_null("PropPen") != null,
+			"A writing classmate has a notebook and a pen on the desk."
+		)
+		var reader := desk_props.get_node_or_null("Desk_SeatB01") as Node3D
+		_check(
+			reader != null and reader.get_node_or_null("PropTextbook") != null,
+			"A reading classmate has a textbook on the desk."
+		)
+		if writer != null:
+			var note := writer.get_node("PropNotebook") as Node3D
+			_check(
+				absf(note.global_position.y - 0.782) < 0.02,
+				"The notebook rests on the desk top (y=%.3f)." % note.global_position.y
+			)
 	# 道具：笔在桌边，课本未出现
 	var pen := _flow.get_node_or_null("Pen") as MeshInstance3D
 	var textbook := _flow.get_node_or_null("Textbook") as MeshInstance3D
 	_check(pen != null and pen.visible, "Pen prop rests on the desk edge.")
 	_check(textbook != null and not textbook.visible, "Textbook is not on the podium yet.")
 	print("CHECK: initial state")
+
+
+# ——— 姿态切换必须是过渡，不是瞬切 ———
+
+## 静态姿态没有动画层，切换靠 character_pose.gd 的骨骼 slerp。
+## 这里切一次 PICK_UP，在过渡中途取样：头的朝向应当处在起点与终点之间。
+func _check_pose_transition() -> void:
+	var node := _seating.get_node_or_null("SeatB10") as Node3D
+	if node == null:
+		_check(false, "Missing seat for the pose transition check.")
+		return
+	_check(
+		is_equal_approx(float(node.get("pose_transition_seconds")), 0.5),
+		"The classroom takes the pose transition time from content."
+	)
+	var skeleton := _skeleton_of(node)
+	if skeleton == null:
+		_check(false, "Seat has no skeleton.")
+		return
+	var head := skeleton.find_bone("Head")
+	node.pose = _pose_id("SIT")
+	node.apply_pose()
+	await create_timer(0.1).timeout
+	var from_basis := _head_basis(skeleton, head)
+	node.pose = _pose_id("PICK_UP")
+	node.apply_pose()
+	await create_timer(0.15).timeout
+	var mid_basis := _head_basis(skeleton, head)
+	await create_timer(0.7).timeout
+	var end_basis := _head_basis(skeleton, head)
+	# 瞬切的参照值：同样的目标姿态，把过渡时间关掉再摆一次
+	node.pose = _pose_id("SIT")
+	node.set("pose_transition_seconds", 0.0)
+	node.apply_pose()
+	node.pose = _pose_id("PICK_UP")
+	node.apply_pose()
+	var instant_basis := _head_basis(skeleton, head)
+	node.pose = _pose_id("SIT")
+	node.apply_pose()
+	node.set("pose_transition_seconds", 0.5)
+	var total := rad_to_deg(from_basis.get_rotation_quaternion().angle_to(end_basis.get_rotation_quaternion()))
+	var passed := rad_to_deg(from_basis.get_rotation_quaternion().angle_to(mid_basis.get_rotation_quaternion()))
+	var settle := rad_to_deg(end_basis.get_rotation_quaternion().angle_to(instant_basis.get_rotation_quaternion()))
+	_check(total > 12.0, "The pose change is visible (head turns %.1f deg)." % total)
+	_check(
+		passed > 2.0 and passed < total * 0.85,
+		"Pose change eases over time instead of snapping (%.1f of %.1f deg after 0.15 s)." % [passed, total]
+	)
+	_check(settle < 2.0, "The eased pose lands on the instant pose (%.2f deg off)." % settle)
+	print("CHECK: pose transition (head %.1f deg total, %.1f deg after 0.15 s)" % [total, passed])
+
+
+func _skeleton_of(node: Node) -> Skeleton3D:
+	for sub in node.find_children("*", "Skeleton3D", true, false):
+		return sub as Skeleton3D
+	return null
+
+
+func _head_basis(skeleton: Skeleton3D, head: int) -> Basis:
+	return (skeleton.global_transform * skeleton.get_bone_global_pose(head)).basis
 
 
 # ——— 第 0 步：自由转头与事件05 ———
@@ -170,10 +257,12 @@ func _run_confident_branch() -> void:
 	)
 	# 第 0–7 步应触发的事件；E03 与不同意见属于回答之后（第 9 步），此处不应出现
 	var labels := _flow.debug_event_labels()
-	for expected in ["有人还在忙自己的事", "忽然安静下来", "被悄悄捡回来的笔", "同学们三两回头看主角", "E02｜低笑", "03｜被听成了另一个意思"]:
+	for expected in ["有人还在忙自己的事", "同学们稍微松了口气", "忽然安静下来", "被悄悄捡回来的笔", "同学们三两回头看主角", "E02｜低笑", "03｜被听成了另一个意思"]:
 		_check(labels.has(expected), "Steps 0-7 fire event: " + expected)
 	for late in ["E03｜轻声赞同", "04｜听见不同意见"]:
 		_check(not labels.has(late), "Event waits until after the answer: " + late)
+	# 低笑 / 赞同 / 不同意见必须发生在主角正前方的四个同学里，否则第一人称看不见
+	_check_front_seats_visible()
 	# 站起后相机升到站高
 	_check(_camera.current_position().y > 1.6, "Camera rises to standing height while answering.")
 	# 选择窗口：议论纷纷，三个选项；镜头交回固定构图
@@ -229,6 +318,70 @@ func _run_confident_branch() -> void:
 	print("CHECK: confident branch")
 
 
+# ——— 演员位置：默认视角内，或转到头就能看见 ———
+
+## 低笑 / 赞同 / 不同意见这三件事的演员，必须是主角正前方第一排的四个人之一，
+## 并且默认镜头（垂直 FOV 65°、16:9）里能看到，否则第一人称根本看不见。
+## 捡笔的是同桌（正左侧 90°），不靠默认视角，而是靠放宽后的自由转头；
+## 这里校验“把视线转到底时，他弯腰的位置确实进得了画面”。
+func _check_front_seats_visible() -> void:
+	var front := ["SeatB05", "SeatB06", "SeatB07", "SeatB08"]
+	var eye := _camera.current_position()
+	var forward := _camera.forward()
+	var half_h := rad_to_deg(atan(tan(deg_to_rad(_camera.fov * 0.5)) * 16.0 / 9.0))
+	var half_v := _camera.fov * 0.5
+	for actor in ["laugh", "nod", "dissent"]:
+		var seat := _flow.debug_actor_seat(actor)
+		_check(front.has(seat), "%s happens in the four seats in front (got %s)." % [actor, seat])
+		var node := _seating.get_node_or_null(seat) as Node3D
+		if node == null:
+			_check(false, "Missing front-seat node for " + actor)
+			continue
+		var to_head := node.global_position + Vector3(0.0, 1.05, 0.0) - eye
+		var angle := rad_to_deg(forward.angle_to(to_head.normalized()))
+		_check(
+			angle < half_h - 6.0,
+			"%s is inside the default frame (%.1f deg, limit %.1f)." % [actor, angle, half_h - 6.0]
+		)
+	# 回头的三个人仍在前排（默认视角里就是这四个人）
+	for actor in ["glance_a", "glance_b", "glance_c"]:
+		_check(
+			front.has(_flow.debug_actor_seat(actor)),
+			"%s is staged in the front row (got %s)." % [actor, _flow.debug_actor_seat(actor)]
+		)
+	# 捡笔的人 = 同桌，就在左手边；画面靠自由转头，不靠默认构图
+	var mate_seat := _flow.debug_actor_seat("pen_deskmate")
+	_check(mate_seat == "SeatC06", "捡笔的是同桌 SeatC06（got %s）." % mate_seat)
+	var mate := _seating.get_node_or_null("SeatC06") as Node3D
+	if mate == null:
+		_check(false, "Missing desk-neighbour node for pen_deskmate.")
+		return
+	# 站着看他弯腰时的头，和坐回去之后的头，两个位置都要能看到
+	for point in [mate.global_position + Vector3(0.0, 1.05, 0.0),
+			mate.global_position + Vector3(0.0, 0.55, -0.30)]:
+		var az := _azimuth(eye, forward, point)
+		var yaw_ok := absf(float(az["yaw"])) <= _camera.free_look_yaw_limit + half_h - 6.0
+		var pitch_ok := (
+			float(az["pitch"]) <= _camera.free_look_pitch_up + half_v - 6.0
+			and -float(az["pitch"]) <= _camera.free_look_pitch_down + half_v - 6.0
+		)
+		_check(
+			yaw_ok and pitch_ok,
+			"The desk neighbour is reachable by free look (yaw %.1f, pitch %.1f)." % [az["yaw"], az["pitch"]]
+		)
+
+
+## 目标点相对当前朝向的偏航（正 = 向左）与俯仰（正 = 向上），单位度。
+func _azimuth(eye: Vector3, forward: Vector3, point: Vector3) -> Dictionary:
+	var flat := Vector3(point.x - eye.x, 0.0, point.z - eye.z)
+	if flat.length() < 0.001:
+		return {"yaw": 0.0, "pitch": 90.0}
+	var fwd := Vector3(forward.x, 0.0, forward.z).normalized()
+	var yaw := rad_to_deg(fwd.signed_angle_to(flat.normalized(), Vector3.UP))
+	var pitch := rad_to_deg(atan2(point.y - eye.y, flat.length()))
+	return {"yaw": yaw, "pitch": pitch}
+
+
 # ——— 分支二之一：勉强开口 ———
 
 func _run_struggle_branch() -> void:
@@ -270,7 +423,7 @@ func _run_avoid_branch() -> void:
 	)
 	await _wait_until(func() -> bool: return _flow.stage == &"l2", 6000)
 	_check(_flow.debug_branch() == &"avoid", "Avoid branch is recorded.")
-	_check(_pose_of("SeatB06") == _pose_id("SIT"), "Classroom settles before the second layer.")
+	_check(_pose_of("SeatB06") == _pose_id("READ"), "Classroom settles before the second layer.")
 	var labels := _flow.debug_event_labels()
 	_check(not labels.has("E03｜轻声赞同"), "Avoid branch has no agreement either.")
 	_check(_flow.debug_l2_card_bodies().has("我的声音在抖。"), "Avoid branch uses the nervous replay.")
@@ -290,6 +443,11 @@ func _check_skip_and_pause() -> void:
 		_flow.skip()
 	_check(_flow.stage == &"choice", "Skip finishes every step and reaches the choice window.")
 	_check(_flow.debug_event_labels().is_empty(), "Skipped beats do not fire events.")
+	# 跳过之后，被跳过节拍里排好的字幕不能再补发（曾会因为计时器跨节拍存活，
+	# 在几秒后弹出上一节拍的字幕，把当前这句盖掉）。
+	var subtitle := _ui.get_node("Screen/SubtitleBar") as Control
+	await create_timer(1.5).timeout
+	_check(not subtitle.visible, "Skipped beats do not leak subtitles into the choice window.")
 	# 暂停冻结镜头
 	_flow.debug_choose_avoid()
 	await _wait_until(func() -> bool: return _flow.stage == &"l2", 6000)
@@ -343,7 +501,8 @@ func _check_restart() -> void:
 	)
 	_check(_teacher.action == TeacherAnimator.Action.LECTURE, "Restart resumes lecturing.")
 	_check(not _flow_state.is_active(), "Restart leaves the flow state.")
-	_check(_pose_of("SeatB06") == _pose_id("SIT"), "Restart resets event classmates.")
+	_check(_pose_of("SeatB06") == _pose_id("WRITING"), "Restart restores the opening classroom state.")
+	_check(_pose_of("SeatB01") == _pose_id("READ"), "Restart restores the reading classmate.")
 	_check(_pose_of("SeatC10") == _pose_id("WHISPER_R"), "Restart restores ambient whispers.")
 	_check(_flow.debug_protagonist_pose() == &"sit", "Restart seats the protagonist.")
 	_check(_flow.debug_played_steps().is_empty(), "Restart clears the step record.")
@@ -405,7 +564,7 @@ func _check_l2_state() -> void:
 	_check(_flow_state.get_clay_mesh_count() > 0, "L2 applies the clay material.")
 	var seated_self := _seating.get_node_or_null("ProtagonistSit") as Node3D
 	_check(seated_self != null and seated_self.visible, "L2 reveals the seated protagonist.")
-	_check(_pose_of("SeatB06") == _pose_id("SIT"), "Classroom settles before the second layer.")
+	_check(_pose_of("SeatB06") == _pose_id("READ"), "Classroom settles before the second layer.")
 
 
 # ——— 坐姿下沉校验 ———

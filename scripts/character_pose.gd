@@ -19,6 +19,12 @@ enum Pose {
 	SIDE_GLANCE_R,  # 坐姿侧脸看向右侧声源
 	NOD,            # 坐姿轻轻点头（E03）
 	LOOK_AROUND,    # 站立四处看（主角躲避老师视线）
+	# 2026-10-26 场景完善：只在枚举末尾追加，保持既有场景里的 pose 序号不变。
+	READ,           # 坐姿低头看书（课本摊在桌上）
+	PICK_UP,        # 坐姿侧身弯腰捡笔（避开课桌，捡完回坐姿）
+	LOOK_BACK_L,    # 坐姿回头看向身后（左肩方向）
+	LOOK_BACK_R,    # 坐姿回头看向身后（右肩方向）
+	LEAN_BACK,      # 坐姿靠回椅背、肩膀放下（被点到之后松一口气）
 }
 
 const SEATED_HIP_HEIGHT := 0.47  # 坐姿时髋部世界高度（座面 0.45 + 余量）
@@ -26,6 +32,7 @@ const SEATED_POSES: Array[Pose] = [
 	Pose.SIT, Pose.HEAD_DOWN, Pose.HEAD_UP, Pose.WRITING,
 	Pose.WHISPER_L, Pose.WHISPER_R, Pose.COVER_MOUTH,
 	Pose.SIDE_GLANCE_L, Pose.SIDE_GLANCE_R, Pose.NOD,
+	Pose.READ, Pose.PICK_UP, Pose.LOOK_BACK_L, Pose.LOOK_BACK_R, Pose.LEAN_BACK,
 ]
 
 # 基础片段：坐姿腿部折叠。手臂下垂不写死角度——男女骨架手臂静止朝向不同
@@ -43,20 +50,46 @@ const POSE_OVERRIDES := {
 	Pose.REBUT: {"UpperArm.R": Vector3(0, 0, 65), "LowerArm.R": Vector3(0, -110, 0)},
 	Pose.WRITING: {
 		"Torso": Vector3(12, 0, 0),
-		"UpperArm.R": Vector3(-25, 0, 10), "LowerArm.R": Vector3(0, -75, 0),
+		# 手臂不写固定角度：男女骨架静止朝向不同（T-pose / A-pose），
+		# 固定角在男模上会让手臂横着伸出去。改由 _ik_hand_to_desk 落到桌面。
 	},
-	# 10.22 对话/事件姿态（角度经渲染验证后校准；yaw 符号若反了改这里）
+	# 10.22 对话/事件姿态。
+	# 2026-10-27：成对姿态的 Y 轴符号写反了——这套骨架里欧拉 Y 取**正**值时头转向
+	# 角色的左侧（世界 -X），负值转向右侧（+X，Godot 里 -Z 朝前时 +X 就是右手边）。
+	# 原来 _L 用的是负值，结果「回头」的人把脸扭向背离主角的一侧、交头接耳的两人
+	# 各自朝外。这里把每对 _L / _R 的数值互换，让名字和实际朝向对上。
 	Pose.STAND_TALK: {
 		"Neck": Vector3(2, -16, 0), "Head": Vector3(2, -8, 0),
 		"UpperArm.R": Vector3(-15, 0, 22), "LowerArm.R": Vector3(0, 30, 0),
 	},
-	Pose.WHISPER_L: {"Torso": Vector3(0, -8, 0), "Neck": Vector3(4, -22, 0), "Head": Vector3(2, -10, 0)},
-	Pose.WHISPER_R: {"Torso": Vector3(0, 8, 0), "Neck": Vector3(4, 22, 0), "Head": Vector3(2, 10, 0)},
-	Pose.COVER_MOUTH: {"Neck": Vector3(18, -8, 0), "Head": Vector3(10, -4, 0)},
-	Pose.SIDE_GLANCE_L: {"Neck": Vector3(-2, -28, 0), "Head": Vector3(0, -12, 0)},
-	Pose.SIDE_GLANCE_R: {"Neck": Vector3(-2, 28, 0), "Head": Vector3(0, 12, 0)},
+	Pose.WHISPER_L: {"Torso": Vector3(0, 8, 0), "Neck": Vector3(4, 22, 0), "Head": Vector3(2, 10, 0)},
+	Pose.WHISPER_R: {"Torso": Vector3(0, -8, 0), "Neck": Vector3(4, -22, 0), "Head": Vector3(2, -10, 0)},
+	# 掩嘴低笑（E02）：肩膀缩一点、头低一点，并且**转向身侧（主角那一侧）**。
+	# 只低头不转脸的话，从背后看只剩一个后脑勺加一只抬起来的手，像在举手。
+	Pose.COVER_MOUTH: {
+		"Torso": Vector3(5, -12, 0), "Neck": Vector3(15, -26, 0), "Head": Vector3(8, -14, 0),
+	},
+	Pose.SIDE_GLANCE_L: {"Neck": Vector3(-2, 28, 0), "Head": Vector3(0, 12, 0)},
+	Pose.SIDE_GLANCE_R: {"Neck": Vector3(-2, -28, 0), "Head": Vector3(0, -12, 0)},
 	Pose.NOD: {"Torso": Vector3(4, 0, 0), "Neck": Vector3(9, 0, 0), "Head": Vector3(4, 0, 0)},
 	Pose.LOOK_AROUND: {"Torso": Vector3(0, -6, 0), "Neck": Vector3(0, -25, 0), "Head": Vector3(0, -10, 0)},
+	# 2026-10-26：坐着看书——上身略前倾，头低到能被课桌挡住半张脸的高度。
+	Pose.READ: {"Torso": Vector3(9, 0, 0), "Neck": Vector3(20, 0, 0), "Head": Vector3(12, 0, 0)},
+	# 弯腰捡笔：主要往前下方弯腰，侧倾压到 18°（座位间距只有 0.5 m，
+	# 侧倾太大脑袋会撞到邻座）。捡完由流程的 recover 回到 SIT。
+	Pose.PICK_UP: {
+		"Torso": Vector3(44, -8, 20), "Neck": Vector3(28, -4, 8), "Head": Vector3(16, -2, 4),
+	},
+	# 回头：躯干先转、颈和头再补一截，侧面剪影能看出“整个人转过来看了一眼”。
+	# 两个方向各一版，一排里有人往左有人往右，不会像集体做操。
+	Pose.LOOK_BACK_L: {
+		"Torso": Vector3(2, 26, 0), "Neck": Vector3(-4, 32, 0), "Head": Vector3(-3, 14, 0),
+	},
+	Pose.LOOK_BACK_R: {
+		"Torso": Vector3(2, -26, 0), "Neck": Vector3(-4, -32, 0), "Head": Vector3(-3, -14, 0),
+	},
+	# 松了口气：肩背向后靠回椅背，下巴抬起一点，幅度小但剪影能看出来。
+	Pose.LEAN_BACK: {"Torso": Vector3(-9, 0, 0), "Neck": Vector3(-6, 0, 0), "Head": Vector3(-4, 0, 0)},
 }
 
 ## 学生便装配色（2026-10-23）。教室里的同学统一穿便装（T 恤/卫衣 + 长裤），
@@ -123,8 +156,21 @@ const OUTFIT_PALETTES := [
 ## 小腿角度微调（-1~1）：让各人的小腿朝向略有差别，满座时不至于像队列。
 ## 只影响坐姿小腿，范围约 ±2.5°，不会破坏“端坐”或让脚离地。
 @export_range(-1.0, 1.0) var leg_variation: float = 0.0
+## 切换姿态的过渡时间（秒）。0 = 瞬切（旧行为）。
+## 静态姿态没有动画层，切换时按骨骼旋转做一次 slerp，避免“咻”地跳过去。
+@export var pose_transition_seconds: float = 0.45
 
 var _skeleton: Skeleton3D
+## 是否已经摆过至少一次姿态（第一次摆放直接到位，不做过渡）。
+var _pose_ready: bool = false
+## 当前（或正在过渡到的）姿态，用来判断站立↔坐下这类结构变化。
+var _pose_current: Pose = Pose.STAND
+var _blend_active: bool = false
+var _blend_time: float = 0.0
+var _blend_from: Dictionary = {}   # bone_idx -> Quaternion
+var _blend_to: Dictionary = {}
+var _blend_from_y: float = 0.0
+var _blend_to_y: float = 0.0
 
 
 func _ready() -> void:
@@ -141,12 +187,70 @@ func _ready() -> void:
 	apply_pose()
 
 
-## 也可由主开发在运行时调用来切换姿态（当前流程为静态，通常只在 _ready 执行一次）。
+## 切换到 `pose` 指定的姿态。也可由主开发在运行时调用。
+## 已经摆过姿态时，从当前骨骼旋转 slerp 到新姿态（耗时 pose_transition_seconds）；
+## 首次摆放、站立↔坐下这类结构变化、或把过渡时间设为 0 时，直接落到目标姿态。
 func apply_pose() -> void:
+	if _skeleton == null:
+		return
+	var seated := SEATED_POSES.has(pose)
+	var can_blend := (
+		_pose_ready and pose_transition_seconds > 0.0
+		and SEATED_POSES.has(_pose_current) == seated
+	)
+	if not can_blend:
+		_blend_active = false
+		set_process(false)
+		_pose_ready = true
+		_pose_current = pose
+		_apply_pose_now(pose)
+		# 坐姿落座后再校一次：4.6 实测 set_bone_pose_* 之后 get_bone_global_pose
+		# 立即返回新值，所以上面的下沉已经正确；这两帧只是保险（增量修正幂等）。
+		await get_tree().process_frame
+		await get_tree().process_frame
+		if seated and not _blend_active:
+			_sink_hips_to(SEATED_HIP_HEIGHT)
+		return
+	# 先记住“现在长什么样”，再把骨架摆到目标姿态拍一张，然后回到起点开始插值。
+	var from_rotations := _snapshot_rotations()
+	var from_y := _model_position_y()
+	var to_y := _apply_pose_now(pose)
+	var to_rotations := _snapshot_rotations()
+	_restore_snapshot(from_rotations, from_y)
+	_blend_from = from_rotations
+	_blend_to = to_rotations
+	_blend_from_y = from_y
+	_blend_to_y = to_y
+	_blend_time = 0.0
+	_blend_active = true
+	_pose_ready = true
+	_pose_current = pose
+	set_process(true)
+
+
+## 每帧把骨骼旋转从旧姿态 slerp 到新姿态；到点后关掉处理，回到零开销。
+func _process(delta: float) -> void:
+	if not _blend_active:
+		return
+	_blend_time += delta
+	var k := clampf(_blend_time / maxf(pose_transition_seconds, 0.0001), 0.0, 1.0)
+	var eased := smoothstep(0.0, 1.0, k)
+	for idx in _blend_to.keys():
+		_skeleton.set_bone_pose_rotation(
+			idx, (_blend_from[idx] as Quaternion).slerp(_blend_to[idx], eased)
+		)
+	_char_position_y(lerpf(_blend_from_y, _blend_to_y, eased))
+	if k >= 1.0:
+		_blend_active = false
+		set_process(false)
+
+
+## 直接把某个姿态摆到骨架上（同步，不含过渡），返回摆好后 Model 的局部 y。
+func _apply_pose_now(target: Pose) -> float:
 	# 坐姿**不要**先把 Model 抬回 y=0：那会在等帧期间让人物在空中停 2 帧
 	# （实测浮起 0.40~0.56 m，60fps 约 33 ms，看起来像人物抽搐/闪一下）。
 	# 站立姿态模型原点本来就在地面，仍直接归零；坐姿改用增量下沉（见 _sink_hips_to）。
-	var seated := SEATED_POSES.has(pose)
+	var seated := SEATED_POSES.has(target)
 	if not seated:
 		_char_position_y(0.0)
 	for i in _skeleton.get_bone_count():
@@ -154,34 +258,57 @@ func apply_pose() -> void:
 	var bone_angles: Dictionary = {}
 	if seated:
 		bone_angles.merge(SEATED_LEGS, true)
-	bone_angles.merge(POSE_OVERRIDES[pose], true)
+	bone_angles.merge(POSE_OVERRIDES[target], true)
 	for bone_name in bone_angles:
 		var idx := _skeleton.find_bone(bone_name)
 		if idx == -1:
 			push_warning("CharacterPose (%s): bone missing: %s" % [name, bone_name])
 			continue
 		var e: Vector3 = bone_angles[bone_name]
-		var delta := Quaternion.from_euler(Vector3(deg_to_rad(e.x), deg_to_rad(e.y), deg_to_rad(e.z)))
-		_skel_set_rot(idx, delta)
-	if not POSE_OVERRIDES[pose].has("UpperArm.R"):
+		var delta_q := Quaternion.from_euler(Vector3(deg_to_rad(e.x), deg_to_rad(e.y), deg_to_rad(e.z)))
+		_skel_set_rot(idx, delta_q)
+	if not POSE_OVERRIDES[target].has("UpperArm.R"):
 		_aim_arm("R")
-	if not POSE_OVERRIDES[pose].has("UpperArm.L"):
+	if not POSE_OVERRIDES[target].has("UpperArm.L"):
 		_aim_arm("L")
-	if pose == Pose.COVER_MOUTH:
-		# 掩嘴：手臂下垂后，用两骨 IK 把右手精确放到嘴边（男女骨架通用）
-		_ik_hand_to_mouth("R")
+	match target:
+		Pose.COVER_MOUTH:
+			# 掩嘴：手臂下垂后，用两骨 IK 把右手精确放到嘴边（男女骨架通用）
+			_ik_hand_to_mouth("R")
+		Pose.WRITING:
+			# 写字：右手落到桌面上（本子上），不再靠固定欧拉角（男模会横着伸手）
+			_ik_hand_to_desk("R", 0.56, 0.14, 0.83)
+		Pose.READ:
+			# 看书：双手按在摊开的课本前缘，头低下去看
+			_ik_hand_to_desk("R", 0.46, 0.10, 0.82)
+			_ik_hand_to_desk("L", 0.46, -0.12, 0.82)
 	if seated:
 		# 男女骨架的小腿骨局部轴不同：同一组欧拉角在男模上会让小腿向外撇开，
 		# 看着像盘腿。统一按骨架空间方向收正成“端坐”：小腿朝下略向前。
 		# 目标方向取自女模校准后的自然坐姿（0, 0.386, -0.922），男女共用。
 		_aim_shin("L")
 		_aim_shin("R")
-		# 同步落座：4.6 实测 set_bone_pose_* 之后 get_bone_global_pose 立即返回新值，
-		# 所以不必等帧。下面两帧后再校一次只是保险，增量修正幂等，不会产生弹跳。
 		_sink_hips_to(SEATED_HIP_HEIGHT)
-		await get_tree().process_frame
-		await get_tree().process_frame
-		_sink_hips_to(SEATED_HIP_HEIGHT)
+	return _model_position_y()
+
+
+## 当前所有骨骼的局部旋转快照（bone_idx -> Quaternion）。
+func _snapshot_rotations() -> Dictionary:
+	var snapshot := {}
+	for i in _skeleton.get_bone_count():
+		snapshot[i] = _skeleton.get_bone_pose_rotation(i)
+	return snapshot
+
+
+func _restore_snapshot(snapshot: Dictionary, model_y: float) -> void:
+	for idx in snapshot.keys():
+		_skeleton.set_bone_pose_rotation(idx, snapshot[idx] as Quaternion)
+	_char_position_y(model_y)
+
+
+func _model_position_y() -> float:
+	var model := get_node_or_null("Model") as Node3D
+	return model.position.y if model != null else 0.0
 
 
 ## 按实测髋高把模型整体下沉到目标高度。
@@ -230,20 +357,45 @@ func _aim_arm(side: String) -> void:
 ## 解析解：先按肩→嘴距离与臂长解出肘位置（肘极向=外下后，姿态自然），
 ## 再依次把上臂、前臂瞄准方向。全部在骨架空间计算，男女骨架通用。
 func _ik_hand_to_mouth(side: String) -> void:
+	var head_idx := _skeleton.find_bone("Head")
+	if head_idx == -1:
+		_aim_arm(side)
+		return
+	# 嘴部目标：沿**脸朝的方向**前方 0.085、再往上 0.022（嘴比头骨原点略高一点）。
+	# 不用身体的朝向：脸转过去之后（COVER_MOUTH 会侧脸），手要跟着嘴走，
+	# 否则手会停在身体正前方、离嘴一大截。
+	var head_basis := (
+		_skeleton.global_transform * _skeleton.get_bone_global_pose(head_idx)
+	).basis.orthonormalized()
+	var fwd := head_basis.z.normalized() # 该骨架里头的 +Z 就是脸朝的方向
+	var up := self.global_transform.basis.y.normalized()
+	var head_world := _skeleton.global_transform * _skeleton.get_bone_global_pose(head_idx).origin
+	_ik_hand_to_point(head_world + fwd * 0.085 + up * 0.022, side)
+
+
+## 两骨 IK：把一侧手腕放到课桌面上（写字 / 按着课本）。
+## 偏移量按座位自身坐标系取：fwd 朝课桌方向（座位局部 -Z），right 朝右手一侧，
+## y 是手腕的世界高度（教室课桌台面 0.775 m，手腕压在台面上方约 5 cm）。
+func _ik_hand_to_desk(side: String, fwd: float, right: float, y: float) -> void:
+	var basis := self.global_transform.basis.orthonormalized()
+	var target := global_position + (-basis.z) * fwd + basis.x * right
+	target.y = global_position.y + y
+	_ik_hand_to_point(target, side)
+
+
+## 把一侧手（手腕骨原点）放到世界目标点。肩→目标解出肘位置（肘极向=外下后），
+## 再依次瞄准上臂、前臂。超出臂长时把目标拉回可达范围，手停在尽量近的位置。
+func _ik_hand_to_point(target_world: Vector3, side: String) -> void:
 	var upper_idx := _skeleton.find_bone("UpperArm." + side)
 	var lower_idx := _skeleton.find_bone("LowerArm." + side)
 	var hand_idx := _skeleton.find_bone("Hand." + side)
-	var head_idx := _skeleton.find_bone("Head")
-	if upper_idx == -1 or lower_idx == -1 or hand_idx == -1 or head_idx == -1:
+	if upper_idx == -1 or lower_idx == -1 or hand_idx == -1:
 		_aim_arm(side)
 		return
-	# 嘴部目标：头骨前方 0.085、略高于原点 0.005（世界方向 → 骨架空间）
 	var fwd := -(self.global_transform.basis.z).normalized()
 	var up := self.global_transform.basis.y.normalized()
-	var head_world := _skeleton.global_transform * _skeleton.get_bone_global_pose(head_idx).origin
-	var mouth_world := head_world + fwd * 0.085 + up * 0.005
 	var inv := _skeleton.global_transform.affine_inverse()
-	var target := inv * mouth_world
+	var target := inv * target_world
 	var s_pos := _skeleton.get_bone_global_pose(upper_idx).origin
 	var elbow_rest := _skeleton.get_bone_global_pose(lower_idx).origin
 	var hand_rest := _skeleton.get_bone_global_pose(hand_idx).origin

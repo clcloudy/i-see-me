@@ -7,7 +7,7 @@
 	  "0": "第一人称可自由转头（正面角度内）；老师讲课；事件05 有人还在忙自己的事",
 	  "1": "老师准备点人",
 	  "2": "老师看向主角，示意回答",
-	  "3": "主角站起；事件02 被悄悄捡回来的笔（同号：忽然安静）",
+	  "3": "主角站起；同学们稍微松了口气；事件02 被悄悄捡回来的笔（同号：忽然安静）",
 	  "4": "老师提问",
 	  "5": "主角准备回答问题；同学们三两回头看主角",
 	  "6": "回答完问题；E02 低笑；事件03 被听成了另一个意思",
@@ -19,6 +19,7 @@
 	  "11": "进入 L2，思绪倒放回到第 0 步"
 	}
   },
+  "pose_transition_seconds": 0.5,
   "ui": {
 	"brand": "I See Me · 课堂对话",
 	"pause": "暂停",
@@ -100,18 +101,20 @@
   },
   "actors": {
 	"pen_deskmate": "SeatC06",
-	"laugh": "SeatC06",
-	"laugh_watch": "SeatC08",
-	"quiet_looker_left": "SeatC06",
-	"quiet_looker_right": "SeatC08",
+	"laugh": "SeatB06",
+	"laugh_watch": "SeatB08",
+	"quiet_looker_left": "SeatB04",
+	"quiet_looker_right": "SeatB09",
+	"relief_a": "SeatB07",
+	"relief_b": "SeatB05",
 	"nod": "SeatB07",
 	"misheard_speaker": "SeatD03",
 	"misheard_listener": "SeatD02",
-	"dissent": "SeatB08",
+	"dissent": "SeatB05",
 	"busy_hands": "SeatB06",
 	"glance_a": "SeatB06",
 	"glance_b": "SeatB08",
-	"glance_c": "SeatB04",
+	"glance_c": "SeatB07",
 	"whisper_pairs": [
 	  [
 		"SeatB04",
@@ -127,6 +130,48 @@
 	  ]
 	]
   },
+  "ambient": {
+	"note": "开场教室：不是全班端坐。有人写字（拿笔）、有人低头看书、有人抬头听讲；道具只摆在桌面，不参与流程。动作演员换成 CharacterAction 后仍可沿用这里的姿态。",
+	"desk_top_y": 0.775,
+	"desk_forward": 0.62,
+	"states": [
+	  { "seat": "SeatB01", "pose": "READ", "desk": "textbook" },
+	  { "seat": "SeatB02", "pose": "SIT" },
+	  { "seat": "SeatB03", "pose": "WRITING", "desk": "notebook_pen" },
+	  { "seat": "SeatB06", "pose": "WRITING", "desk": "notebook_pencil" },
+	  { "seat": "SeatB07", "pose": "SIT" },
+	  { "seat": "SeatB08", "pose": "READ", "desk": "textbook" },
+	  { "seat": "SeatB09", "pose": "WRITING", "desk": "notebook" },
+	  { "seat": "SeatB10", "pose": "READ", "desk": "notebook" },
+	  { "seat": "SeatB11", "pose": "SIT" },
+	  { "seat": "SeatB12", "pose": "WRITING", "desk": "notebook_pen" },
+	  { "seat": "SeatB13", "pose": "SIT" },
+	  { "seat": "SeatB14", "pose": "READ", "desk": "textbook" },
+	  { "seat": "SeatC01", "pose": "SIT" },
+	  { "seat": "SeatC02", "pose": "READ", "desk": "textbook" },
+	  { "seat": "SeatC03", "pose": "WRITING", "desk": "notebook_pen" },
+	  { "seat": "SeatC04", "pose": "SIT" },
+	  { "seat": "SeatC05", "pose": "READ", "desk": "notebook" },
+	  { "seat": "SeatC06", "pose": "WRITING", "desk": "notebook_pencil" },
+	  { "seat": "SeatC08", "pose": "READ", "desk": "textbook" },
+	  { "seat": "SeatC09", "pose": "SIT" },
+	  { "seat": "SeatC12", "pose": "WRITING", "desk": "notebook" },
+	  { "seat": "SeatC13", "pose": "READ", "desk": "textbook" },
+	  { "seat": "SeatC14", "pose": "SIT" },
+	  { "seat": "SeatD01", "pose": "READ", "desk": "textbook" },
+	  { "seat": "SeatD04", "pose": "WRITING", "desk": "notebook_pen" },
+	  { "seat": "SeatD05", "pose": "SIT" },
+	  { "seat": "SeatD06", "pose": "READ", "desk": "textbook" },
+	  { "seat": "SeatD07", "pose": "WRITING", "desk": "notebook_pencil" },
+	  { "seat": "SeatD08", "pose": "SIT" },
+	  { "seat": "SeatD09", "pose": "READ", "desk": "notebook" },
+	  { "seat": "SeatD10", "pose": "WRITING", "desk": "notebook" },
+	  { "seat": "SeatD11", "pose": "SIT" },
+	  { "seat": "SeatD12", "pose": "READ", "desk": "textbook" },
+	  { "seat": "SeatD13", "pose": "SIT" },
+	  { "seat": "SeatD14", "pose": "WRITING", "desk": "notebook" }
+	]
+  },
   "camera": {
 	"seat": [
 	  -0.7,
@@ -135,10 +180,10 @@
 	],
 	"seated_height": 1.36,
 	"standing_height": 1.7,
-	"rise_seconds": 0.8,
-	"free_look_yaw_limit": 42.0,
+	"rise_seconds": 3.0,
+	"free_look_yaw_limit": 72.0,
 	"free_look_pitch_up": 18.0,
-	"free_look_pitch_down": 26.0,
+	"free_look_pitch_down": 50.0,
 	"free_look_speed": 0.16,
 	"targets": {
 	  "board_teacher": [
@@ -157,9 +202,9 @@
 		1.78
 	  ],
 	  "glance_left": [
-		-1.9,
-		1.3,
-		0.75
+		-1.2,
+		1.05,
+		-0.02
 	  ],
 	  "front_desk": [
 		-1.2,
@@ -176,9 +221,14 @@
 		1.2,
 		3.2
 	  ],
-	  "dissent_seat": [
+	  "laugh_seat": [
 		0.7,
-		1.1,
+		1.05,
+		-0.02
+	  ],
+	  "dissent_seat": [
+		-1.7,
+		1.05,
 		-0.02
 	  ],
 	  "self_head": [
@@ -212,20 +262,22 @@
   "props": {
 	"pen": {
 	  "desk_position": [
-		-0.55,
-		0.785,
+		-0.94,
+		0.782,
 		1.24
 	  ],
 	  "floor_position": [
-		-0.55,
+		-1.02,
 		0.012,
-		1.47
+		1.3
 	  ],
 	  "return_position": [
 		-0.62,
-		0.785,
-		1.2
-	  ]
+		0.782,
+		1.28
+	  ],
+	  "fall_seconds": 1.4,
+	  "return_seconds": 1.2
 	},
 	"textbook": {
 	  "position": [
@@ -244,7 +296,7 @@
 	{
 	  "step": 0,
 	  "id": "s00_class_lecture",
-	  "hold": 7.2,
+	  "hold": 10.0,
 	  "teacher": {
 		"action": "LECTURE",
 		"emotion": "NEUTRAL"
@@ -256,13 +308,13 @@
 		{
 		  "speaker": "stage",
 		  "text": "语文课。黑板上写着老师刚写下的“坚持”两个字，老师站在讲台前，讲着课文里几次受挫后仍然继续尝试的那一段。",
-		  "seconds": 5.2,
+		  "seconds": 7.0,
 		  "voice": "stage.class_open"
 		}
 	  ],
 	  "events": [
 		{
-		  "at": 4.2,
+		  "at": 2.6,
 		  "id": "busy_hands",
 		  "gaze": "busy_desk",
 		  "gaze_angle": 11.0
@@ -272,7 +324,7 @@
 	{
 	  "step": 1,
 	  "id": "s01_ready_to_call",
-	  "hold": 3.6,
+	  "hold": 5.6,
 	  "teacher": {
 		"action": "CALL_ROLL",
 		"emotion": "NEUTRAL"
@@ -284,7 +336,7 @@
 		{
 		  "speaker": "stage",
 		  "text": "老师合上课本，抬头扫了一圈教室，准备点人。",
-		  "seconds": 3.0,
+		  "seconds": 4.4,
 		  "voice": "stage.ready_to_call"
 		}
 	  ]
@@ -292,7 +344,7 @@
 	{
 	  "step": 2,
 	  "id": "s02_look_at_you",
-	  "hold": 3.4,
+	  "hold": 6.4,
 	  "teacher": {
 		"action": "POINT",
 		"emotion": "NEUTRAL"
@@ -304,7 +356,7 @@
 		{
 		  "speaker": "stage",
 		  "text": "老师的目光停在你这一排，抬手指了一下，示意你回答。",
-		  "seconds": 2.8,
+		  "seconds": 4.8,
 		  "voice": "stage.look_at_you"
 		}
 	  ]
@@ -312,7 +364,7 @@
 	{
 	  "step": 3,
 	  "id": "s03_stand_up",
-	  "hold": 4.6,
+	  "hold": 18.0,
 	  "teacher": {
 		"action": "POINT",
 		"emotion": "NEUTRAL"
@@ -326,25 +378,41 @@
 		{
 		  "speaker": "stage",
 		  "text": "你从座位上站起来，椅脚擦过地面。",
-		  "seconds": 2.2,
+		  "seconds": 3.2,
 		  "voice": "stage.stand_up"
+		},
+		{
+		  "speaker": "stage",
+		  "text": "你刚站直，袖口带落的那支笔滚到地上，磕了一声。",
+		  "seconds": 3.6,
+		  "at": 3.6
+		},
+		{
+		  "speaker": "stage",
+		  "text": "他把笔放回你的课本旁边，轻轻指了一下，就转回讲台。",
+		  "seconds": 4.4,
+		  "at": 11.6
 		}
 	  ],
 	  "events": [
 		{
-		  "at": 0.15,
+		  "at": 0.3,
 		  "id": "quiet"
 		},
 		{
-		  "at": 0.6,
+		  "at": 0.9,
 		  "id": "pen_fall"
+		},
+		{
+		  "at": 2.6,
+		  "id": "relief"
 		}
 	  ]
 	},
 	{
 	  "step": 4,
 	  "id": "s04_question",
-	  "hold": 7.0,
+	  "hold": 9.5,
 	  "teacher": {
 		"action": "ASK",
 		"emotion": "PUZZLED"
@@ -356,7 +424,7 @@
 		{
 		  "speaker": "teacher",
 		  "text": "这一段，主人公已经碰了好几次壁。换成你，你觉得这时候还应该继续吗？",
-		  "seconds": 6.6,
+		  "seconds": 8.0,
 		  "voice": "teacher.question_1"
 		}
 	  ]
@@ -364,7 +432,7 @@
 	{
 	  "step": 5,
 	  "id": "s05_ready_answer",
-	  "hold": 6.4,
+	  "hold": 16.0,
 	  "teacher": {
 		"action": "LECTURE",
 		"emotion": "NEUTRAL"
@@ -377,13 +445,19 @@
 		{
 		  "speaker": "protagonist",
 		  "text": "不一定。我觉得，停下来也可以。放弃不一定比坚持差。",
-		  "seconds": 5.1,
+		  "seconds": 6.2,
 		  "voice": "protagonist.stance"
+		},
+		{
+		  "speaker": "stage",
+		  "text": "有两三个人回过头看你，看了一会儿，才慢慢转回去。",
+		  "seconds": 5.0,
+		  "at": 8.4
 		}
 	  ],
 	  "events": [
 		{
-		  "at": 0.8,
+		  "at": 0.6,
 		  "id": "look_back"
 		}
 	  ]
@@ -391,7 +465,7 @@
 	{
 	  "step": 6,
 	  "id": "s06_answered",
-	  "hold": 6.6,
+	  "hold": 15.0,
 	  "teacher": {
 		"action": "LECTURE",
 		"emotion": "NEUTRAL"
@@ -403,17 +477,29 @@
 		{
 		  "speaker": "stage",
 		  "text": "你说完，教室里没有人马上接话。",
-		  "seconds": 1.6,
+		  "seconds": 3.0,
 		  "voice": "stage.after_answer"
+		},
+		{
+		  "speaker": "stage",
+		  "text": "左前方有人侧过脸，掩着嘴笑了两声，很快停下来。",
+		  "seconds": 4.6,
+		  "at": 2.2
+		},
+		{
+		  "speaker": "stage",
+		  "text": "后排有人把声音压得很低，说话的人没有再看你。",
+		  "seconds": 4.6,
+		  "at": 9.2
 		}
 	  ],
 	  "events": [
 		{
-		  "at": 0.4,
+		  "at": 1.2,
 		  "id": "e02_laugh"
 		},
 		{
-		  "at": 2.8,
+		  "at": 6.0,
 		  "id": "misheard"
 		}
 	  ]
@@ -542,7 +628,7 @@
 	{
 	  "step": 8,
 	  "id": "s08_avoid_look_around",
-	  "hold": 7.5,
+	  "hold": 13.0,
 	  "teacher": {
 		"action": "LECTURE",
 		"emotion": "NEUTRAL"
@@ -557,7 +643,7 @@
 		{
 		  "speaker": "stage",
 		  "text": "你低下头，避开老师的视线。周围有人低声交谈。",
-		  "seconds": 2.4
+		  "seconds": 3.2
 		}
 	  ]
 	}
@@ -566,7 +652,7 @@
 	{
 	  "step": 9,
 	  "id": "s09_dissent",
-	  "hold": 4.8,
+	  "hold": 13.0,
 	  "teacher": {
 		"action": "LECTURE",
 		"emotion": "NEUTRAL"
@@ -576,7 +662,7 @@
 	  },
 	  "events": [
 		{
-		  "at": 0.4,
+		  "at": 1.2,
 		  "id": "dissent"
 		}
 	  ],
@@ -584,13 +670,13 @@
 		{
 		  "speaker": "stage",
 		  "text": "老师的话音落下，教室里很轻。",
-		  "seconds": 0.9
+		  "seconds": 2.4
 		},
 		{
 		  "speaker": "stage",
 		  "text": "声音很平常，没有嘲笑，也没有起哄。",
-		  "seconds": 0.8,
-		  "at": 3.9
+		  "seconds": 3.4,
+		  "at": 9.4
 		}
 	  ]
 	},
@@ -598,7 +684,7 @@
 	  "step": 9.1,
 	  "id": "s09_agree",
 	  "only_branch": "confident",
-	  "hold": 4.2,
+	  "hold": 8.5,
 	  "teacher": {
 		"action": "LECTURE",
 		"emotion": "NEUTRAL"
@@ -608,7 +694,7 @@
 	  },
 	  "events": [
 		{
-		  "at": 0.4,
+		  "at": 0.6,
 		  "id": "e03_nod"
 		}
 	  ],
@@ -616,14 +702,14 @@
 		{
 		  "speaker": "stage",
 		  "text": "讲台边上，有人轻声应了一句。",
-		  "seconds": 1.4
+		  "seconds": 2.6
 		}
 	  ]
 	},
 	{
 	  "step": 10,
 	  "id": "s10_sit_down",
-	  "hold": 2.6,
+	  "hold": 6.5,
 	  "teacher": {
 		"action": "LECTURE",
 		"emotion": "NEUTRAL"
@@ -637,7 +723,7 @@
 		{
 		  "speaker": "stage",
 		  "text": "你坐回座位。",
-		  "seconds": 1.6,
+		  "seconds": 2.4,
 		  "voice": "stage.sit_down"
 		}
 	  ]
@@ -645,7 +731,7 @@
 	{
 	  "step": 10,
 	  "id": "s10_class_moves_on",
-	  "hold": 6.0,
+	  "hold": 11.0,
 	  "teacher_move": {
 		"to": "board",
 		"seconds": 2.6,
@@ -665,13 +751,13 @@
 		{
 		  "speaker": "stage",
 		  "text": "老师把课本翻到下一段，转身在黑板上继续写；附近同学重新低头看书。",
-		  "seconds": 2.8,
+		  "seconds": 3.6,
 		  "voice": "stage.class_moves_on_1"
 		},
 		{
 		  "speaker": "stage",
 		  "text": "你扶在桌边的手，慢慢收了回来。",
-		  "seconds": 1.9,
+		  "seconds": 2.6,
 		  "voice": "stage.class_moves_on_2"
 		}
 	  ]
@@ -679,7 +765,7 @@
 	{
 	  "step": 11,
 	  "id": "s11_to_l2",
-	  "hold": 2.8,
+	  "hold": 3.4,
 	  "camera": {
 		"third_person": true
 	  },
@@ -697,6 +783,7 @@
 	  "step": 0,
 	  "label": "有人还在忙自己的事",
 	  "short": "邻座",
+	  "note": "「稍微松了口气」不在这一步：松口气发生在主角被点到之后（见 step 3 的 relief 事件）。这里只留没有被看见时的那点失落。",
 	  "clips": [
 		{
 		  "actor": "busy_hands",
@@ -708,25 +795,58 @@
 		{
 		  "actor": "busy_hands",
 		  "pose": "HEAD_DOWN",
-		  "at": 0.0
+		  "at": 0.0,
+		  "transition": 1.4
 		}
 	  ],
 	  "voice": {
 		"speaker": "stage",
 		"kind": "ambient",
 		"text": "（铅笔划过纸面的沙沙声，橡皮擦动的声音；没有人说话。）",
-		"seconds": 2.6,
+		"seconds": 3.4,
 		"at": 0.2,
 		"cue": "pencil"
 	  },
 	  "feelings": [
-		"稍微松了口气",
-        "又有一点失落"
+		"又有一点失落"
 	  ],
 	  "thoughts": [
 		"至少现在，他在看自己的本子",
 		"我刚才是不是以为所有人都在盯着我？",
         "没有被看着，我又有一点想被听见"
+	  ]
+	},
+	"relief": {
+	  "step": 3,
+	  "label": "同学们稍微松了口气",
+	  "short": "松口气",
+	  "note": "被点到的是我，教室里绷着的那口气却在别人身上松下来：站起来以后，斜前方有人靠回椅背、抬起下巴。",
+	  "poses": [
+		{
+		  "actor": "relief_a",
+		  "pose": "LEAN_BACK",
+		  "at": 0.0,
+		  "transition": 1.2,
+		  "recover": 3.6,
+		  "recover_transition": 1.2
+		},
+		{
+		  "actor": "relief_b",
+		  "pose": "LEAN_BACK",
+		  "at": 0.7,
+		  "transition": 1.4,
+		  "recover": 4.4,
+		  "recover_transition": 1.4
+		}
+	  ],
+	  "feelings": [
+		"稍微松了口气",
+        "有点被留在台上"
+	  ],
+	  "thoughts": [
+		"老师不再扫视了，他们就松下来了",
+		"松口气的不是我",
+        "现在站着的只有我一个"
 	  ]
 	},
 	"quiet": {
@@ -746,20 +866,24 @@
 		  "actor": "quiet_looker_right",
 		  "pose": "SIDE_GLANCE_L",
 		  "at": 0.3,
-		  "recover": 2.2
+		  "transition": 1.6,
+		  "recover": 4.2,
+		  "recover_transition": 1.4
 		},
 		{
 		  "actor": "quiet_looker_left",
 		  "pose": "SIDE_GLANCE_R",
-		  "at": 0.3,
-		  "recover": 2.2
+		  "at": 0.5,
+		  "transition": 1.8,
+		  "recover": 4.6,
+		  "recover_transition": 1.4
 		}
 	  ],
 	  "voice": {
 		"speaker": "stage",
 		"kind": "ambient",
 		"text": "（零散的交谈声收住，椅脚摩擦地面的声音变得清楚；随后只剩轻微的翻页和写字声。）",
-		"seconds": 2.2,
+		"seconds": 3.2,
 		"cue": "room_quiet"
 	  },
 	  "feelings": [
@@ -776,43 +900,46 @@
 	  "step": 3,
 	  "label": "被悄悄捡回来的笔",
 	  "short": "捡笔",
+	  "note": "捡笔的是同桌（SeatC06，座位在主角左手边 0.5 m）：笔从自己桌边滚到两人课桌之间的地上，他弯腰去捡、慢慢直起，再把笔放回主角课本旁。动作刻意放慢（弯腰 2.6 s、起身 2.6 s），留给玩家看清楚的余量。",
 	  "props": [
 		{
 		  "prop": "pen",
 		  "action": "fall",
-		  "at": 0.0
+		  "at": 2.6
 		},
 		{
 		  "prop": "pen",
 		  "action": "return",
-		  "at": 1.8
+		  "at": 9.2
 		}
 	  ],
 	  "clips": [
 		{
 		  "actor": "pen_deskmate",
 		  "clip": "PICK_PEN",
-		  "at": 0.5
+		  "at": 4.6
 		}
 	  ],
 	  "poses": [
 		{
 		  "actor": "pen_deskmate",
-		  "pose": "SIDE_GLANCE_R",
-		  "at": 0.5,
-		  "recover": 2.7
+		  "pose": "PICK_UP",
+		  "at": 4.6,
+		  "transition": 2.6,
+		  "recover": 10.2,
+		  "recover_transition": 2.6
 		}
 	  ],
 	  "camera": {
-		"look": "glance_left",
-		"recover": 2.6
+		"look": "left_neighbor",
+		"recover": 13.5
 	  },
 	  "voice": {
 		"speaker": "classmate",
 		"kind": "speech",
 		"text": "你的笔。",
-		"seconds": 1.6,
-		"at": 0.8,
+		"seconds": 2.2,
+		"at": 7.4,
 		"cue": "classmate.pen"
 	  },
 	  "feelings": [
@@ -829,41 +956,48 @@
 	  "step": 5,
 	  "label": "同学们三两回头看主角",
 	  "short": "回头",
+	  "note": "回头的人全部换成正前方第一排（B06/B08/B07）：第一人称下只有这一排在默认视角里。回头的速度放慢到 1.6~2.0 s 才转到位，每个人保持回头 3 s 以上再慢慢转回去，三个人错开，能看清是谁在看。",
 	  "clips": [
 		{
 		  "actor": "glance_a",
 		  "clip": "LOOK_BACK",
-		  "at": 0.4
+		  "at": 0.8
 		},
 		{
 		  "actor": "glance_b",
 		  "clip": "LOOK_BACK",
-		  "at": 0.9
+		  "at": 2.2
 		},
 		{
 		  "actor": "glance_c",
 		  "clip": "LOOK_BACK",
-		  "at": 1.4
+		  "at": 3.6
 		}
 	  ],
 	  "poses": [
 		{
 		  "actor": "glance_a",
-		  "pose": "SIDE_GLANCE_R",
-		  "at": 0.4,
-		  "recover": 2.6
+		  "pose": "LOOK_BACK_R",
+		  "at": 0.8,
+		  "transition": 1.6,
+		  "recover": 4.8,
+		  "recover_transition": 1.8
 		},
 		{
 		  "actor": "glance_b",
-		  "pose": "SIDE_GLANCE_L",
-		  "at": 0.9,
-		  "recover": 3.0
+		  "pose": "LOOK_BACK_L",
+		  "at": 2.2,
+		  "transition": 1.8,
+		  "recover": 6.2,
+		  "recover_transition": 1.8
 		},
 		{
 		  "actor": "glance_c",
-		  "pose": "SIDE_GLANCE_R",
-		  "at": 1.4,
-		  "recover": 3.4
+		  "pose": "LOOK_BACK_R",
+		  "at": 3.6,
+		  "transition": 2.0,
+		  "recover": 7.6,
+		  "recover_transition": 2.0
 		}
 	  ],
 	  "feelings": [
@@ -896,25 +1030,29 @@
 		{
 		  "actor": "laugh",
 		  "pose": "COVER_MOUTH",
-		  "at": 0.2,
-		  "recover": 3.0
+		  "at": 0.0,
+		  "transition": 1.6,
+		  "recover": 5.6,
+		  "recover_transition": 1.8
 		},
 		{
 		  "actor": "laugh_watch",
 		  "pose": "SIDE_GLANCE_L",
-		  "at": 0.5,
-		  "recover": 3.0
+		  "at": 0.6,
+		  "transition": 1.2,
+		  "recover": 5.4,
+		  "recover_transition": 1.2
 		}
 	  ],
 	  "camera": {
-		"look": "glance_left",
-		"recover": 2.6
+		"look": "laugh_seat",
+		"recover": 3.6
 	  },
 	  "voice": {
 		"speaker": "stage",
 		"kind": "ambient",
-		"text": "（旁边传来两声低笑，短促后停下，没有人开口解释。）",
-		"seconds": 2.4,
+		"text": "（斜前方传来两声低笑，短促后停下，没有人开口解释。）",
+		"seconds": 3.4,
 		"cue": "laugh_short"
 	  },
 	  "feelings": [
@@ -948,25 +1086,29 @@
 		  "actor": "misheard_speaker",
 		  "pose": "WHISPER_L",
 		  "at": 0.2,
-		  "recover": 3.6
+		  "transition": 1.4,
+		  "recover": 5.6,
+		  "recover_transition": 1.2
 		},
 		{
 		  "actor": "misheard_listener",
 		  "pose": "HEAD_UP",
 		  "at": 0.4,
-		  "recover": 3.6
+		  "transition": 1.2,
+		  "recover": 5.8,
+		  "recover_transition": 1.2
 		}
 	  ],
 	  "camera": {
 		"look": "back_row",
-		"recover": 3.2
+		"recover": 4.0
 	  },
 	  "voice": {
 		"speaker": "classmate",
 		"kind": "speech",
 		"text": "他是说遇到难的就不做了吗？",
-		"seconds": 3.0,
-		"at": 0.8,
+		"seconds": 3.4,
+		"at": 1.6,
 		"cue": "classmate.mishear"
 	  },
 	  "feelings": [
@@ -994,16 +1136,18 @@
 		{
 		  "actor": "nod",
 		  "pose": "NOD",
-		  "at": 0.2,
-		  "recover": 2.2
+		  "at": 0.4,
+		  "transition": 1.4,
+		  "recover": 4.8,
+		  "recover_transition": 1.2
 		}
 	  ],
 	  "voice": {
 		"speaker": "classmate",
 		"kind": "speech",
 		"text": "有道理。",
-		"seconds": 1.6,
-		"at": 0.6,
+		"seconds": 2.0,
+		"at": 1.8,
 		"cue": "classmate.agree"
 	  },
 	  "feelings": [
@@ -1031,24 +1175,26 @@
 		{
 		  "actor": "dissent",
 		  "pose": "SIDE_GLANCE_R",
-		  "at": 0.2
+		  "at": 0.2,
+		  "transition": 1.4
 		},
 		{
 		  "actor": "dissent",
 		  "pose": "HEAD_DOWN",
-		  "at": 3.2
+		  "at": 5.6,
+		  "transition": 1.8
 		}
 	  ],
 	  "camera": {
 		"look": "dissent_seat",
-		"recover": 3.0
+		"recover": 4.0
 	  },
 	  "voice": {
 		"speaker": "classmate",
 		"kind": "speech",
 		"text": "我还是觉得应该再试试。",
-		"seconds": 2.8,
-		"at": 0.8,
+		"seconds": 3.4,
+		"at": 2.2,
 		"cue": "classmate.dissent"
 	  },
 	  "feelings": [
@@ -1074,11 +1220,43 @@
 		  "at": 0.2
 		}
 	  ],
+	  "poses": [
+		{
+		  "actor": "pen_deskmate",
+		  "pose": "READ",
+		  "at": 0.25,
+		  "transition": 1.8
+		},
+		{
+		  "actor": "relief_a",
+		  "pose": "READ",
+		  "at": 0.3,
+		  "transition": 1.8
+		},
+		{
+		  "actor": "relief_b",
+		  "pose": "READ",
+		  "at": 0.5,
+		  "transition": 2.0
+		},
+		{
+		  "actor": "laugh_watch",
+		  "pose": "READ",
+		  "at": 0.7,
+		  "transition": 2.0
+		},
+		{
+		  "actor": "busy_hands",
+		  "pose": "READ",
+		  "at": 0.9,
+		  "transition": 1.8
+		}
+	  ],
 	  "voice": {
 		"speaker": "stage",
 		"kind": "ambient",
 		"text": "（翻页声、粉笔声和写字声陆续恢复；老师没有再向你提问。）",
-		"seconds": 2.6,
+		"seconds": 3.6,
 		"cue": "class_resume"
 	  },
 	  "feelings": [

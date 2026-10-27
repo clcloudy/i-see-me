@@ -29,6 +29,7 @@ const DEFAULT_CONTENT_PATH := "res://content/classroom_dialogue.json"
 const REQUIRED_POSES := [
 	"SIT", "SIDE_GLANCE_L", "SIDE_GLANCE_R", "COVER_MOUTH",
 	"NOD", "WHISPER_L", "WHISPER_R", "HEAD_UP", "HEAD_DOWN",
+	"READ", "PICK_UP", "LOOK_BACK_L", "LOOK_BACK_R", "LEAN_BACK",
 ]
 const ACTION_IDS := {
 	"LECTURE": TeacherAnimator.Action.LECTURE,
@@ -109,6 +110,8 @@ var _seat := Vector3(-0.7, 0.0, 1.78)
 var _seated_height := 1.36
 var _standing_height := 1.7
 var _rise_seconds := 0.8
+## 姿态过渡默认秒数（内容 pose_transition_seconds）；事件可逐条覆盖。
+var _pose_default_seconds := 0.5
 var _l2_position := Vector3(0.0, 1.75, 2.9)
 var _l2_seconds := 2.5
 var _podium_position := Vector3(-2.8, 0.0, -3.05)
@@ -128,6 +131,8 @@ var _sfx: AudioStreamPlayer = null
 var _ambient: AudioStreamPlayer = null
 var _pen: MeshInstance3D = null
 var _textbook: MeshInstance3D = null
+## 开场桌面道具（本子 / 笔 / 课本）的容器；只在第一次复位时生成一次。
+var _desk_props: Node3D = null
 ## 语音/音效缺失只在首次登记时提醒一次，避免每个节拍刷屏。
 var _missing_voice: Dictionary = {}
 ## 玩家自由转头的注视目标（事件05 这类“看到了才发生”的事件）。
@@ -397,12 +402,21 @@ func _fire_event(event_id: String, gen: int) -> void:
 			func(): _play_actor_clip(str(clip_def["actor"]), str(clip_def["clip"]))
 		)
 	# 同学姿态（可带 recover 回到坐姿）
+	# transition / recover_transition：该条姿态自己的过渡秒数，缺省用内容里的
+	# pose_transition_seconds。慢动作事件（弯腰捡笔、回头）靠它把动作拖长，
+	# 静态姿态没有动画层，能调的只有这段 slerp 时间。
 	for pose_cue in event.get("poses", []):
 		var pose: Dictionary = pose_cue
-		_schedule(float(pose.get("at", 0.0)), func(): _set_actor_pose(str(pose["actor"]), str(pose["pose"])))
+		var pose_in := float(pose.get("transition", -1.0))
+		var pose_out := float(pose.get("recover_transition", -1.0))
+		_schedule(
+			float(pose.get("at", 0.0)),
+			func(): _set_actor_pose(str(pose["actor"]), str(pose["pose"]), pose_in)
+		)
 		if pose.has("recover"):
 			_schedule(
-				float(pose["recover"]), func(): _set_actor_pose(str(pose["actor"]), "SIT")
+				float(pose["recover"]),
+				func(): _set_actor_pose(str(pose["actor"]), "SIT", pose_out)
 			)
 	# 第一层声音：speech 走字幕条，ambient 只放音频
 	var voice: Dictionary = event.get("voice", {})
@@ -738,8 +752,11 @@ func _refresh_controls() -> void:
 func _reset_world() -> void:
 	_generation += 1
 	_kill_tweens()
+	_apply_pose_transition_seconds()
 	_reset_managed_actors()
-	_set_ambient_whispers(true) # 开场前教室里本就有低声交谈
+	_build_desk_props()
+	_apply_ambient_state()  # 开场不是全班端坐：有人写字、有人看书、有人听讲
+	_set_ambient_whispers(true) # 开场前教室里本就有低声交谈（覆盖上面同座位的交头接耳）
 	_set_protagonist_pose("sit", true)
 	# 教师：开场站在讲台前面对大家讲课，全程不移动（反馈：示意回答时不要移动老师）
 	teacher.playing = true
@@ -814,7 +831,9 @@ func _actor_node(name: String) -> Node:
 	return node
 
 
-func _set_actor_pose(actor: String, pose: String) -> void:
+## `transition` 为该次姿态切换的过渡秒数；< 0 表示用内容里的默认值
+## （pose_transition_seconds）。事件可以由动作自身把速度放慢。
+func _set_actor_pose(actor: String, pose: String, transition: float = -1.0) -> void:
 	var pose_id: int = _pose_ids.get(pose, -1)
 	if pose_id < 0:
 		push_warning("DialogueFlow: 未知姿态 " + pose)
@@ -823,6 +842,8 @@ func _set_actor_pose(actor: String, pose: String) -> void:
 	if node == null:
 		push_warning("DialogueFlow: 找不到演员节点 " + actor)
 		return
+	if "pose_transition_seconds" in node:
+		node.pose_transition_seconds = _pose_default_seconds if transition < 0.0 else transition
 	if int(node.pose) == pose_id:
 		return # 姿态未变：跳过，避免无意义地重跑 apply_pose（其内部会先把模型抬回未下沉位）
 	node.pose = pose_id
@@ -898,6 +919,79 @@ func _find_skeleton(node: Node) -> Skeleton3D:
 func _reset_managed_actors() -> void:
 	for actor in _managed_actors:
 		_set_actor_pose(actor, "SIT")
+
+
+## 姿态过渡时间统一由 content.pose_transition_seconds 给：0 即回到“瞬切”。
+## 静态姿态本身没有动画层，切换时靠 character_pose.gd 的骨骼 slerp 过渡。
+func _apply_pose_transition_seconds() -> void:
+	var seconds := float(_content.get("pose_transition_seconds", 0.45))
+	_pose_default_seconds = seconds
+	if seating == null:
+		return
+	for child in seating.get_children():
+		if "pose_transition_seconds" in child:
+			child.pose_transition_seconds = seconds
+
+
+## 开场教室：按 content.ambient.states 给每张桌子一个已经开始的状态
+## （写字 / 看书 / 听讲）。被流程管理的事件座位会被后续事件覆盖，属于预期。
+func _apply_ambient_state() -> void:
+	var ambient: Dictionary = _content.get("ambient", {})
+	for entry in ambient.get("states", []):
+		var item: Dictionary = entry
+		var pose := str(item.get("pose", ""))
+		if pose.is_empty():
+			continue
+		_set_actor_pose(str(item.get("seat", "")), pose)
+
+
+## 桌面道具：写字的人桌上放本子和笔，看书的人桌上摊课本。
+## 全部用 PropKit 的程序化网格，不引用外部素材；只在第一次复位时生成。
+func _build_desk_props() -> void:
+	if _desk_props != null or seating == null:
+		return
+	_desk_props = Node3D.new()
+	_desk_props.name = "DeskProps"
+	add_child(_desk_props)
+	var ambient: Dictionary = _content.get("ambient", {})
+	var top_y := float(ambient.get("desk_top_y", 0.775))
+	var forward := float(ambient.get("desk_forward", 0.72))
+	for entry in ambient.get("states", []):
+		var item: Dictionary = entry
+		var kind := str(item.get("desk", ""))
+		if kind.is_empty():
+			continue
+		var seat := seating.get_node_or_null(str(item.get("seat", ""))) as Node3D
+		if seat == null:
+			push_warning("DialogueFlow: ambient 里找不到座位 " + str(item.get("seat", "")))
+			continue
+		_spawn_desk_prop(seat, kind, top_y, forward)
+
+
+## 道具摆在座位正前方的课桌台面上：座位局部 -Z 是课桌方向，桌面高 0.775 m。
+## 每张桌子按座位名做一点稳定的小偏移/小转角，满座时不至于像印刷品。
+func _spawn_desk_prop(seat: Node3D, kind: String, top_y: float, forward: float) -> void:
+	var basis := seat.global_transform.basis.orthonormalized()
+	var jitter := float(absi(hash(String(seat.name))) % 100) / 100.0
+	var root := Node3D.new()
+	root.name = "Desk_" + String(seat.name)
+	_desk_props.add_child(root)
+	root.global_position = seat.global_position - basis.z * forward + basis.x * (jitter - 0.5) * 0.09
+	root.global_rotation = Vector3(0.0, (jitter - 0.5) * 18.0, 0.0)
+	if kind.begins_with("notebook"):
+		var note := PropKit.notebook()
+		note.position = Vector3(0.0, top_y + 0.007, 0.0)
+		root.add_child(note)
+		if kind == "notebook_pen" or kind == "notebook_pencil":
+			var tool: Node3D = PropKit.pen() if kind == "notebook_pen" else PropKit.pencil()
+			# 摆在靠近人的一侧：写字的手（WRITING 的 IK 落点）正好压在这支笔上
+			tool.position = Vector3(0.02, top_y + 0.019, 0.09)
+			tool.rotation_degrees = Vector3(0.0, 24.0, 0.0)
+			root.add_child(tool)
+	elif kind == "textbook":
+		var book := PropKit.textbook()
+		book.position = Vector3(0.0, top_y + 0.014, 0.0)
+		root.add_child(book)
 
 
 func _set_ambient_whispers(on: bool) -> void:
@@ -1013,11 +1107,14 @@ func _apply_prop_action(prop: String, action: String) -> void:
 	if prop != "pen" or _pen == null:
 		return
 	var pen_cfg: Dictionary = _content.get("props", {}).get("pen", {})
+	# 落笔/还笔的时长也走内容配置：慢节奏下笔要滚得慢、放得慢。
+	var fall_seconds := float(pen_cfg.get("fall_seconds", 0.55))
+	var return_seconds := float(pen_cfg.get("return_seconds", 0.45))
 	match action:
 		"fall":
-			_tween_prop(_pen, _vec(pen_cfg.get("floor_position", [0, 0, 0])), 0.55, true)
+			_tween_prop(_pen, _vec(pen_cfg.get("floor_position", [0, 0, 0])), fall_seconds, true)
 		"return":
-			_tween_prop(_pen, _vec(pen_cfg.get("return_position", [0, 0, 0])), 0.45, false)
+			_tween_prop(_pen, _vec(pen_cfg.get("return_position", [0, 0, 0])), return_seconds, false)
 
 
 func _tween_prop(node: MeshInstance3D, target: Vector3, seconds: float, rolling: bool) -> void:
@@ -1303,6 +1400,11 @@ func _scan_beat_voice(beat: Dictionary, add: Callable) -> void:
 		add.call("voice", str(segment.get("voice", "")))
 
 
+## 供无头检查：逻辑演员名 → 实际座位节点名（confident/nod/dissent 这类事件演员）。
+func debug_actor_seat(actor: String) -> String:
+	return str(_content.get("actors", {}).get(actor, ""))
+
+
 ## 供无头检查：当前阶段、分支、已触发事件与主角姿态。
 func debug_event_labels() -> Array[String]:
 	var labels: Array[String] = []
@@ -1328,6 +1430,14 @@ func debug_l2_card_bodies() -> Array:
 
 
 ## 供无头检查：按生成代调度（与节拍同一套时间基准）。
+## 定时回调统一绑定“当前节拍代号”：节拍被跳过、或被事件提前结束时，之前排好的
+## 字幕 / 配音 / 姿态 / 音效不再补发。否则用「跳过」走过几步之后，上一节拍的字幕会
+## 在几秒后突然弹出来盖住当前这句（观感上像字幕串台）。
 func _schedule(seconds: float, callable: Callable) -> void:
+	var gen := _generation
 	var timer := get_tree().create_timer(maxf(seconds, 0.0) * time_scale, false)
-	timer.timeout.connect(callable)
+	timer.timeout.connect(func() -> void:
+		if gen != _generation:
+			return
+		callable.call()
+	)

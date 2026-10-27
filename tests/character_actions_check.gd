@@ -209,7 +209,7 @@ func _check_all_clips() -> void:
 	var finished := [false]
 	ch.clip_finished.connect(func(): finished[0] = true)
 	ch.play_clip(CharacterAction.Clip.NOD_FULL, true)
-	ch._process(2.0)
+	ch._process(2.6)
 	_expect(finished[0], "nod_full: clip_finished not emitted")
 
 	ch.queue_free()

@@ -50,24 +50,26 @@ const EXPRESSIONS := {
 }
 
 ## 每个动作的基础信息。seated = 是否坐在椅子上；duration 秒；loop 循环。
+## 2026-10-27：起立 / 坐下 / 捡笔 / 回头 / 点头这些“要让人看清楚过程”的动作整体放慢
+## （原 0.8 / 0.85 / 4.2 / 1.5 / 1.25 秒都太快，玩家来不及看）。
 const CLIP_INFO := {
 	Clip.NONE:          {"label": "静止站立", "seated": false, "duration": 1.0, "loop": true},
-	Clip.SIT_TO_STAND:  {"label": "起身", "seated": true, "duration": 0.80, "loop": false},
-	Clip.STAND_TO_SIT:  {"label": "坐下", "seated": false, "duration": 0.85, "loop": false},
+	Clip.SIT_TO_STAND:  {"label": "起身", "seated": true, "duration": 2.20, "loop": false},
+	Clip.STAND_TO_SIT:  {"label": "坐下", "seated": false, "duration": 2.40, "loop": false},
 	Clip.STAND_TALK:    {"label": "站立说话", "seated": false, "duration": 4.0, "loop": true},
 	Clip.LOOK_AROUND:   {"label": "四处看", "seated": false, "duration": 7.4, "loop": true},
 	Clip.HAND_ON_DESK:  {"label": "手扶桌边", "seated": true, "duration": 2.0, "loop": true},
-	Clip.HAND_RETRACT:  {"label": "手慢慢收回", "seated": true, "duration": 1.40, "loop": false},
+	Clip.HAND_RETRACT:  {"label": "手慢慢收回", "seated": true, "duration": 2.40, "loop": false},
 	Clip.STAND_INPUT:   {"label": "站着输入", "seated": false, "duration": 10.0, "loop": true},
 	Clip.LAUGH_SHAKE:   {"label": "掩嘴低笑", "seated": true, "duration": 1.15, "loop": false},
-	Clip.NOD_FULL:      {"label": "轻轻点头", "seated": true, "duration": 1.25, "loop": false},
-	Clip.PICK_PEN:      {"label": "弯腰捡笔", "seated": true, "duration": 4.20, "loop": false},
-	Clip.LOOK_BACK:     {"label": "回头抬眼", "seated": true, "duration": 1.50, "loop": false},
-	Clip.HEAD_SHAKE:    {"label": "看着黑板摇头", "seated": true, "duration": 1.80, "loop": false},
-	Clip.DRAW_GRID:     {"label": "画方格擦线", "seated": true, "duration": 5.20, "loop": true},
+	Clip.NOD_FULL:      {"label": "轻轻点头", "seated": true, "duration": 2.20, "loop": false},
+	Clip.PICK_PEN:      {"label": "弯腰捡笔", "seated": true, "duration": 6.50, "loop": false},
+	Clip.LOOK_BACK:     {"label": "回头抬眼", "seated": true, "duration": 3.20, "loop": false},
+	Clip.HEAD_SHAKE:    {"label": "看着黑板摇头", "seated": true, "duration": 2.60, "loop": false},
+	Clip.DRAW_GRID:     {"label": "画方格擦线", "seated": true, "duration": 7.00, "loop": true},
 	Clip.LOWER_BOOK:    {"label": "放低课本", "seated": true, "duration": 2.20, "loop": false},
 	Clip.WHISPER_LOOP:  {"label": "交头接耳", "seated": true, "duration": 3.40, "loop": true},
-	Clip.QUIET_SETTLE:  {"label": "忽然安静", "seated": true, "duration": 0.55, "loop": false},
+	Clip.QUIET_SETTLE:  {"label": "忽然安静", "seated": true, "duration": 1.20, "loop": false},
 	Clip.DESK_PEN_IDLE: {"label": "桌面持笔", "seated": true, "duration": 8.00, "loop": true},
 }
 
