@@ -15,6 +15,10 @@ signal answer_submitted(text: String) ## 玩家输入并提交的回答（清晰
 signal struggle_chosen ## 勉强开口（分支二，有台词）
 signal avoid_chosen ## 玩家选择躲避视线（分支二，无台词）
 
+## 3D 场景内 UI 接入信号：说话字幕（带说话者 key）与字幕清除。
+signal world_subtitle(speaker_key: StringName, display: String, text: String)
+signal world_subtitle_cleared
+
 const SPEAKER_COLORS := {
 	&"teacher": Color(0.98, 0.83, 0.55),
 	&"protagonist": Color(0.62, 0.86, 0.99),
@@ -30,6 +34,10 @@ var _look_hint_done: bool = false
 ## 词条 chip 记录：{"chip": Control, "done": bool}。用字典而不是直接捕获节点，
 ## 避免提前淡出的 chip 被释放后，未决的持有计时仍调用其回调（捕获已释放对象会报错）。
 var _chip_records: Array[Dictionary] = []
+
+## 为 true 时显示原来的 2D 底部字幕条；为 false 时隐藏 2D 字幕条，
+## 只保留说话者旁边的 3D 字幕（classroom_dialogue.tscn 默认设为 false 以开启全 3D 风格）。
+@export var flat_subtitle: bool = true
 
 @onready var brand: Label = %Brand
 @onready var skip_button: Button = %Skip
@@ -90,7 +98,7 @@ func configure(content: Dictionary) -> void:
 ## ——— 字幕 ———
 
 func set_subtitle(speaker: String, text: String) -> void:
-	subtitle_bar.visible = true
+	subtitle_bar.visible = flat_subtitle
 	speaker_label.text = speaker
 	speaker_label.add_theme_color_override(
 		"font_color", SPEAKER_COLORS.get(StringName(speaker), Color(0.85, 0.86, 0.84))
@@ -101,6 +109,7 @@ func set_subtitle(speaker: String, text: String) -> void:
 func clear_subtitle() -> void:
 	subtitle_bar.visible = false
 	line_label.text = ""
+	world_subtitle_cleared.emit()
 
 
 ## ——— 词条 chip（L1 事件感受，出现数秒后淡出） ———
@@ -162,6 +171,7 @@ func _retire_chip(record: Dictionary) -> void:
 
 func show_choice(choice: Dictionary) -> void:
 	subtitle_bar.visible = false
+	world_subtitle_cleared.emit()
 	card_panel.visible = false
 	look_hint.visible = false
 	choice_panel.visible = true
@@ -204,6 +214,7 @@ func hide_choice() -> void:
 
 func show_card(title: String, body: String) -> void:
 	subtitle_bar.visible = false
+	world_subtitle_cleared.emit()
 	look_hint.visible = false
 	card_panel.visible = true
 	card_title.text = title

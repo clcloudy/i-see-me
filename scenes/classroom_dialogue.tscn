@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=3]
+[gd_scene load_steps=11 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/classroom_static.tscn" id="1_classroom"]
 [ext_resource type="PackedScene" path="res://scenes/actors/character_pose/classroom_seating.tscn" id="2_seating"]
@@ -9,6 +9,7 @@
 [ext_resource type="PackedScene" path="res://scenes/ui/dialogue_ui.tscn" id="7_ui"]
 [ext_resource type="Script" path="res://scripts/dialogue_camera.gd" id="8_camera"]
 [ext_resource type="Script" path="res://scripts/dialogue_flow.gd" id="9_flow"]
+[ext_resource type="Script" path="res://scripts/scene_ui_3d.gd" id="10_scene_ui"]
 
 [node name="ClassroomDialogue" type="Node3D"]
 
@@ -49,6 +50,7 @@ focus_falloff = 1.2
 transition_seconds = 0.6
 
 [node name="DialogueUI" parent="." instance=ExtResource("7_ui")]
+flat_subtitle = false
 
 [node name="Flow" type="Node3D" parent="." node_paths=PackedStringArray("camera", "teacher", "seating", "protagonist_sit", "protagonist_stand", "protagonist_look", "flow_state", "interface")]
 script = ExtResource("9_flow")
@@ -60,3 +62,21 @@ protagonist_stand = NodePath("../ProtagonistStand")
 protagonist_look = NodePath("../ProtagonistLook")
 flow_state = NodePath("../L2FlowState")
 interface = NodePath("../DialogueUI")
+
+[node name="ClassmateAnchor" type="Marker3D" parent="."]
+position = Vector3(-1.6, 1.0, 0.6)
+
+[node name="StageAnchor" type="Marker3D" parent="."]
+position = Vector3(-1.0, 1.2, -2.5)
+
+[node name="WorldUI" type="Node3D" parent="."]
+script = ExtResource("10_scene_ui")
+flow = NodePath("../Flow")
+interface = NodePath("../DialogueUI")
+camera_path = NodePath("../CameraRig/Camera3D")
+teacher_anchor = NodePath("../Teacher")
+protagonist_sit_anchor = NodePath("../Seating/ProtagonistSit")
+protagonist_stand_anchor = NodePath("../ProtagonistStand")
+protagonist_look_anchor = NodePath("../ProtagonistLook")
+classmate_anchor = NodePath("../ClassmateAnchor")
+stage_anchor = NodePath("../StageAnchor")

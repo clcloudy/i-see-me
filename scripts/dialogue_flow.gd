@@ -24,6 +24,12 @@ extends Node3D
 
 signal stage_changed(stage_id: StringName)
 
+## 3D 场景内 UI 接入信号（不改动流程时序）：
+##  - event_observed：一条「可被观察到的事件」发生，携带事件 id / 文案 / 世界坐标。
+##  - sound_emitted：某个位置发出了动静（台词、走位、音效），携带世界坐标与强度。
+signal event_observed(event_id: StringName, label: String, world_position: Vector3)
+signal sound_emitted(world_position: Vector3, intensity: float)
+
 const CHARACTER_POSE_PATH := "res://scripts/character_pose.gd"
 const DEFAULT_CONTENT_PATH := "res://content/classroom_dialogue.json"
 const REQUIRED_POSES := [
@@ -448,6 +454,14 @@ func _fire_event(event_id: String, gen: int) -> void:
 			var recover_after := float(event_camera["recover"])
 			_schedule(recover_after, func(): camera.set_look_target(_beat_look_target))
 
+	# 三维事件标记：在事件发生处广播「可观察事件」，由 SceneUI3D 生成可点击收集的小球。
+	var _ev_world := Vector3.ZERO
+	if event_camera.has("look"):
+		_ev_world = _camera_target(str(event_camera["look"]))
+	elif teacher != null:
+		_ev_world = teacher.global_position
+	event_observed.emit(StringName(event_id), str(event.get("label", event_id)), _ev_world)
+
 
 func _run_cue(action: String, gen: int) -> void:
 	if gen != _generation:
@@ -464,6 +478,26 @@ func _show_segment(segment: Dictionary) -> void:
 	var speaker_key := str(segment.get("speaker", "stage"))
 	var label := str(_content.get("ui", {}).get("speaker_" + speaker_key, speaker_key))
 	interface.set_subtitle(label, str(segment.get("text", "")))
+	# —— 3D 字幕 + 声纹（不改动时序）——
+	if interface.has_signal("world_subtitle"):
+		interface.emit_signal("world_subtitle", StringName(speaker_key), label, str(segment.get("text", "")))
+	sound_emitted.emit(_speaker_world_position(speaker_key), 0.6)
+
+
+## 依据说话者 key 估算其世界坐标，用于把「声纹」放到发声者附近。
+func _speaker_world_position(speaker_key: String) -> Vector3:
+	match speaker_key:
+		"teacher":
+			return teacher.global_position if teacher != null else _podium_position
+		"protagonist":
+			for _p in [protagonist_stand, protagonist_look, protagonist_sit]:
+				if _p != null and _p.visible:
+					return _p.global_position
+			return protagonist_sit.global_position if protagonist_sit != null else Vector3.ZERO
+		"classmate":
+			return _camera_target("left_neighbor")
+		_:
+			return _podium_position
 
 
 # ——— 分支（第 8 步是唯一分支点） ———
@@ -1025,6 +1059,8 @@ func _move_teacher(target: Vector3, seconds: float, then_callable: Callable = Ca
 	_teacher_tween = null
 	_teacher_move_target = target
 	_teacher_moving = seconds > 0.0
+	if seconds > 0.0:
+		sound_emitted.emit(teacher.global_position if teacher != null else target, 1.0)
 	if seconds <= 0.0:
 		teacher.position = target
 		if then_callable.is_valid():
@@ -1204,6 +1240,9 @@ func _play_cue(path: String, as_sfx: bool) -> void:
 		return
 	player.stream = stream
 	player.play()
+	# 三维声纹：环境音 / 同学低语等「动静」出现的位置（以教师附近作为教室声源近似）。
+	if as_sfx:
+		sound_emitted.emit(teacher.global_position if teacher != null else _podium_position, 0.8)
 
 
 func _voice_length(path: String) -> float:
