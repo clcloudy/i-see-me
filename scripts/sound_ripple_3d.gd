@@ -42,8 +42,11 @@ func _process(delta: float) -> void:
 	var t := clampf(_elapsed / _duration, 0.0, 1.0)
 	if _material != null:
 		_material.set_shader_parameter("progress", t)
+	# 安全朝向：仅绕 Y 轴偏航面向相机（避免 look_at 在相机贴近本节点时产生 NaN 退化矩阵）。
 	var cam := get_viewport().get_camera_3d()
 	if cam != null:
-		look_at(cam.global_position, Vector3.UP)
+		var to_cam := cam.global_position - global_position
+		if abs(to_cam.x) > 0.001 or abs(to_cam.z) > 0.001:
+			rotation.y = atan2(to_cam.x, to_cam.z)
 	if t >= 1.0:
 		queue_free()
