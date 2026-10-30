@@ -52,7 +52,7 @@ func _ready() -> void:
 	_label.position = Vector3(0.0, 0.30, 0.0)
 	# 用内置公告板（仅绕 Y 轴、保持直立）面向相机——比手动 look_at 安全，
 	# 相机贴近小球时也不会产生 NaN 变换。
-	_label.billboard = Label3D.BILLBOARD_FIXED_Y
+	_label.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
 	add_child(_label)
 
 
