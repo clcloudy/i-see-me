@@ -1,0 +1,194 @@
+[gd_scene load_steps=21 format=3]
+
+[sub_resource type="StandardMaterial3D" id="Material_off_white"]
+albedo_color = Color(0.72, 0.73, 0.7, 1)
+roughness = 0.62
+
+[sub_resource type="StandardMaterial3D" id="Material_gray"]
+albedo_color = Color(0.41, 0.42, 0.41, 1)
+roughness = 0.7
+
+[sub_resource type="StandardMaterial3D" id="Material_dark"]
+albedo_color = Color(0.055, 0.06, 0.062, 1)
+metallic = 0.25
+roughness = 0.38
+
+[sub_resource type="StandardMaterial3D" id="Material_dome"]
+transparency = 1
+albedo_color = Color(0.055, 0.065, 0.068, 0.5)
+metallic = 0.12
+roughness = 0.08
+
+[sub_resource type="StandardMaterial3D" id="Material_lens"]
+albedo_color = Color(0.008, 0.012, 0.016, 1)
+metallic = 0.42
+roughness = 0.16
+
+[sub_resource type="StandardMaterial3D" id="Material_led"]
+emission_enabled = true
+albedo_color = Color(0.08, 0.01, 0.005, 1)
+emission = Color(1, 0.06, 0.02, 1)
+emission_energy_multiplier = 2.5
+
+[sub_resource type="BoxMesh" id="Mesh_mount_plate"]
+size = Vector3(0.22, 0.32, 0.035)
+
+[sub_resource type="BoxMesh" id="Mesh_control_box"]
+size = Vector3(0.21, 0.28, 0.09)
+
+[sub_resource type="BoxMesh" id="Mesh_junction_box"]
+size = Vector3(0.16, 0.16, 0.055)
+
+[sub_resource type="BoxMesh" id="Mesh_latch"]
+size = Vector3(0.025, 0.055, 0.012)
+
+[sub_resource type="BoxMesh" id="Mesh_speaker"]
+size = Vector3(0.31, 0.23, 0.1)
+
+[sub_resource type="BoxMesh" id="Mesh_speaker_grille"]
+size = Vector3(0.255, 0.17, 0.012)
+
+[sub_resource type="BoxMesh" id="Mesh_grille_line"]
+size = Vector3(0.22, 0.012, 0.006)
+
+[sub_resource type="BoxMesh" id="Mesh_conduit_v"]
+size = Vector3(0.028, 0.38, 0.028)
+
+[sub_resource type="BoxMesh" id="Mesh_conduit_h"]
+size = Vector3(0.36, 0.028, 0.028)
+
+[sub_resource type="CylinderMesh" id="Mesh_camera_arm"]
+top_radius = 0.022
+bottom_radius = 0.022
+height = 0.17
+
+[sub_resource type="CylinderMesh" id="Mesh_camera_base"]
+top_radius = 0.105
+bottom_radius = 0.105
+height = 0.075
+
+[sub_resource type="SphereMesh" id="Mesh_dome"]
+radius = 0.105
+height = 0.16
+is_hemisphere = true
+
+[sub_resource type="CylinderMesh" id="Mesh_lens"]
+top_radius = 0.041
+bottom_radius = 0.041
+height = 0.014
+
+[sub_resource type="SphereMesh" id="Mesh_led"]
+radius = 0.009
+height = 0.018
+
+[node name="WallAVSecurityKit" type="Node3D"]
+
+[node name="Backplate" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0, -0.02)
+mesh = SubResource("Mesh_mount_plate")
+material_override = SubResource("Material_off_white")
+
+[node name="ControlBox" type="MeshInstance3D" parent="."]
+position = Vector3(-0.2, -0.08, 0.055)
+mesh = SubResource("Mesh_control_box")
+material_override = SubResource("Material_gray")
+
+[node name="ControlBoxFace" type="MeshInstance3D" parent="ControlBox"]
+position = Vector3(0, 0, 0.05)
+mesh = SubResource("Mesh_junction_box")
+material_override = SubResource("Material_off_white")
+
+[node name="ControlBoxLatch" type="MeshInstance3D" parent="ControlBox/ControlBoxFace"]
+position = Vector3(0.055, -0.045, 0.035)
+mesh = SubResource("Mesh_latch")
+material_override = SubResource("Material_dark")
+
+[node name="JunctionBox" type="MeshInstance3D" parent="."]
+position = Vector3(-0.19, 0.28, 0.045)
+mesh = SubResource("Mesh_junction_box")
+material_override = SubResource("Material_off_white")
+
+[node name="VerticalConduit" type="MeshInstance3D" parent="."]
+position = Vector3(-0.19, 0.08, 0.015)
+mesh = SubResource("Mesh_conduit_v")
+material_override = SubResource("Material_off_white")
+
+[node name="HorizontalConduit" type="MeshInstance3D" parent="."]
+position = Vector3(-0.08, 0.36, 0.015)
+mesh = SubResource("Mesh_conduit_h")
+material_override = SubResource("Material_off_white")
+
+[node name="CameraArm" type="MeshInstance3D" parent="."]
+position = Vector3(0.08, 0.1, 0.1)
+rotation_degrees = Vector3(90, 0, 0)
+mesh = SubResource("Mesh_camera_arm")
+material_override = SubResource("Material_off_white")
+
+[node name="CameraBase" type="MeshInstance3D" parent="."]
+position = Vector3(0.08, 0.1, 0.19)
+rotation_degrees = Vector3(90, 0, 0)
+mesh = SubResource("Mesh_camera_base")
+material_override = SubResource("Material_off_white")
+
+[node name="Dome" type="MeshInstance3D" parent="."]
+position = Vector3(0.08, 0.1, 0.225)
+rotation_degrees = Vector3(90, 0, 0)
+mesh = SubResource("Mesh_dome")
+material_override = SubResource("Material_dome")
+
+[node name="LensRing" type="MeshInstance3D" parent="."]
+position = Vector3(0.08, 0.1, 0.248)
+rotation_degrees = Vector3(90, 0, 0)
+mesh = SubResource("Mesh_lens")
+material_override = SubResource("Material_dark")
+
+[node name="Lens" type="MeshInstance3D" parent="."]
+position = Vector3(0.08, 0.1, 0.258)
+rotation_degrees = Vector3(90, 0, 0)
+mesh = SubResource("Mesh_lens")
+scale = Vector3(0.58, 1, 0.58)
+material_override = SubResource("Material_lens")
+
+[node name="CameraLed" type="MeshInstance3D" parent="."]
+position = Vector3(0.135, 0.052, 0.243)
+mesh = SubResource("Mesh_led")
+material_override = SubResource("Material_led")
+cast_shadow = 0
+
+[node name="Speaker" type="Node3D" parent="."]
+position = Vector3(0.31, 0.3, 0.035)
+rotation_degrees = Vector3(0, 0, -8)
+
+[node name="Housing" type="MeshInstance3D" parent="Speaker"]
+mesh = SubResource("Mesh_speaker")
+material_override = SubResource("Material_gray")
+
+[node name="Grille" type="MeshInstance3D" parent="Speaker"]
+position = Vector3(0, 0, 0.056)
+mesh = SubResource("Mesh_speaker_grille")
+material_override = SubResource("Material_dark")
+
+[node name="GrilleLine1" type="MeshInstance3D" parent="Speaker"]
+position = Vector3(0, 0.06, 0.065)
+mesh = SubResource("Mesh_grille_line")
+material_override = SubResource("Material_gray")
+
+[node name="GrilleLine2" type="MeshInstance3D" parent="Speaker"]
+position = Vector3(0, 0.03, 0.065)
+mesh = SubResource("Mesh_grille_line")
+material_override = SubResource("Material_gray")
+
+[node name="GrilleLine3" type="MeshInstance3D" parent="Speaker"]
+position = Vector3(0, 0, 0.065)
+mesh = SubResource("Mesh_grille_line")
+material_override = SubResource("Material_gray")
+
+[node name="GrilleLine4" type="MeshInstance3D" parent="Speaker"]
+position = Vector3(0, -0.03, 0.065)
+mesh = SubResource("Mesh_grille_line")
+material_override = SubResource("Material_gray")
+
+[node name="GrilleLine5" type="MeshInstance3D" parent="Speaker"]
+position = Vector3(0, -0.06, 0.065)
+mesh = SubResource("Mesh_grille_line")
+material_override = SubResource("Material_gray")

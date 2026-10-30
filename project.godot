@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="I See Me"
-run/main_scene="res://scenes/main.tscn"
+run/main_scene="uid://cxp0bhrm4sfwm"
 config/features=PackedStringArray("4.6", "GL Compatibility")
 
 [display]

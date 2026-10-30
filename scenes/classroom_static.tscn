@@ -10,6 +10,7 @@
 [ext_resource type="PackedScene" path="res://scenes/props/curtain.tscn" id="6_curtain"]
 [ext_resource type="PackedScene" path="res://scenes/props/clock.tscn" id="7_clock"]
 [ext_resource type="PackedScene" path="res://scenes/props/door.tscn" id="8_door"]
+[ext_resource type="PackedScene" path="res://scenes/props/wall_av_security.tscn" id="8_security"]
 [ext_resource type="PackedScene" path="res://scenes/props/ceiling_light.tscn" id="9_light"]
 [ext_resource type="PackedScene" path="res://scenes/props/lecture_desk_short.tscn" id="10_desk_short"]
 [ext_resource type="PackedScene" path="res://scenes/props/lecture_desk_long.tscn" id="11_desk_long"]
@@ -17,6 +18,7 @@
 [ext_resource type="PackedScene" path="res://scenes/props/lecture_row_long.tscn" id="13_row_long"]
 [ext_resource type="Sky" path="res://assets/sky/classroom_sky.tres" id="14_sky"]
 [ext_resource type="LightmapGIData" uid="uid://bxnuxaegudbjq" path="res://assets/lightmaps/classroom.lmbake" id="15_lightmap"]
+[ext_resource type="PackedScene" path="res://scenes/props/air_conditioner.tscn" id="16_ac"]
 
 [sub_resource type="Environment" id="Environment_classroom"]
 background_mode = 2
@@ -167,6 +169,7 @@ _surfaces = [{
 "vertex_count": 24,
 "vertex_data": PackedByteArray("mpk5wJqZmT0zM3M/mpk5QJqZmT0zM3M/mpk5wJqZmb0zM3M/mpk5QJqZmb0zM3M/mpk5QJqZmT0zM3O/mpk5wJqZmT0zM3O/mpk5QJqZmb0zM3O/mpk5wJqZmb0zM3O/mpk5QJqZmT0zM3M/mpk5QJqZmT0zM3O/mpk5QJqZmb0zM3M/mpk5QJqZmb0zM3O/mpk5wJqZmT0zM3O/mpk5wJqZmT0zM3M/mpk5wJqZmb0zM3O/mpk5wJqZmb0zM3M/mpk5QJqZmT0zM3M/mpk5wJqZmT0zM3M/mpk5QJqZmT0zM3O/mpk5wJqZmT0zM3O/mpk5wJqZmb0zM3M/mpk5QJqZmb0zM3M/mpk5wJqZmb0zM3O/mpk5QJqZmb0zM3O//3//f////7//f/9/////v/9//3////+//3//f////7//////AAD/v/////8AAP+//////wAA/7//////AAD/v///AID///////8AgP///////wCA////////AID/////AAAAgP9//78AAACA/3//vwAAAID/f/+/AAAAgP9//78AgP//AAD/vwCA//8AAP+/AID//wAA/78AgP//AAD/vwCAAAD///+/AIAAAP///78AgAAA////vwCAAAD///+/")
 }]
+
 
 [sub_resource type="StandardMaterial3D" id="Material_beam"]
 albedo_color = Color(0.88, 0.87, 0.84, 1)
@@ -347,7 +350,7 @@ mesh = SubResource("ArrayMesh_dgf1b")
 [node name="Front" type="Node3D" parent="." unique_id=1324025679]
 
 [node name="Platform" type="MeshInstance3D" parent="Front" unique_id=723121437]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.3, 0.075, -4.05)
+transform = Transform3D(0.8448, 0, 0, 0, 1, 0, 0, 0, 2.0526, -0.85, 0.075, -3.05)
 material_override = ExtResource("4_platform")
 mesh = SubResource("ArrayMesh_qibtv")
 
@@ -355,10 +358,13 @@ mesh = SubResource("ArrayMesh_qibtv")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -4.94)
 
 [node name="Podium" parent="Front" unique_id=1239325463 instance=ExtResource("3_podium")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.8, 0.15, -3.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.2, 0.15, -1.5)
 
 [node name="Cabinet" parent="Front" unique_id=407064012 instance=ExtResource("4_cabinet")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.8, 0.15, -3.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.2, 0.15, -1.5)
+
+[node name="AirConditioner" parent="." instance=ExtResource("16_ac")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 4.75, 0, -4.565)
 
 [node name="Walls" type="Node3D" parent="." unique_id=914105679]
 
@@ -367,6 +373,9 @@ transform = Transform3D(-4.371139e-08, 0, 1, 0, 1, 0, -1, 0, -4.371139e-08, -4.9
 
 [node name="Clock" parent="Walls" unique_id=1625202307 instance=ExtResource("7_clock")]
 transform = Transform3D(-4.371139e-08, 0, 1, 0, 1, 0, -1, 0, -4.371139e-08, -4.9, 2.85, -2.4)
+
+[node name="WallAVSecurity" parent="Walls" instance=ExtResource("8_security")]
+transform = Transform3D(-4.371139e-08, 0, 1, 0, 1, 0, -1, 0, -4.371139e-08, -4.86, 2.55, -3.78)
 
 [node name="Furniture" type="Node3D" parent="." unique_id=861592308]
 
