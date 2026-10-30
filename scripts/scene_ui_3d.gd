@@ -45,6 +45,9 @@ func _ready() -> void:
 	_subtitle.modulate = Color(1.0, 1.0, 1.0)
 	_subtitle.outline_size = 6
 	_subtitle.outline_modulate = Color(0.05, 0.08, 0.12)
+	# 用内置公告板（仅绕 Y 轴、保持直立）面向相机——比手动 look_at 安全，
+	# 相机贴近说话者头部时也不会产生 NaN 变换导致崩溃。
+	_subtitle.billboard = Label3D.BILLBOARD_FIXED_Y
 	add_child(_subtitle)
 
 	if _interface != null and _interface.has_signal("world_subtitle"):
@@ -57,10 +60,8 @@ func _ready() -> void:
 			_flow.sound_emitted.connect(_on_sound_emitted)
 
 
-func _process(_delta: float) -> void:
-	if _subtitle != null and _subtitle.visible and _camera != null:
-		_subtitle.look_at(_camera.global_position, Vector3.UP)
-		_subtitle.rotate_y(PI)
+# 3D 字幕朝向由 Label3D.billboard = BILLBOARD_FIXED_Y 自动处理（比手动 look_at 安全，
+# 可避免相机贴近说话者锚点时出现 NaN 变换导致场景卡死/闪退）。
 
 
 ## —— 说话字幕：在该说话者头部附近显示 3D 标签 ——
@@ -102,6 +103,13 @@ func _on_sound_emitted(world_position: Vector3, intensity: float) -> void:
 
 
 func _spawn_ripple(world_position: Vector3, intensity: float) -> void:
+	# 防御性上限：极端情况下（如某次 play 密集触发）避免声纹节点无限堆积拖垮显存。
+	var alive := 0
+	for c in get_children():
+		if c is SoundRippleScript:
+			alive += 1
+	if alive >= 24:
+		return
 	var r1 := SoundRippleScript.new()
 	r1.setup(world_position, ripple_color, 1.4 + intensity * 0.8, 1.1)
 	add_child(r1)

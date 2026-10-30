@@ -50,6 +50,9 @@ func _ready() -> void:
 	_label.outline_size = 5
 	_label.outline_modulate = Color(0.05, 0.09, 0.13)
 	_label.position = Vector3(0.0, 0.30, 0.0)
+	# 用内置公告板（仅绕 Y 轴、保持直立）面向相机——比手动 look_at 安全，
+	# 相机贴近小球时也不会产生 NaN 变换。
+	_label.billboard = Label3D.BILLBOARD_FIXED_Y
 	add_child(_label)
 
 
@@ -65,10 +68,7 @@ func _process(delta: float) -> void:
 	_mesh.position.y = sin(_bob_t * 2.0) * 0.06
 	var pulse := 1.0 + sin(_bob_t * 3.0) * 0.18
 	_material.emission_energy_multiplier = 1.2 * pulse
-	var cam := get_viewport().get_camera_3d()
-	if cam != null:
-		_label.look_at(cam.global_position, Vector3.UP)
-		_label.rotate_y(PI)
+	# 标签朝向由 billboard = BILLBOARD_FIXED_Y 自动处理，无需每帧 look_at。
 
 
 func _on_input_event(_cam: Node, event: InputEvent, _pos: Vector3, _normal: Vector3, _shape_idx: int) -> void:

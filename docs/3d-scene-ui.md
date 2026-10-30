@@ -35,3 +35,14 @@
 - `scripts/dialogue_ui.gd`（改动）新增 world 信号、导出 `flat_subtitle`
 - `scripts/dialogue_flow.gd`（改动）新增 `event_observed` / `sound_emitted` 信号并在对应处发出
 - `scenes/classroom_dialogue.tscn`（改动）挂入 `WorldUI` 并接好锚点、`DialogueUI.flat_subtitle=false`
+
+## 修复记录（2026-10-30）：运行数秒后卡死/闪退
+
+**病因**：`SceneUI3D` 的 3D 字幕、`EventOrb3D` 的标签、以及 `SoundRipple3D` 原本都用 `look_at(相机位置)` 让它们面向相机。当相机平移到说话者/事件锚点所在位置（对话里 `board_teacher` / `left_neighbor` / `laugh_seat` / `dissent_seat` / `self_head` 等机位正是这些坐标）时，`look_at` 的注视方向长度趋近于 0，算出退化的 NaN 变换矩阵，使渲染/可视服务器崩溃。
+
+**修复**：改用安全的公告板朝向——
+- 两类 `Label3D`（字幕、小球标签）改用内置 `Label3D.BILLBOARD_FIXED_Y`（仅绕 Y 轴、保持直立，Godot 内部已规避退化方向）。
+- `SoundRipple3D` 改为仅绕 Y 轴偏航面向相机，并在水平距离 ≈ 0 时跳过，永不产生 NaN。
+- `SceneUI3D._spawn_ripple` 增加并发上限（≤24）作为防御。
+
+三个功能（小球 / 3D 字幕 / 声纹）均保留。
