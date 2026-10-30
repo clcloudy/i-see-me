@@ -46,7 +46,7 @@ func setup(world_position: Vector3, color: Color, max_radius: float, duration: f
 func _process(delta: float) -> void:
 	_elapsed += delta
 	var t := clampf(_elapsed / _duration, 0.0, 1.0)
-	var s := lerp(0.15, _max_radius, t)
+	var s := lerpf(0.15, _max_radius, t)
 	_mesh.scale = Vector3(s, s, s)
 	if _material != null:
 		var a := 1.0 - t
