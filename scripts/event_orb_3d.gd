@@ -15,6 +15,10 @@ var _area: Area3D
 var _label: Label3D
 var _bob_t := 0.0
 var _collected := false
+# setup() 可能在 add_child 之前被调用（此时 _label 尚未创建），
+# 故先存为 pending，在 _ready()（节点入树时同步触发）里真正应用。
+var _pending_label: String = ""
+var _pending_position: Vector3 = Vector3.ZERO
 
 
 func _ready() -> void:
@@ -54,11 +58,20 @@ func _ready() -> void:
 	# 相机贴近小球时也不会产生 NaN 变换。
 	_label.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
 	add_child(_label)
+	# _ready 在 add_child 时同步触发，此时已入树，可安全应用 setup() 暂存的数据。
+	_label.text = _pending_label
+	if is_inside_tree():
+		global_position = _pending_position
 
 
 func setup(world_position: Vector3, label_text: String) -> void:
-	global_position = world_position
-	_label.text = label_text
+	# 先暂存；若节点尚未入树，_label 还没创建，等 _ready 再应用。
+	_pending_position = world_position
+	_pending_label = label_text
+	if _label != null:
+		_label.text = label_text
+	if is_inside_tree():
+		global_position = world_position
 
 
 func _process(delta: float) -> void:
