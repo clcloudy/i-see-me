@@ -47,7 +47,7 @@ func _ready() -> void:
 	_subtitle.outline_modulate = Color(0.05, 0.08, 0.12)
 	# 用内置公告板（仅绕 Y 轴、保持直立）面向相机——比手动 look_at 安全，
 	# 相机贴近说话者头部时也不会产生 NaN 变换导致崩溃。
-	_subtitle.billboard = Label3D.BILLBOARD_FIXED_Y
+	_subtitle.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
 	add_child(_subtitle)
 
 	if _interface != null and _interface.has_signal("world_subtitle"):
