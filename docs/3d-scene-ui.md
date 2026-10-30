@@ -5,7 +5,7 @@
 1. **全 3D，不平铺到视图上** —— 字幕、事件标记、声纹都存在于三维世界，随相机移动而具有空间位置与遮挡关系。
 2. **可被观察到的事件 → 可点击收集的小球** —— 每条课堂事件在触发位置生成一颗发光小球（`EventOrb3D`），玩家用鼠标左键点击即可收集（收集后缩小上浮并消失）。
 3. **说话字幕直接在说话者旁边出现** —— 说话时，3D 标签悬浮在对应说话者头部附近并始终朝向相机（`SceneUI3D` 复用 `DialogueFlow` 已有的说话者锚点）。
-4. **发出动静的地方有声纹** —— 台词播放、教师走位、人物动作剪辑时，在该处生成向外扩散的环形声纹（`SoundRipple3D` + `shaders/ring_expand.gdshader`）。
+4. **发出动静的地方有声纹** —— 台词播放、教师走位、人物动作剪辑时，在该处生成向外扩散的环形声纹（`SoundRipple3D`，用 TorusMesh + StandardMaterial3D 纯几何实现，零自定义着色器）。
 
 ## 接入方式（不改动流程时序）
 
@@ -22,7 +22,7 @@
 
 - 说话者「旁白（stage）」没有明确的世界锚点，默认落到讲台附近；如希望旁白出现在教室中心，可在场景里加一个 `Marker3D` 并接到 `SceneUI3D.stage_anchor`。
 - 3D 字幕 / 标签的文字清晰度依赖 `Label3D.pixel_size` 与相机距离，需人工在编辑器里按实际观感微调。
-- 声纹着色器兼容 GL Compatibility 渲染器；多级后处理不适用本项目。
+- 声纹采用 TorusMesh + StandardMaterial3D（内置几何与材质，零自定义着色器），完全兼容 GL Compatibility 渲染器，规避自定义 ShaderMaterial 在部分后端的运行时崩溃风险。
 - 点击收集依赖视口的三维拾取（默认开启）；若日后关闭需在项目设置里确认 `physics/3d/ray_picking`。
 - 画面改动需由人在编辑器里实际试玩验收（自动测试不能替代完整流程与情绪强度判断）。
 
@@ -30,8 +30,7 @@
 
 - `scripts/scene_ui_3d.gd`（新增）3D UI 管理器
 - `scripts/event_orb_3d.gd`（新增）可收集事件小球
-- `scripts/sound_ripple_3d.gd`（新增）声纹
-- `shaders/ring_expand.gdshader`（新增）声纹环形波纹着色器
+- `scripts/sound_ripple_3d.gd`（新增）声纹（TorusMesh + StandardMaterial3D 纯几何实现）
 - `scripts/dialogue_ui.gd`（改动）新增 world 信号、导出 `flat_subtitle`
 - `scripts/dialogue_flow.gd`（改动）新增 `event_observed` / `sound_emitted` 信号并在对应处发出
 - `scenes/classroom_dialogue.tscn`（改动）挂入 `WorldUI` 并接好锚点、`DialogueUI.flat_subtitle=false`
@@ -46,3 +45,13 @@
 - `SceneUI3D._spawn_ripple` 增加并发上限（≤24）作为防御。
 
 三个功能（小球 / 3D 字幕 / 声纹）均保留。
+
+## 修复记录（2026-10-30）：编译报错 + 仍闪退
+
+**二修 · 枚举名写错（Parser Error）**：误用 `Label3D.BILLBOARD_FIXED_Y`，该枚举属于 `BaseMaterial3D`。已改为 `BaseMaterial3D.BILLBOARD_FIXED_Y`。
+
+**三修 · PR 冲突**：`feat/3d-scene-ui-fix` 对 `main` 在 GitHub 上出现 2 文件冲突（同一行 main 为错误枚举、分支为正确枚举）。已本地 rebase 到最新 `origin/main` 并保留正确版本，强推后 PR 无冲突。
+
+**四修 · 运行时仍闪退（本次）**：截图显示为项目原有文件的 `SHADOWED_VARIABLE_BASE_CLASS` 黄色警告（非致命、非我代码、不导致闪退），真正的闪退最大嫌疑是声纹所用的**自定义着色器 `ring_expand.gdshader`**（GL Compatibility 下自定义 ShaderMaterial 最易在声纹密集出现时运行时崩溃）。已把 `SoundRipple3D` 改为**纯几何实现**：`TorusMesh`（内置图元）+ `StandardMaterial3D`（unshaded / alpha 透明 / billboard），`_process` 中放大并淡出，零自定义着色器、零 NaN 风险。原 `shaders/ring_expand.gdshader` 因不再被引用已删除。三个功能均保留。
+
+> 注：本机无 Godot，以上为基于代码的最高概率定位，仍需在 Godot 中 F6 跑 `classroom_dialogue.tscn` 实测验收。若仍运行时崩溃（非编译错误），则需在 Godot 调试器「错误」页抓取红色致命错误文本再定位。

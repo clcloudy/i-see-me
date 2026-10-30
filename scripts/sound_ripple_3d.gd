@@ -2,51 +2,55 @@ class_name SoundRipple3D
 extends Node3D
 
 ## 在「发出动静」的地方播放一圈向外扩散的声纹（环形波纹）。
-## 用一张面向相机的 Quad + 极简片段着色器绘制，兼容 GL Compatibility 渲染器。
-
-const SHADER := preload("res://shaders/ring_expand.gdshader")
+## 用 TorusMesh（内置图元）+ StandardMaterial3D 实现，零自定义着色器，
+## 完全兼容 GL Compatibility 渲染器，规避自定义 ShaderMaterial 在部分后端运行时崩溃的风险。
 
 var _mesh: MeshInstance3D
-var _material: ShaderMaterial
+var _material: StandardMaterial3D
 var _duration: float = 1.1
 var _elapsed: float = 0.0
 var _max_radius: float = 1.6
+var _base_color: Color = Color(0.62, 0.86, 1.0, 1.0)
 
 
 func _ready() -> void:
 	_mesh = MeshInstance3D.new()
-	var quad := QuadMesh.new()
-	quad.size = Vector2(_max_radius * 2.0, _max_radius * 2.0)
-	_mesh.mesh = quad
-	_material = ShaderMaterial.new()
-	_material.shader = SHADER
-	_material.set_shader_parameter("max_radius", _max_radius)
+	var torus := TorusMesh.new()
+	torus.inner_radius = 0.05
+	torus.outer_radius = 0.12
+	_mesh.mesh = torus
+	_material = StandardMaterial3D.new()
+	_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_material.albedo_color = _base_color
+	_material.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	_material.emission_enabled = true
+	_material.emission = _base_color
+	_material.emission_energy_multiplier = 1.2
 	_mesh.material_override = _material
 	add_child(_mesh)
+	# 起始极小，避免第一帧突兀出现
+	_mesh.scale = Vector3(0.01, 0.01, 0.01)
 
 
 func setup(world_position: Vector3, color: Color, max_radius: float, duration: float) -> void:
 	global_position = world_position
 	_max_radius = max_radius
 	_duration = duration
+	_base_color = color
 	if _material != null:
-		_material.set_shader_parameter("ring_color", color)
-		_material.set_shader_parameter("max_radius", max_radius)
-		var quad := _mesh.mesh as QuadMesh
-		if quad != null:
-			quad.size = Vector2(_max_radius * 2.0, _max_radius * 2.0)
+		_material.albedo_color = color
+		_material.emission = color
 
 
 func _process(delta: float) -> void:
 	_elapsed += delta
 	var t := clampf(_elapsed / _duration, 0.0, 1.0)
+	var s := lerp(0.15, _max_radius, t)
+	_mesh.scale = Vector3(s, s, s)
 	if _material != null:
-		_material.set_shader_parameter("progress", t)
-	# 安全朝向：仅绕 Y 轴偏航面向相机（避免 look_at 在相机贴近本节点时产生 NaN 退化矩阵）。
-	var cam := get_viewport().get_camera_3d()
-	if cam != null:
-		var to_cam := cam.global_position - global_position
-		if abs(to_cam.x) > 0.001 or abs(to_cam.z) > 0.001:
-			rotation.y = atan2(to_cam.x, to_cam.z)
+		var a := 1.0 - t
+		_material.albedo_color.a = a
+		_material.emission.a = a
 	if t >= 1.0:
 		queue_free()
