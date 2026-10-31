@@ -1,0 +1,224 @@
+[gd_scene load_steps=25 format=3]
+
+[sub_resource type="StandardMaterial3D" id="Material_shell"]
+albedo_color = Color(0.91, 0.895, 0.865, 1)
+roughness = 0.55
+
+[sub_resource type="StandardMaterial3D" id="Material_panel"]
+albedo_color = Color(0.845, 0.84, 0.82, 1)
+roughness = 0.62
+
+[sub_resource type="StandardMaterial3D" id="Material_trim"]
+albedo_color = Color(0.9, 0.895, 0.87, 1)
+roughness = 0.42
+
+[sub_resource type="StandardMaterial3D" id="Material_plinth"]
+albedo_color = Color(0.7, 0.7, 0.68, 1)
+roughness = 0.72
+
+[sub_resource type="StandardMaterial3D" id="Material_dark"]
+albedo_color = Color(0.16, 0.165, 0.17, 1)
+roughness = 0.6
+
+[sub_resource type="StandardMaterial3D" id="Material_louver"]
+albedo_color = Color(0.66, 0.66, 0.64, 1)
+roughness = 0.5
+
+[sub_resource type="StandardMaterial3D" id="Material_seam"]
+albedo_color = Color(0.32, 0.32, 0.31, 1)
+roughness = 0.7
+
+[sub_resource type="StandardMaterial3D" id="Material_display"]
+albedo_color = Color(0.08, 0.09, 0.1, 1)
+metallic = 0.1
+roughness = 0.12
+
+[sub_resource type="BoxMesh" id="Mesh_shell"]
+size = Vector3(0.664, 1.715, 0.392)
+
+[sub_resource type="BoxMesh" id="Mesh_stile"]
+size = Vector3(0.07, 1.7, 0.4)
+
+[sub_resource type="BoxMesh" id="Mesh_top_cap"]
+size = Vector3(0.666, 0.032, 0.396)
+
+[sub_resource type="BoxMesh" id="Mesh_plinth"]
+size = Vector3(0.5762, 0.03, 0.336)
+
+[sub_resource type="BoxMesh" id="Mesh_upper_panel"]
+size = Vector3(0.51, 0.58, 0.008)
+
+[sub_resource type="BoxMesh" id="Mesh_door_half"]
+size = Vector3(0.252, 1.014, 0.008)
+
+[sub_resource type="BoxMesh" id="Mesh_mid_rail"]
+size = Vector3(0.53, 0.036, 0.016)
+
+[sub_resource type="BoxMesh" id="Mesh_bottom_rail"]
+size = Vector3(0.53, 0.032, 0.016)
+
+[sub_resource type="BoxMesh" id="Mesh_seam"]
+size = Vector3(0.005, 1.014, 0.004)
+
+[sub_resource type="BoxMesh" id="Mesh_display"]
+size = Vector3(0.12, 0.022, 0.004)
+
+[sub_resource type="BoxMesh" id="Mesh_grille"]
+size = Vector3(0.5226, 0.006, 0.128)
+
+[sub_resource type="BoxMesh" id="Mesh_slat"]
+size = Vector3(0.5226, 0.004, 0.01)
+
+[sub_resource type="BoxMesh" id="Mesh_outlet_back"]
+size = Vector3(0.4386, 0.3, 0.006)
+
+[sub_resource type="BoxMesh" id="Mesh_outlet_frame_h"]
+size = Vector3(0.4586, 0.022, 0.014)
+
+[sub_resource type="BoxMesh" id="Mesh_outlet_frame_v"]
+size = Vector3(0.022, 0.32, 0.014)
+
+[sub_resource type="BoxMesh" id="Mesh_louver"]
+size = Vector3(0.4186, 0.016, 0.012)
+
+[node name="AirConditioner" type="Node3D"]
+
+[node name="Plinth" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.015, -0.004)
+mesh = SubResource("Mesh_plinth")
+material_override = SubResource("Material_plinth")
+
+[node name="Shell" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.8875, -0.002)
+mesh = SubResource("Mesh_shell")
+material_override = SubResource("Material_shell")
+
+[node name="StileLeft" type="MeshInstance3D" parent="."]
+position = Vector3(-0.3, 0.89, 0)
+mesh = SubResource("Mesh_stile")
+material_override = SubResource("Material_trim")
+
+[node name="StileRight" type="MeshInstance3D" parent="."]
+position = Vector3(0.3, 0.89, 0)
+mesh = SubResource("Mesh_stile")
+material_override = SubResource("Material_trim")
+
+[node name="TopCap" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.76, 0)
+mesh = SubResource("Mesh_top_cap")
+material_override = SubResource("Material_trim")
+
+[node name="UpperPanel" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.44, 0.195)
+mesh = SubResource("Mesh_upper_panel")
+material_override = SubResource("Material_panel")
+
+[node name="Display" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.685, 0.198)
+mesh = SubResource("Mesh_display")
+material_override = SubResource("Material_display")
+
+[node name="OutletBack" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.44, 0.2015)
+mesh = SubResource("Mesh_outlet_back")
+material_override = SubResource("Material_dark")
+
+[node name="OutletFrameTop" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.602, 0.204)
+mesh = SubResource("Mesh_outlet_frame_h")
+material_override = SubResource("Material_trim")
+
+[node name="OutletFrameBottom" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.278, 0.204)
+mesh = SubResource("Mesh_outlet_frame_h")
+material_override = SubResource("Material_trim")
+
+[node name="OutletFrameLeft" type="MeshInstance3D" parent="."]
+position = Vector3(-0.2313, 1.44, 0.204)
+mesh = SubResource("Mesh_outlet_frame_v")
+material_override = SubResource("Material_trim")
+
+[node name="OutletFrameRight" type="MeshInstance3D" parent="."]
+position = Vector3(0.2313, 1.44, 0.204)
+mesh = SubResource("Mesh_outlet_frame_v")
+material_override = SubResource("Material_trim")
+
+[node name="Louver1" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.326, 0.206)
+mesh = SubResource("Mesh_louver")
+material_override = SubResource("Material_louver")
+
+[node name="Louver2" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.364, 0.206)
+mesh = SubResource("Mesh_louver")
+material_override = SubResource("Material_louver")
+
+[node name="Louver3" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.402, 0.206)
+mesh = SubResource("Mesh_louver")
+material_override = SubResource("Material_louver")
+
+[node name="Louver4" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.44, 0.206)
+mesh = SubResource("Mesh_louver")
+material_override = SubResource("Material_louver")
+
+[node name="Louver5" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.478, 0.206)
+mesh = SubResource("Mesh_louver")
+material_override = SubResource("Material_louver")
+
+[node name="Louver6" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.516, 0.206)
+mesh = SubResource("Mesh_louver")
+material_override = SubResource("Material_louver")
+
+[node name="Louver7" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.554, 0.206)
+mesh = SubResource("Mesh_louver")
+material_override = SubResource("Material_louver")
+
+[node name="MidRail" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.132, 0.197)
+mesh = SubResource("Mesh_mid_rail")
+material_override = SubResource("Material_panel")
+
+[node name="DoorLowerLeft" type="MeshInstance3D" parent="."]
+position = Vector3(-0.129, 0.607, 0.195)
+mesh = SubResource("Mesh_door_half")
+material_override = SubResource("Material_panel")
+
+[node name="DoorLowerRight" type="MeshInstance3D" parent="."]
+position = Vector3(0.129, 0.607, 0.195)
+mesh = SubResource("Mesh_door_half")
+material_override = SubResource("Material_panel")
+
+[node name="DoorSeam" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.607, 0.196)
+mesh = SubResource("Mesh_seam")
+material_override = SubResource("Material_seam")
+
+[node name="BottomRail" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.086, 0.197)
+mesh = SubResource("Mesh_bottom_rail")
+material_override = SubResource("Material_panel")
+
+[node name="TopGrille" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.777, 0.04)
+mesh = SubResource("Mesh_grille")
+material_override = SubResource("Material_dark")
+
+[node name="GrilleSlat1" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.78, 0.01)
+mesh = SubResource("Mesh_slat")
+material_override = SubResource("Material_trim")
+
+[node name="GrilleSlat2" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.78, 0.07)
+mesh = SubResource("Mesh_slat")
+material_override = SubResource("Material_trim")
+
+[node name="GrilleSlat3" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.78, 0.13)
+mesh = SubResource("Mesh_slat")
+material_override = SubResource("Material_trim")

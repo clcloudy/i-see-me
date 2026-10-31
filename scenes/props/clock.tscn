@@ -1,26 +1,76 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=10 format=3]
+
+[ext_resource type="Script" path="res://scripts/digital_clock.gd" id="1_clock"]
+
+[sub_resource type="SystemFont" id="SystemFont_digits"]
+font_names = PackedStringArray("Consolas", "Cascadia Mono", "Courier New")
+font_weight = 700
 
 [sub_resource type="StandardMaterial3D" id="Material_housing"]
-albedo_color = Color(0.1, 0.1, 0.11, 1)
-roughness = 0.6
+albedo_color = Color(0.035, 0.04, 0.045, 1)
+metallic = 0.18
+roughness = 0.48
 
 [sub_resource type="StandardMaterial3D" id="Material_bezel"]
-albedo_color = Color(0.22, 0.23, 0.25, 1)
-roughness = 0.5
+albedo_color = Color(0.13, 0.14, 0.15, 1)
+metallic = 0.28
+roughness = 0.4
+
+[sub_resource type="StandardMaterial3D" id="Material_face"]
+albedo_color = Color(0.008, 0.016, 0.018, 1)
+roughness = 0.22
+
+[sub_resource type="StandardMaterial3D" id="Material_status"]
+emission_enabled = true
+albedo_color = Color(0.25, 0.01, 0.005, 1)
+emission = Color(1, 0.05, 0.015, 1)
+emission_energy_multiplier = 3.0
 
 [sub_resource type="BoxMesh" id="Mesh_housing"]
-size = Vector3(0.9, 0.32, 0.08)
+size = Vector3(0.9, 0.31, 0.085)
 
 [sub_resource type="BoxMesh" id="Mesh_bezel"]
-size = Vector3(0.98, 0.4, 0.05)
+size = Vector3(0.98, 0.38, 0.045)
+
+[sub_resource type="BoxMesh" id="Mesh_face"]
+size = Vector3(0.78, 0.22, 0.012)
+
+[sub_resource type="SphereMesh" id="Mesh_status"]
+radius = 0.012
+height = 0.024
 
 [node name="DigitalClock" type="Node3D"]
+script = ExtResource("1_clock")
 
 [node name="Bezel" type="MeshInstance3D" parent="."]
-position = Vector3(0, 0, -0.02)
+position = Vector3(0, 0, 0.02)
 mesh = SubResource("Mesh_bezel")
 material_override = SubResource("Material_bezel")
 
 [node name="Housing" type="MeshInstance3D" parent="."]
 mesh = SubResource("Mesh_housing")
 material_override = SubResource("Material_housing")
+
+[node name="DisplayFace" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0, 0.049)
+mesh = SubResource("Mesh_face")
+material_override = SubResource("Material_face")
+
+[node name="Display" type="Label3D" parent="."]
+position = Vector3(0, 0, 0.058)
+pixel_size = 0.0037
+billboard = 0
+shaded = false
+no_depth_test = false
+text = "09:35"
+font = SubResource("SystemFont_digits")
+font_size = 70
+outline_size = 7
+modulate = Color(1, 0.055, 0.018, 1)
+outline_modulate = Color(0.22, 0.004, 0.001, 1)
+
+[node name="StatusLed" type="MeshInstance3D" parent="."]
+position = Vector3(0.405, -0.105, 0.052)
+mesh = SubResource("Mesh_status")
+material_override = SubResource("Material_status")
+cast_shadow = 0
