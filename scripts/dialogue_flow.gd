@@ -4,14 +4,13 @@ extends Node3D
 ## 课堂对话流程与时间轴控制器。
 ##
 ## 时序依据：仓库根目录《流程控制(veryimportant).md》的 0–11 步（2026-10-25 实现）。
-## 阶段：intro → l1（第 0–7 步） → choice（第 8 步，唯一分支点）
-##       → answer / struggle / avoid（第 8 步的分支演出） → ending（第 9–11 步） → l2 → complete。
+## 阶段：intro → l1（第 0–7 步） → choice（第 8 步，唯一的回答框）
+##       → answer（玩家说完 + 老师中性收束） → ending（第 9–11 步） → l2 → complete。
 ##
 ## 数据全部来自 content/classroom_dialogue.json：
 ## - beats：L1 节拍，`step` 标记对应的流程步号；每拍可带 teacher / teacher_move / protagonist /
 ##   protagonist_clip / camera / free_look / cues / events / segments；
-## - branch_avoid：躲避视线的第 8 步演出；
-## - ending：第 9–11 步，带 `only_branch` 的节拍只在对应分支播放（E03 只在清晰回应后）；
+## - ending：第 9–11 步（E03 不再按分支过滤，固定在第 9.1 步）；
 ## - segments：字幕分段（speaker + text + seconds + 可选 voice 配音 id）；
 ## - events：事件按时间戳触发（姿态/动作、台词、道具、词条）；可带 gaze，玩家转到该方向即提前触发；
 ## - voice / sfx：配音与音效清单（id → 文件名，root 统一前缀）。台词 id 未登记时报警并静默跳过，
@@ -101,11 +100,10 @@ var _seated_hip_height := 0.47
 var _managed_actors: Array[String] = []
 var _actor_cache: Dictionary = {}
 
-## 当前阶段：intro / l1 / choice / answer / avoid / ending / l2 / complete。
+## 当前阶段：intro / l1 / choice / answer / ending / l2 / complete。
 var stage: StringName = &"intro"
 var _beats: Array = []
 var _beat_index: int = -1
-var _branch: StringName = &""
 var _generation: int = 0
 
 var _event_log: Array[Dictionary] = []
@@ -176,8 +174,6 @@ func _ready() -> void:
 	interface.restart_requested.connect(restart)
 	interface.quit_requested.connect(quit)
 	interface.answer_submitted.connect(_on_answer_submitted)
-	interface.struggle_chosen.connect(_on_struggle)
-	interface.avoid_chosen.connect(_on_avoid_chosen)
 	_build_audio()
 	_place_teacher_opening()
 	_build_props()
@@ -198,7 +194,7 @@ func _start_l1() -> void:
 
 func _advance_phase() -> void:
 	match stage:
-		&"l1", &"answer", &"avoid", &"ending":
+		&"l1", &"answer", &"ending":
 			_beat_index += 1
 			if _beat_index < _beats.size():
 				_play_beat(_beats[_beat_index])
@@ -210,7 +206,7 @@ func _next_phase() -> void:
 	match stage:
 		&"l1":
 			_enter_choice()
-		&"answer", &"avoid":
+		&"answer":
 			_enter_ending()
 		&"ending":
 			_enter_l2()
@@ -506,13 +502,12 @@ func _speaker_world_position(speaker_key: String) -> Vector3:
 			return _podium_position
 
 
-# ——— 分支（第 8 步是唯一分支点） ———
+# ——— 第 8 步：回答与收束（无成功/失败之分） ———
 
-## 清晰回应：玩家输入（可留空走固定句）→ 分支一（自信）。
+## 玩家提交回答（可留空走默认句）→ 老师中性收束，随后固定进第 9 步。
 func _on_answer_submitted(text: String) -> void:
 	if stage != &"choice":
 		return
-	_branch = &"confident"
 	stage = &"answer"
 	interface.hide_choice()
 	_stop_ambient()
@@ -531,47 +526,8 @@ func _on_answer_submitted(text: String) -> void:
 	)
 	_beats = [
 		_player_answer_beat(line, seconds, "STAND_TALK", voice),
-		_teacher_reply_beat(choice.get("confident", {}), "s08_teacher_accept", "HAPPY"),
+		_teacher_reply_beat(choice.get("teacher_reply", {}), "s08_teacher_close", "NEUTRAL"),
 	]
-	_beat_index = -1
-	_advance_phase()
-	_refresh_controls()
-
-
-## 勉强开口：断断续续说完同一立场 → 分支二（紧张）。
-func _on_struggle() -> void:
-	if stage != &"choice":
-		return
-	_branch = &"struggle"
-	stage = &"answer"
-	interface.hide_choice()
-	_stop_ambient()
-	var choice: Dictionary = _content.get("choice", {})
-	var seconds := float(choice.get("struggle_seconds", 4.2))
-	_beats = [
-		_player_answer_beat(
-			str(choice.get("struggle_line", "")), seconds, "STAND_TALK",
-			str(choice.get("struggle_voice", ""))
-		),
-		_teacher_reply_beat(choice.get("struggle", {}), "s08_teacher_nervous", "DOWN"),
-	]
-	_beat_index = -1
-	_advance_phase()
-	_refresh_controls()
-
-
-## 躲开视线：低头四处看 → 分支二（紧张，无台词）。
-func _on_avoid_chosen() -> void:
-	if stage != &"choice":
-		return
-	_branch = &"avoid"
-	stage = &"avoid"
-	interface.hide_choice()
-	_stop_ambient()
-	var choice: Dictionary = _content.get("choice", {})
-	var beats := _load_beats(_content.get("branch_avoid", []))
-	beats.append(_teacher_reply_beat(choice.get("avoid", {}), "s08_teacher_nervous", "DOWN"))
-	_beats = beats
 	_beat_index = -1
 	_advance_phase()
 	_refresh_controls()
@@ -616,17 +572,13 @@ func _teacher_reply_beat(cfg: Dictionary, beat_id: String, fallback_emotion: Str
 	}
 
 
-## 按分支过滤 only_branch 节拍（E03 只在清晰回应后出现）。
+## 节拍来源统一入口（内容里已不再按分支过滤，保留这个函数便于以后加筛选）。
 func _load_beats(source: Variant) -> Array:
 	var out: Array = []
 	if not source is Array:
 		return out
 	for item in source:
-		var beat: Dictionary = item
-		var only := str(beat.get("only_branch", ""))
-		if not only.is_empty() and StringName(only) != _branch:
-			continue
-		out.append(beat)
+		out.append(item)
 	return out
 
 
@@ -656,10 +608,8 @@ func _build_l2_cards() -> void:
 			"body": "\n".join(thoughts),
 			"seconds": base + per_line * thoughts.size(),
 		})
-	# 2) 思绪倒放（按分支）
-	var replay: Array = (
-		l2.get("replay_confident", []) if _branch == &"confident" else l2.get("replay_nervous", [])
-	)
+	# 2) 思绪倒放（只有一套，不再按回答分支区分）
+	var replay: Array = l2.get("replay", [])
 	var replay_title := str(l2.get("replay_title", "思绪倒放"))
 	for line in replay:
 		var text := str(line)
@@ -780,7 +730,7 @@ func quit() -> void:
 
 
 func _skip_enabled() -> bool:
-	return stage in [&"l1", &"answer", &"avoid", &"ending", &"l2"]
+	return stage in [&"l1", &"answer", &"ending", &"l2"]
 
 
 func _refresh_controls() -> void:
@@ -818,7 +768,6 @@ func _reset_world() -> void:
 	stage = &"intro"
 	_beats = []
 	_beat_index = -1
-	_branch = &""
 	_event_log.clear()
 	_l2_cards.clear()
 	_l2_index = -1
@@ -1389,17 +1338,9 @@ func _check_gaze_events() -> void:
 	_gaze_events = remaining
 
 
-## 供无头检查：强制结束当前分支窗口（不经过 UI）。
+## 供无头检查：强制提交一个回答（不经过 UI）。
 func debug_choose(answer_text: String) -> void:
 	_on_answer_submitted(answer_text)
-
-
-func debug_choose_avoid() -> void:
-	_on_avoid_chosen()
-
-
-func debug_choose_struggle() -> void:
-	_on_struggle()
 
 
 ## 供无头检查：已播放过的流程步号顺序（0–11，同号只记一次）。
@@ -1430,26 +1371,22 @@ func debug_voice_usage() -> Dictionary:
 		if key.is_empty() or key.begins_with("res://"):
 			return
 		used[section][key] = true
-	for source in ["beats", "ending", "branch_avoid"]:
+	for source in ["beats", "ending"]:
 		for beat in _content.get(source, []):
 			_scan_beat_voice(beat, add)
 	for event in _content.get("events", {}).values():
 		var voice: Dictionary = event.get("voice", {})
 		var kind := str(voice.get("kind", "speech"))
 		add.call("voice" if kind == "speech" else "sfx", str(voice.get("cue", "")))
-	# 第 8 步三条分支的老师回应与勉强开口的台词
+	# 第 8 步：默认回答的配音与老师的中性收束
 	var choice: Dictionary = _content.get("choice", {})
-	for branch_key in ["confident", "struggle", "avoid"]:
-		var block: Dictionary = choice.get(branch_key, {})
-		add.call("voice", str(block.get("teacher", {}).get("voice", "")))
-	add.call("voice", str(choice.get("struggle_voice", "")))
 	add.call("voice", str(choice.get("answer_fallback_voice", "")))
+	add.call("voice", str(choice.get("teacher_reply", {}).get("teacher", {}).get("voice", "")))
 	var l2: Dictionary = _content.get("l2", {})
 	add.call("voice", str(l2.get("rewind_voice", "")))
-	for key in ["replay_confident", "replay_nervous"]:
-		for line in l2.get(key, []):
-			if line is Dictionary:
-				add.call("voice", str(line.get("voice", "")))
+	for line in l2.get("replay", []):
+		if line is Dictionary:
+			add.call("voice", str(line.get("voice", "")))
 	for observation in l2.get("observations", []):
 		add.call("voice", str(observation.get("voice", "")))
 	add.call("sfx", "murmur_loop") # 第 8 步选择窗口的议论纷纷底噪
@@ -1461,7 +1398,7 @@ func _scan_beat_voice(beat: Dictionary, add: Callable) -> void:
 		add.call("voice", str(segment.get("voice", "")))
 
 
-## 供无头检查：逻辑演员名 → 实际座位节点名（confident/nod/dissent 这类事件演员）。
+## 供无头检查：逻辑演员名 → 实际座位节点名（nod / dissent 这类事件演员）。
 func debug_actor_seat(actor: String) -> String:
 	return str(_content.get("actors", {}).get(actor, ""))
 
@@ -1477,10 +1414,6 @@ func debug_event_labels() -> Array[String]:
 	for entry in _event_log:
 		labels.append(str(entry.get("label", "")))
 	return labels
-
-
-func debug_branch() -> StringName:
-	return _branch
 
 
 func debug_protagonist_pose() -> StringName:

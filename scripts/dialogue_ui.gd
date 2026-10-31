@@ -10,8 +10,6 @@ signal mute_requested
 signal restart_requested
 signal quit_requested
 signal answer_submitted(text: String)
-signal struggle_chosen ## 保留给既有流程调试接口；玩家界面不再提供分支按钮。
-signal avoid_chosen
 signal world_subtitle(speaker_key: StringName, display: String, text: String)
 signal world_subtitle_cleared
 

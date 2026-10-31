@@ -63,24 +63,18 @@
 	  "teacher.followup_1": "teacher_followup_1.ogg",
 	  "teacher.followup_2": "teacher_followup_2.ogg",
 	  "teacher.followup_3": "teacher_followup_3.ogg",
-	  "teacher.accept": "teacher_accept.ogg",
-	  "teacher.nervous": "teacher_nervous.ogg",
+	  "teacher.close": "teacher_close.ogg",
 	  "protagonist.stance": "protagonist_stance.ogg",
 	  "protagonist.answer_default": "protagonist_answer_default.ogg",
-	  "protagonist.answer_struggle": "protagonist_answer_struggle.ogg",
 	  "classmate.pen": "classmate_pen.ogg",
 	  "classmate.agree": "classmate_agree.ogg",
 	  "classmate.mishear": "classmate_mishear.ogg",
 	  "classmate.dissent": "classmate_dissent.ogg",
 	  "l2.rewind": "l2_rewind.ogg",
-	  "l2.replay_confident_1": "l2_replay_confident_1.ogg",
-	  "l2.replay_confident_2": "l2_replay_confident_2.ogg",
-	  "l2.replay_confident_3": "l2_replay_confident_3.ogg",
-	  "l2.replay_confident_4": "l2_replay_confident_4.ogg",
-	  "l2.replay_nervous_1": "l2_replay_nervous_1.ogg",
-	  "l2.replay_nervous_2": "l2_replay_nervous_2.ogg",
-	  "l2.replay_nervous_3": "l2_replay_nervous_3.ogg",
-	  "l2.replay_nervous_4": "l2_replay_nervous_4.ogg",
+	  "l2.replay_1": "l2_replay_1.ogg",
+	  "l2.replay_2": "l2_replay_2.ogg",
+	  "l2.replay_3": "l2_replay_3.ogg",
+	  "l2.replay_4": "l2_replay_4.ogg",
 	  "l2.observe_1": "l2_observe_1.ogg",
 	  "l2.observe_2": "l2_observe_2.ogg",
 	  "l2.observe_3": "l2_observe_3.ogg",
@@ -578,74 +572,23 @@
   "choice": {
 	"step": 8,
 	"title": "老师问完了。接下来，你想怎么做？",
-	"option_confident": "清晰回应",
-	"option_struggle": "勉强开口",
-	"option_avoid": "躲开视线，低头看看周围",
 	"input_placeholder": "写下你想说的话……",
 	"input_submit": "说出口",
-	"input_back": "还是算了",
 	"answer_fallback": "认真试过的人，也可以保留停下的选择。愿不愿意努力，要看他实际怎么做，不能只凭留有退路，就认定他会退缩。",
 	"answer_fallback_voice": "protagonist.answer_default",
 	"answer_seconds_per_char": 4.6,
 	"answer_min_seconds": 2.5,
 	"answer_max_seconds": 12.0,
-	"struggle_line": "我……我是说，停下来，也不等于……就是，不想再试。",
-	"struggle_seconds": 4.2,
-	"struggle_voice": "protagonist.answer_struggle",
-	"confident": {
-	  "expression": "confident",
+	"teacher_reply": {
 	  "teacher": {
-		"text": "这个区分我接受。你坐下吧。",
-		"seconds": 3.8,
+		"text": "嗯，我听到你的意思了。先坐下吧。",
+		"seconds": 3.4,
 		"action": "LECTURE",
-		"emotion": "HAPPY",
-		"voice": "teacher.accept"
-	  }
-	},
-	"struggle": {
-	  "expression": "nervous",
-	  "teacher": {
-		"text": "先坐下吧。想清楚再说，也没关系。",
-		"seconds": 3.6,
-		"action": "LECTURE",
-		"emotion": "DOWN",
-		"voice": "teacher.nervous"
-	  }
-	},
-	"avoid": {
-	  "teacher": {
-		"text": "先坐下吧。想清楚再说，也没关系。",
-		"seconds": 3.6,
-		"action": "LECTURE",
-		"emotion": "DOWN",
-		"voice": "teacher.nervous"
+		"emotion": "NEUTRAL",
+		"voice": "teacher.close"
 	  }
 	}
   },
-  "branch_avoid": [
-	{
-	  "step": 8,
-	  "id": "s08_avoid_look_around",
-	  "hold": 13.0,
-	  "teacher": {
-		"action": "LECTURE",
-		"emotion": "NEUTRAL"
-	  },
-	  "protagonist": "look_around",
-	  "protagonist_clip": "LOOK_AROUND",
-	  "camera": {
-		"look": "front_desk",
-		"scan": 0.22
-	  },
-	  "segments": [
-		{
-		  "speaker": "stage",
-		  "text": "你低下头，避开老师的视线。周围有人低声交谈。",
-		  "seconds": 3.2
-		}
-	  ]
-	}
-  ],
   "ending": [
 	{
 	  "step": 9,
@@ -681,7 +624,6 @@
 	{
 	  "step": 9.1,
 	  "id": "s09_agree",
-	  "only_branch": "confident",
 	  "hold": 8.5,
 	  "teacher": {
 		"action": "LECTURE",
@@ -1289,40 +1231,22 @@
 	"card_seconds_per_line": 0.55,
 	"card_base_seconds": 1.8,
 	"replay_title": "思绪倒放",
-	"replay_confident": [
+	"replay": [
 	  {
-		"text": "我站得很直。",
-		"voice": "l2.replay_confident_1"
+		"text": "我站起来的时候，手扶着桌沿。",
+		"voice": "l2.replay_1"
 	  },
 	  {
-		"text": "我的声音比想象中大。",
-		"voice": "l2.replay_confident_2"
+		"text": "我说完那句话，教室里安静了一小会儿。",
+		"voice": "l2.replay_2"
 	  },
 	  {
-		"text": "说完那句，我的心跳还在加速。",
-		"voice": "l2.replay_confident_3"
+		"text": "有人回头看我，也有人一直低着头。",
+		"voice": "l2.replay_3"
 	  },
 	  {
-		"text": "前排有人回头看了我一眼。",
-		"voice": "l2.replay_confident_4"
-	  }
-	],
-	"replay_nervous": [
-	  {
-		"text": "我的声音在抖。",
-		"voice": "l2.replay_nervous_1"
-	  },
-	  {
-		"text": "我一直盯着课本，没敢抬头。",
-		"voice": "l2.replay_nervous_2"
-	  },
-	  {
-		"text": "我说到一半就接不下去了。",
-		"voice": "l2.replay_nervous_3"
-	  },
-	  {
-		"text": "旁边有人动了一下，我更慌了。",
-		"voice": "l2.replay_nervous_4"
+		"text": "坐下之后，我才听见自己的心跳。",
+		"voice": "l2.replay_4"
 	  }
 	],
 	"observations_title": "对观察的观察",

@@ -1,8 +1,8 @@
 extends SceneTree
 
 ## 课堂对话流程无头检查（时序依据：流程控制(veryimportant).md 的 0–11）。
-## 覆盖：初始状态、第 0 步自由转头、第 5 步事件05（视线触发）、0–7 步顺序、唯一分支点的三个选项、
-## 三条分支的第 8–11 步（E03 只在清晰回应后）、L2 回溯、跳过、暂停冻结、重开复位、
+## 覆盖：初始状态、第 0 步自由转头、第 5 步事件05（视线触发）、0–7 步顺序、第 8 步单框回答
+## （改写 / 空文本回退）、第 9–11 步固定后续（E03 无条件出现）、L2 回溯、跳过、暂停冻结、重开复位、
 ## 配音/音效清单（id 解析、漏登记、孤儿条目）。
 ## 运行：Godot_v4.6.1-stable_win64_console.exe --headless --path . --script res://tests/dialogue_check.gd
 
@@ -59,9 +59,8 @@ func _run() -> void:
 	await _check_pose_transition()
 	await _check_step_zero_free_look()
 	await _check_step_five_busy_hands()
-	await _run_confident_branch()
-	await _run_struggle_branch()
-	await _run_avoid_branch()
+	await _run_answer_flow()
+	await _run_empty_answer_flow()
 	await _check_skip_and_pause()
 	await _check_restart()
 	await _check_world_panel_click()
@@ -334,9 +333,9 @@ func _check_orb_content() -> void:
 		)
 
 
-# ——— 分支一：清晰回应 ———
+# ——— 第 8 步：改写回答 → 固定后续 ———
 
-func _run_confident_branch() -> void:
+func _run_answer_flow() -> void:
 	await _wait_until(func() -> bool: return _flow.stage == &"choice", 6000)
 	_check(_flow.stage == &"choice", "Steps 0-7 reach the choice window.")
 	# 0–7 的时序
@@ -381,22 +380,24 @@ func _run_confident_branch() -> void:
 	_flow.time_scale = 0.05
 	await _wait_until(func() -> bool: return _flow.stage == &"l2", 6000)
 	_check(_flow.stage == &"l2", "Ending reaches the second layer.")
-	_check(_flow.debug_branch() == &"confident", "Confident branch is recorded.")
 	_check(
 		_flow.debug_protagonist_pose() == &"sit",
 		"Protagonist sits down before the second layer (step 10)."
 	)
-	# 第 9 / 9.1 步：不同意见 → 轻声赞同（只在清晰回应后）
+	# 第 9 / 9.1 步：不同意见 → 轻声赞同（不再看回答内容）
 	labels = _flow.debug_event_labels()
 	_check(labels.has("04｜听见不同意见"), "Step 9 fires the dissent event after the answer.")
-	_check(labels.has("E03｜轻声赞同"), "Step 9.1 fires the agreement only after a clear answer.")
+	_check(labels.has("E03｜轻声赞同"), "Step 9.1 fires the agreement for every answer.")
 	steps = _flow.debug_played_steps()
 	for expected_step in [8.0, 9.0, 9.1, 10.0, 11.0]:
 		_check(steps.has(expected_step), "Step %.1f is played." % expected_step)
-	# L2：回溯到 0，再按分支倒放
+	# L2：回溯到 0，再倒放（只有一套文案）
 	var bodies := _flow.debug_l2_card_bodies()
 	_check(bodies.has("回到你被点到名字之前。"), "L2 starts by rewinding to step 0.")
-	_check(bodies.has("我站得很直。"), "Confident replay line appears in the second layer.")
+	_check(
+		bodies.has("我站起来的时候，手扶着桌沿。"),
+		"The single replay set appears in the second layer."
+	)
 	_check(bodies.has("我能看见自己在紧张，光是看见，就平静了一点。"), "Observation cards appear.")
 	await _check_seated_sinks("ending")
 	await _check_l2_state()
@@ -405,7 +406,7 @@ func _run_confident_branch() -> void:
 	await _wait_until(func() -> bool: return _flow.stage == &"complete", 12000)
 	_check(_flow.stage == &"complete", "L2 cards finish at completion.")
 	_check(not _flow_state.is_active(), "Completion leaves the flow state.")
-	print("CHECK: confident branch")
+	print("CHECK: answer flow")
 
 
 # ——— 演员位置：默认视角内，或转到头就能看见 ———
@@ -473,57 +474,32 @@ func _azimuth(eye: Vector3, forward: Vector3, point: Vector3) -> Dictionary:
 	return {"yaw": yaw, "pitch": pitch}
 
 
-# ——— 分支二之一：勉强开口 ———
+# ——— 第 8 步：空文本提交也走默认回答 ———
 
-func _run_struggle_branch() -> void:
+func _run_empty_answer_flow() -> void:
 	_restart_and_enter()
 	await _wait_until(func() -> bool: return _flow.stage == &"choice", 6000)
-	_check(_flow.stage == &"choice", "Restart reaches the choice window again.")
+	_check(_flow.stage == &"choice", "Restart reaches the answer box again.")
 	_flow.time_scale = 1.0
-	_flow.debug_choose_struggle()
+	_flow.debug_choose("")
 	await process_frame
 	await process_frame
 	var line := _ui.get_node("Screen/SubtitleBar/Row/Line") as Label
 	_check(
-		line.text.begins_with("我……我是说"),
-		"Struggle branch speaks the broken line (got \"%s\")." % line.text
+		line.text.begins_with("认真试过的人"),
+		"An empty answer falls back to the default line (got \"%s\")." % line.text
 	)
 	_flow.time_scale = 0.05
-	await _wait_until(func() -> bool: return _flow.stage == &"l2", 6000)
-	_check(_flow.debug_branch() == &"struggle", "Struggle branch is recorded.")
+	await _wait_until(func() -> bool: return _flow.stage == &"l2", 8000)
+	_check(_flow.stage == &"l2", "An empty answer still reaches the second layer.")
 	var labels := _flow.debug_event_labels()
-	_check(labels.has("04｜听见不同意见"), "Struggle branch still hears the dissent (step 9).")
+	_check(labels.has("04｜听见不同意见"), "Step 9 fires the dissent after an empty answer.")
+	_check(labels.has("E03｜轻声赞同"), "E03 fires no matter what was answered.")
 	_check(
-		labels.has("有人还在忙自己的事"),
-		"Step 5 fires event 05 on the fallback timestamp even without free look."
+		_flow.debug_l2_card_bodies().has("我站起来的时候，手扶着桌沿。"),
+		"The same replay set is used for an empty answer."
 	)
-	_check(not labels.has("E03｜轻声赞同"), "Struggle branch has no agreement (E03 is step 9.1 only).")
-	var bodies := _flow.debug_l2_card_bodies()
-	_check(bodies.has("我的声音在抖。"), "Nervous replay line appears after a struggle.")
-	_check(_flow.debug_played_steps().has(11.0), "Struggle branch still reaches step 11 (L2).")
-	print("CHECK: struggle branch")
-
-
-# ——— 分支二之二：躲开视线 ———
-
-func _run_avoid_branch() -> void:
-	_restart_and_enter()
-	await _wait_until(func() -> bool: return _flow.stage == &"choice", 6000)
-	_flow.debug_choose_avoid()
-	await process_frame
-	await process_frame
-	_check(
-		_flow.debug_protagonist_pose() == &"look_around",
-		"Avoid branch looks around instead of answering (step 8)."
-	)
-	await _wait_until(func() -> bool: return _flow.stage == &"l2", 6000)
-	_check(_flow.debug_branch() == &"avoid", "Avoid branch is recorded.")
-	_check(_pose_of("SeatB06") == _pose_id("READ"), "Classroom settles before the second layer.")
-	var labels := _flow.debug_event_labels()
-	_check(not labels.has("E03｜轻声赞同"), "Avoid branch has no agreement either.")
-	_check(_flow.debug_l2_card_bodies().has("我的声音在抖。"), "Avoid branch uses the nervous replay.")
-	await _check_l2_state()
-	print("CHECK: avoid branch")
+	print("CHECK: empty answer")
 
 
 # ——— 跳过与暂停 ———
@@ -544,7 +520,7 @@ func _check_skip_and_pause() -> void:
 	await create_timer(1.5).timeout
 	_check(not subtitle.visible, "Skipped beats do not leak subtitles into the choice window.")
 	# 暂停冻结镜头
-	_flow.debug_choose_avoid()
+	_flow.debug_choose("")
 	await _wait_until(func() -> bool: return _flow.stage == &"l2", 6000)
 	_flow.toggle_pause()
 	await create_timer(0.25).timeout
