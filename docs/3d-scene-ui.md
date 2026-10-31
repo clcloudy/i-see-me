@@ -55,3 +55,12 @@
 **四修 · 运行时仍闪退（本次）**：截图显示为项目原有文件的 `SHADOWED_VARIABLE_BASE_CLASS` 黄色警告（非致命、非我代码、不导致闪退），真正的闪退最大嫌疑是声纹所用的**自定义着色器 `ring_expand.gdshader`**（GL Compatibility 下自定义 ShaderMaterial 最易在声纹密集出现时运行时崩溃）。已把 `SoundRipple3D` 改为**纯几何实现**：`TorusMesh`（内置图元）+ `StandardMaterial3D`（unshaded / alpha 透明 / billboard），`_process` 中放大并淡出，零自定义着色器、零 NaN 风险。原 `shaders/ring_expand.gdshader` 因不再被引用已删除。三个功能均保留。
 
 > 注：本机无 Godot，以上为基于代码的最高概率定位，仍需在 Godot 中 F6 跑 `classroom_dialogue.tscn` 实测验收。若仍运行时崩溃（非编译错误），则需在 Godot 调试器「错误」页抓取红色致命错误文本再定位。
+
+## 重做记录（2026-10-31）：视觉与交互
+
+- `DialogueUI`：控件改在 `SubViewport` 中排版，按控制条 / 回答框 / 卡片 / 词条 / 提示分别采样到相机前的世界空间 `Sprite3D`；用相机射线把鼠标坐标映射回控件，保留中文输入与键盘焦点。
+- `SceneUI3D`：字幕改为带底板的分行 `Sprite3D`，按说话人分配锚点高度与文字尺度；字幕 `render_priority=10` 且不做深度测试，保证不被前排人物挡住。
+- `EventOrb3D`：发光球体改为观察符号 + 短标签，悬停展开完整事件名；按相机距离缩放，近距离标签上移，避免贴脸或掉出画面。类名沿用 `EventOrb3D`。
+- `SoundRipple3D`：粗 `TorusMesh` 改为三段断续细弧（`ImmediateMesh`），更小、更淡；声源贴近相机时不生成，防止满屏弧线。
+- 新增素材：`assets/ui/observe_marker.svg`、`assets/ui/observation_tag.svg`。
+- 验证：`tests/dialogue_check.gd` 通过（含 8 个坐标视野与间距、真实世界面板点击）；`tests/dialogue_capture.gd` 产出 13 张画面，已人工查看开场、卡片、字幕、标记与回答框。

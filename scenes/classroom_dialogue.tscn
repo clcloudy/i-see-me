@@ -67,7 +67,7 @@ interface = NodePath("../DialogueUI")
 position = Vector3(-1.6, 1.0, 0.6)
 
 [node name="StageAnchor" type="Marker3D" parent="."]
-position = Vector3(-1.0, 1.2, -2.5)
+position = Vector3(-1.0, 1.5, -2.2)
 
 [node name="WorldUI" type="Node3D" parent="."]
 script = ExtResource("10_scene_ui")

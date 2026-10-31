@@ -1,7 +1,7 @@
 extends SceneTree
 
 ## 课堂对话流程无头检查（时序依据：流程控制(veryimportant).md 的 0–11）。
-## 覆盖：初始状态、第 0 步自由转头与事件05、0–7 步顺序、唯一分支点的三个选项、
+## 覆盖：初始状态、第 0 步自由转头、第 5 步事件05（视线触发）、0–7 步顺序、唯一分支点的三个选项、
 ## 三条分支的第 8–11 步（E03 只在清晰回应后）、L2 回溯、跳过、暂停冻结、重开复位、
 ## 配音/音效清单（id 解析、漏登记、孤儿条目）。
 ## 运行：Godot_v4.6.1-stable_win64_console.exe --headless --path . --script res://tests/dialogue_check.gd
@@ -9,7 +9,9 @@ extends SceneTree
 var _failures: int = 0
 
 ## 教师开场站位（讲台台面上、铁讲台后方居中）。
-const PODIUM_POS := Vector3(-0.35, 0.15, -4.35)
+## 与 content/classroom_dialogue.json 的 teacher.podium_position 保持一致；
+## 教室前区布局调整后（铁讲台前移到 z≈-1.5），站位随之改为 (-0.2, 0.15, -2.8)。
+const PODIUM_POS := Vector3(-0.2, 0.15, -2.8)
 
 var _initial_look: Vector3 = Vector3.ZERO
 
@@ -27,6 +29,7 @@ func _initialize() -> void:
 
 
 func _run() -> void:
+	root.size = Vector2i(1280, 720)
 	var packed := load("res://scenes/classroom_dialogue.tscn") as PackedScene
 	if packed == null:
 		_check(false, "classroom_dialogue.tscn could not be loaded.")
@@ -55,11 +58,14 @@ func _run() -> void:
 	await _check_initial()
 	await _check_pose_transition()
 	await _check_step_zero_free_look()
+	await _check_step_five_busy_hands()
 	await _run_confident_branch()
 	await _run_struggle_branch()
 	await _run_avoid_branch()
 	await _check_skip_and_pause()
 	await _check_restart()
+	await _check_world_panel_click()
+	await _check_transient_fx_entries()
 	_check_voice_manifest()
 	_main.queue_free()
 	await process_frame
@@ -196,7 +202,7 @@ func _head_basis(skeleton: Skeleton3D, head: int) -> Basis:
 	return (skeleton.global_transform * skeleton.get_bone_global_pose(head)).basis
 
 
-# ——— 第 0 步：自由转头与事件05 ———
+# ——— 第 0 步：自由转头 ———
 
 func _check_step_zero_free_look() -> void:
 	_press_intro()
@@ -216,14 +222,11 @@ func _check_step_zero_free_look() -> void:
 		"Free look changes the view direction, not the camera position."
 	)
 	_camera.reset_free_look()
-	# 转向侧前方课桌 → 事件05 提前触发（不必等兜底时间戳）
-	_camera.nudge_free_look(16.5, -17.0)
-	await process_frame
-	await process_frame
-	_check(_flow.debug_event_labels().has("有人还在忙自己的事"),
-		"Looking at the busy desk fires event 05 (step 0)."
+	# 第 0 步没有要“看见才发生”的事件（事件05 已挪到第 5 步）
+	_check(
+		not _flow.debug_event_labels().has("有人还在忙自己的事"),
+		"Step 0 no longer fires event 05; it belongs to step 5."
 	)
-	_check(_pose_of("SeatB06") == _pose_id("HEAD_DOWN"), "Busy-hands classmate keeps looking at his notebook.")
 	# 朝向交给玩家：节拍推进不改注视点，玩家自己转的视角也不会被拉回
 	_check(_camera.is_free_look(), "Free look stays available through the first-person steps.")
 	var target := _camera.look_target()
@@ -241,7 +244,94 @@ func _check_step_zero_free_look() -> void:
 		"The player's own turn is not recentered (%.1f)." % _camera.free_look_offset().x
 	)
 	_camera.reset_free_look()
-	print("CHECK: step 0 free look and event 05")
+	print("CHECK: step 0 free look")
+
+
+# ——— 第 5 步：事件05「有人还在忙自己的事」 ———
+
+## 事件05 与「同学们三两回头看主角」同步在第 5 步。主角正在回答，镜头仍对着老师，
+## 侧前方的课桌要玩家自己转过去才看得到——所以它带 gaze：转到位就提前触发，
+## 2.6 s 兜底。同时，那个低头的人不能和回头的人是同一个座位。
+func _check_step_five_busy_hands() -> void:
+	_flow.restart()
+	await process_frame
+	_press_intro()
+	# 不跳过：跳过会连带作废第 3 步的事件（relief / quiet / pen_fall），
+	# 这里让时间轴按 time_scale 自然走到第 5 步。
+	await _wait_until(_at_step_five, 900)
+	var steps := _flow.debug_played_steps()
+	_check(
+		not steps.is_empty() and is_equal_approx(float(steps[steps.size() - 1]), 5.0),
+		"Step 5 is reached with the earlier beats intact (got %s)." % str(steps)
+	)
+	_check(
+		_flow.debug_actor_seat("busy_hands") != _flow.debug_actor_seat("glance_a"),
+		"The busy neighbour is not the first one turning back (%s vs %s)."
+		% [_flow.debug_actor_seat("busy_hands"), _flow.debug_actor_seat("glance_a")]
+	)
+	# 像玩家那样把视线转到侧前方的课桌：按当前朝向算出还差多少，再一次性转过去
+	var target := _flow.debug_camera_target("busy_desk")
+	var eye := _camera.current_position()
+	var local := _camera.camera.global_transform.basis.inverse() * (target - eye)
+	var yaw := -rad_to_deg(atan2(local.x, -local.z))
+	var pitch := rad_to_deg(atan2(local.y, sqrt(local.x * local.x + local.z * local.z)))
+	_camera.nudge_free_look(yaw, pitch)
+	await process_frame
+	await process_frame
+	_check(
+		_flow.debug_event_labels().has("有人还在忙自己的事"),
+		"Looking at the busy desk fires event 05 (step 5, gaze trigger) — turned %s." % str(_camera.free_look_offset())
+	)
+	_check(
+		_pose_of("SeatB06") == _pose_id("HEAD_DOWN"),
+		"Busy-hands classmate keeps looking at his notebook."
+	)
+	_camera.reset_free_look()
+	await process_frame
+	print("CHECK: step 5 event 05")
+
+
+
+# ——— 互动提示坐标（内容静态校验） ———
+
+## 8 个可观察事件必须在站立后默认朝向的视野内，彼此不挤在一起；
+## 环境事件（忽然安静 / 课堂往下走）明确不出提示。
+func _check_orb_content() -> void:
+	var parsed: Variant = JSON.parse_string(
+		FileAccess.get_file_as_string("res://content/classroom_dialogue.json")
+	)
+	if not parsed is Dictionary:
+		_check(false, "Could not read orb positions from content.")
+		return
+	var events: Dictionary = (parsed as Dictionary).get("events", {})
+	var expected := ["pen_fall", "relief", "look_back", "busy_hands", "e02_laugh", "misheard", "dissent", "e03_nod"]
+	var eye := Vector3(-0.7, 1.70, 1.78)
+	var forward := (PODIUM_POS + Vector3(0.0, 1.37, 0.0) - eye).normalized()
+	var points: Array[Vector3] = []
+	for event_id in expected:
+		var event: Dictionary = events.get(event_id, {})
+		_check(event.has("orb_position"), "%s has an explicit orb_position." % event_id)
+		if not event.has("orb_position"):
+			continue
+		var raw: Array = event["orb_position"]
+		var point := Vector3(float(raw[0]), float(raw[1]), float(raw[2]))
+		points.append(point)
+		var az := _azimuth(eye, forward, point)
+		_check(
+			absf(float(az["yaw"])) <= 60.0 and float(az["pitch"]) <= 18.0 and -float(az["pitch"]) <= 40.0,
+			"%s's marker stays in the normal view (yaw %.1f, pitch %.1f)." % [event_id, az["yaw"], az["pitch"]]
+		)
+	for i in range(points.size()):
+		for j in range(i + 1, points.size()):
+			_check(
+				points[i].distance_to(points[j]) >= 0.5,
+				"Markers %s and %s do not overlap (%.2f m)." % [expected[i], expected[j], points[i].distance_to(points[j])]
+			)
+	for quiet_id in ["quiet", "class_moves_on"]:
+		_check(
+			not bool((events.get(quiet_id, {}) as Dictionary).get("orb", true)),
+			"%s is an environment event and has no marker." % quiet_id
+		)
 
 
 # ——— 分支一：清晰回应 ———
@@ -265,22 +355,22 @@ func _run_confident_branch() -> void:
 	_check_front_seats_visible()
 	# 站起后相机升到站高
 	_check(_camera.current_position().y > 1.6, "Camera rises to standing height while answering.")
-	# 选择窗口：议论纷纷，三个选项；镜头交回固定构图
+	# 选择窗口：议论纷纷；回答只做一个输入框，且视角仍可自由转动
 	_check(_pose_of("SeatC10") == _pose_id("WHISPER_R"), "Classmates whisper during the choice window.")
-	_check(not _camera.is_free_look(), "Free look is released at the choice window.")
+	_check(_camera.is_free_look(), "The answer box keeps free look available.")
+	_check(not _camera.is_keyboard_look(), "Arrow keys move the answer caret instead of the view.")
 	_check(
 		_camera.look_target().is_equal_approx(_initial_look),
 		"No beat or event steers the view direction."
 	)
+	_check_orb_content()
 	var panel := _ui.get_node("Screen/ChoicePanel/Box")
-	for button_name in ["AnswerButton", "StruggleButton", "AvoidButton"]:
-		var button := panel.get_node_or_null(button_name) as Button
-		_check(button != null and button.visible, "Choice window shows " + button_name)
-	# 清晰回应：输入并提交
-	panel.get_node("AnswerButton").pressed.emit()
-	await process_frame
-	_check((panel.get_node("InputRow") as Control).visible, "Choosing to answer reveals the input row.")
-	var input := panel.get_node("InputRow/Input") as LineEdit
+	_check((_ui.get_node("Screen/ChoicePanel") as Control).visible, "Choice window shows one answer card.")
+	var input := panel.get_node("InputRow/Input") as TextEdit
+	_check(input.visible, "The answer input is visible immediately.")
+	_check(not input.text.is_empty(), "The answer input is prefilled with the fallback line.")
+	_check(not panel.has_node("AnswerButton"), "The old three-way answer buttons are gone.")
+	# 改写并提交
 	input.text = "认真试过的人，也可以保留停下的选择。"
 	_flow.time_scale = 1.0
 	panel.get_node("InputRow/Submit").pressed.emit()
@@ -322,6 +412,7 @@ func _run_confident_branch() -> void:
 
 ## 低笑 / 赞同 / 不同意见这三件事的演员，必须是主角正前方第一排的四个人之一，
 ## 并且默认镜头（垂直 FOV 65°、16:9）里能看到，否则第一人称根本看不见。
+## 事件05 那个低头的人也在这一排（他不回头，但必须在这个视角里，玩家一转头就看得到）。
 ## 捡笔的是同桌（正左侧 90°），不靠默认视角，而是靠放宽后的自由转头；
 ## 这里校验“把视线转到底时，他弯腰的位置确实进得了画面”。
 func _check_front_seats_visible() -> void:
@@ -330,7 +421,7 @@ func _check_front_seats_visible() -> void:
 	var forward := _camera.forward()
 	var half_h := rad_to_deg(atan(tan(deg_to_rad(_camera.fov * 0.5)) * 16.0 / 9.0))
 	var half_v := _camera.fov * 0.5
-	for actor in ["laugh", "nod", "dissent"]:
+	for actor in ["laugh", "nod", "dissent", "busy_hands"]:
 		var seat := _flow.debug_actor_seat(actor)
 		_check(front.has(seat), "%s happens in the four seats in front (got %s)." % [actor, seat])
 		var node := _seating.get_node_or_null(seat) as Node3D
@@ -402,6 +493,10 @@ func _run_struggle_branch() -> void:
 	_check(_flow.debug_branch() == &"struggle", "Struggle branch is recorded.")
 	var labels := _flow.debug_event_labels()
 	_check(labels.has("04｜听见不同意见"), "Struggle branch still hears the dissent (step 9).")
+	_check(
+		labels.has("有人还在忙自己的事"),
+		"Step 5 fires event 05 on the fallback timestamp even without free look."
+	)
 	_check(not labels.has("E03｜轻声赞同"), "Struggle branch has no agreement (E03 is step 9.1 only).")
 	var bodies := _flow.debug_l2_card_bodies()
 	_check(bodies.has("我的声音在抖。"), "Nervous replay line appears after a struggle.")
@@ -508,7 +603,118 @@ func _check_restart() -> void:
 	_check(_flow.debug_played_steps().is_empty(), "Restart clears the step record.")
 	var seated_self := _seating.get_node_or_null("ProtagonistSit") as Node3D
 	_check(seated_self != null and not seated_self.visible, "Restart hides the protagonist again.")
+	# 上一轮的事件小球属于上一轮的观察记录，复位时必须清掉（否则会一轮轮叠加）
+	var world := _main.get_node_or_null("WorldUI")
+	var orbs := 0
+	if world != null:
+		for child in world.get_children():
+			if child is EventOrb3D:
+				orbs += 1
+	_check(orbs == 0, "Restart clears the previous run's observation orbs (got %d)." % orbs)
 	print("CHECK: restart")
+
+
+# ——— 世界面板的真实鼠标点击 ———
+
+## 不直接 emit Button.pressed，而是从三维面片中心反推屏幕坐标，走一遍
+## “相机射线 → 面板坐标 → SubViewport GUI”的真实点击路径。
+func _check_world_panel_click() -> void:
+	_flow.restart()
+	await process_frame
+	await create_timer(0.35).timeout
+	var record: Dictionary = {}
+	for panel in _ui._panels:
+		if panel["control"] == _ui.card_panel:
+			record = panel
+			break
+	_check(not record.is_empty(), "The intro card has a world-space surface.")
+	if record.is_empty():
+		return
+	var region := record["region"] as Rect2
+	var center := (_ui.card_primary as Button).get_global_rect().get_center()
+	var local := Vector3(
+		((center.x - region.position.x) / region.size.x - 0.5) * float(record["width"]),
+		(0.5 - (center.y - region.position.y) / region.size.y) * float(record["height"]),
+		0.0
+	)
+	var world_point := (record["root"] as Node3D).to_global(local)
+	var screen := _camera.camera.unproject_position(world_point)
+	var motion := InputEventMouseMotion.new()
+	motion.position = screen
+	motion.global_position = screen
+	root.push_input(motion)
+	var press := InputEventMouseButton.new()
+	press.position = screen
+	press.global_position = screen
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	root.push_input(press)
+	var release := InputEventMouseButton.new()
+	release.position = screen
+	release.global_position = screen
+	release.button_index = MOUSE_BUTTON_LEFT
+	release.pressed = false
+	root.push_input(release)
+	await process_frame
+	await process_frame
+	_check(_flow.stage == &"l1", "Clicking the world-space card starts the class.")
+	print("CHECK: world-space panel click")
+
+
+# ——— 临时三维效果（声纹/小球）与 L2/L3 材质清单 ———
+
+## 声纹与事件小球都会自己 queue_free。它们以前会被收进 L2 的材质清单，节点释放后
+## 清单里留着已释放对象，`entry["node"] as MeshInstance3D` 直接抛
+## "Trying to cast a freed object"，L3 渐变与重开复位都会停在半截
+## （选择第一项、一路点继续，几轮之后必然复现）。这里按真实节奏制造这两个窗口。
+func _check_transient_fx_entries() -> void:
+	_flow.restart()
+	await process_frame
+	var world := _main.get_node_or_null("WorldUI")
+	_flow_state.activate()
+	await process_frame
+	var baseline := _flow_state.get_clay_mesh_count()
+	for i in range(4):
+		_flow.emit_signal("sound_emitted", Vector3(0.0, 1.5, 0.0), 0.6)
+	await process_frame
+	_check(_fx_count() >= 4, "The check spawns real sound ripples (got %d)." % _fx_count())
+	_flow_state.refresh_targets()
+	await process_frame
+	_check(
+		_flow_state.get_clay_mesh_count() == baseline,
+		"Sound ripples stay out of the clay material list (%d vs %d)."
+		% [_flow_state.get_clay_mesh_count(), baseline]
+	)
+	# L2 里事件小球可以被点掉：收集动画结束它就 queue_free。它和声纹不同，是进了
+	# 材质清单的（L2 里应当和房间一起变灰、L3 里一起隐藏），所以清单必须能容忍它被释放。
+	_flow.emit_signal("event_observed", &"check_orb", "检查用小球", Vector3(0.0, 1.2, 0.0))
+	await process_frame
+	var orb: EventOrb3D = null
+	if world != null:
+		for child in world.get_children():
+			if child is EventOrb3D:
+				orb = child
+	_check(orb != null, "The check spawns an observation orb.")
+	_flow_state.refresh_targets() # 让小球进入材质清单
+	await process_frame
+	if orb != null:
+		orb.collect_external()
+		await create_timer(0.9, true).timeout
+		_check(not is_instance_valid(orb), "The collected orb is freed before materials are restored.")
+	# 声纹全部过期、小球已释放，再走 L3 与复位：清单里若还留着它们，就会抛已释放转换
+	await create_timer(1.0, true).timeout
+	_flow_state.enter_l3()
+	await process_frame
+	_check(_flow_state.is_isolated(), "Isolation completes after the transient nodes are freed.")
+	_flow_state.deactivate(true)
+	await process_frame
+	_check(not _flow_state.is_active(), "Flow state leaves L3 cleanly after those nodes are freed.")
+	_check(
+		_flow_state.get_clay_mesh_count() == 0,
+		"Restoring materials leaves no stale entries (%d)."
+		% _flow_state.get_clay_mesh_count()
+	)
+	print("CHECK: transient effects vs L2 materials")
 
 
 # ——— 配音清单 ———
@@ -623,6 +829,24 @@ func _count_lighting(node: Node) -> Dictionary:
 		counts["environments"] = int(counts["environments"]) + int(child_counts["environments"])
 		counts["directionals"] = int(counts["directionals"]) + int(child_counts["directionals"])
 	return counts
+
+
+## 当前播到第 5 步了吗（节拍列表最后一个 step）。
+func _at_step_five() -> bool:
+	var played := _flow.debug_played_steps()
+	return not played.is_empty() and float(played[played.size() - 1]) >= 5.0
+
+
+## 当前场上临时三维效果（声纹 / 事件小球）的节点数。
+func _fx_count() -> int:
+	var world := _main.get_node_or_null("WorldUI")
+	if world == null:
+		return 0
+	var count := 0
+	for child in world.get_children():
+		if child.is_in_group(L2FlowState.TRANSIENT_FX_GROUP):
+			count += 1
+	return count
 
 
 func _pose_of(seat_name: String) -> int:

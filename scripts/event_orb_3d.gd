@@ -1,93 +1,145 @@
 class_name EventOrb3D
 extends Node3D
 
-## 三维世界中「可被观察到的事件」标记：一个会轻微浮动与脉动的小球，
-## 玩家点击即可收集（收集后缩小上浮并释放）。由 SceneUI3D 在事件触发时生成。
+## 可观察事件的空间提示：观察符号 + 明确的“点击观察”标签。
+## 类名沿用 EventOrb3D 以兼容流程与测试，但视觉不再是发光球体。
 
 signal collected(orb: EventOrb3D)
 
-const ORB_COLOR := Color(0.55, 0.85, 1.0)
-const ORB_EMISSION := Color(0.40, 0.80, 1.0)
+const MARKER_TEXTURE := preload("res://assets/ui/observe_marker.svg")
+const TAG_TEXTURE := preload("res://assets/ui/observation_tag.svg")
+const INK := Color(0.84, 0.95, 0.93)
+const ACCENT := Color(0.95, 0.80, 0.55)
+const SHORT_NAMES := {
+	"被悄悄捡回来的笔": "捡笔",
+	"同学们稍微松了口气": "松口气",
+	"同学们三两回头看主角": "回头",
+	"有人还在忙自己的事": "低头",
+	"E02｜低笑": "低笑",
+	"03｜被听成了另一个意思": "误听",
+	"04｜听见不同意见": "分歧",
+	"E03｜轻声赞同": "赞同",
+}
 
-var _mesh: MeshInstance3D
-var _material: StandardMaterial3D
-var _area: Area3D
+var _visual: Node3D
+var _icon: Sprite3D
+var _tag: Sprite3D
 var _label: Label3D
-var _bob_t := 0.0
-var _collected := false
-# setup() 可能在 add_child 之前被调用（此时 _label 尚未创建），
-# 故先存为 pending，在 _ready()（节点入树时同步触发）里真正应用。
+var _area: Area3D
+var _bob_t: float = 0.0
+var _collected: bool = false
+var _hovered: bool = false
+var _full_text: String = ""
+var _short_text: String = ""
 var _pending_label: String = ""
 var _pending_position: Vector3 = Vector3.ZERO
 
 
 func _ready() -> void:
-	_mesh = MeshInstance3D.new()
-	var sphere := SphereMesh.new()
-	sphere.radius = 0.12
-	sphere.height = 0.24
-	_mesh.mesh = sphere
-	_material = StandardMaterial3D.new()
-	_material.albedo_color = ORB_COLOR
-	_material.emission_enabled = true
-	_material.emission = ORB_EMISSION
-	_material.emission_energy_multiplier = 1.4
-	_material.roughness = 0.45
-	_material.metallic = 0.0
-	_mesh.material_override = _material
-	add_child(_mesh)
+	_visual = Node3D.new()
+	add_child(_visual)
+
+	_icon = Sprite3D.new()
+	_icon.texture = MARKER_TEXTURE
+	_icon.pixel_size = 0.00108
+	_icon.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
+	_icon.no_depth_test = false
+	_icon.shaded = false
+	_icon.alpha_cut = SpriteBase3D.ALPHA_CUT_DISABLED
+	_icon.render_priority = 3
+	_visual.add_child(_icon)
+
+	_tag = Sprite3D.new()
+	_tag.texture = TAG_TEXTURE
+	_tag.pixel_size = 0.00145
+	_tag.scale.x = 0.64
+	_tag.position = Vector3(0.0, -0.225, 0.0)
+	_tag.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
+	_tag.no_depth_test = false
+	_tag.shaded = false
+	_tag.alpha_cut = SpriteBase3D.ALPHA_CUT_DISABLED
+	_tag.modulate.a = 0.94
+	_tag.render_priority = 3
+	_visual.add_child(_tag)
+
+	_label = Label3D.new()
+	_label.font_size = 25
+	_label.pixel_size = 0.0022
+	_label.modulate = INK
+	_label.outline_size = 4
+	_label.outline_modulate = Color(0.025, 0.055, 0.075, 0.96)
+	_label.position = Vector3(0.0, -0.221, 0.008)
+	_label.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
+	_label.no_depth_test = false
+	_visual.add_child(_label)
 
 	_area = Area3D.new()
 	_area.input_event.connect(_on_input_event)
+	_area.mouse_entered.connect(func() -> void: _set_hovered(true))
+	_area.mouse_exited.connect(func() -> void: _set_hovered(false))
 	var col := CollisionShape3D.new()
 	var shape := SphereShape3D.new()
-	shape.radius = 0.4
+	shape.radius = 0.31
 	col.shape = shape
+	col.position.y = -0.07
 	_area.add_child(col)
 	add_child(_area)
 
-	_label = Label3D.new()
-	_label.text = ""
-	_label.font_size = 36
-	_label.pixel_size = 0.004
-	_label.modulate = Color(0.92, 0.97, 1.0)
-	_label.outline_size = 5
-	_label.outline_modulate = Color(0.05, 0.09, 0.13)
-	_label.position = Vector3(0.0, 0.30, 0.0)
-	# 用内置公告板（仅绕 Y 轴、保持直立）面向相机——比手动 look_at 安全，
-	# 相机贴近小球时也不会产生 NaN 变换。
-	_label.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
-	add_child(_label)
-	# _ready 在 add_child 时同步触发，此时已入树，可安全应用 setup() 暂存的数据。
-	_label.text = _pending_label
+	_apply_label(_pending_label)
 	if is_inside_tree():
 		global_position = _pending_position
 
 
 func setup(world_position: Vector3, label_text: String) -> void:
-	# 先暂存；若节点尚未入树，_label 还没创建，等 _ready 再应用。
 	_pending_position = world_position
 	_pending_label = label_text
 	if _label != null:
-		_label.text = label_text
+		_apply_label(label_text)
 	if is_inside_tree():
 		global_position = world_position
+
+
+func _apply_label(label_text: String) -> void:
+	_full_text = label_text
+	_short_text = str(SHORT_NAMES.get(label_text, label_text))
+	if _label != null:
+		_label.text = ("点击观察 · " + _full_text) if _hovered else ("观察 · " + _short_text)
 
 
 func _process(delta: float) -> void:
 	if _collected:
 		return
 	_bob_t += delta
-	_mesh.position.y = sin(_bob_t * 2.0) * 0.06
-	var pulse := 1.0 + sin(_bob_t * 3.0) * 0.18
-	_material.emission_energy_multiplier = 1.2 * pulse
-	# 标签朝向由 billboard = BILLBOARD_FIXED_Y 自动处理，无需每帧 look_at。
+	_visual.position.y = sin(_bob_t * 1.7) * 0.025
+	var camera := get_viewport().get_camera_3d()
+	var distance := camera.global_position.distance_to(global_position) if camera != null else 2.2
+	var depth_scale := clampf(distance / 2.4, 0.30, 1.0)
+	_visual.scale = _visual.scale.lerp(Vector3.ONE * depth_scale, 1.0 - exp(-delta * 6.0))
+	# 离得近的桌面提示把文字放到图标上方，否则标签会掉出画面下缘。
+	var tag_y := 0.235 if distance < 1.35 else -0.225
+	_tag.position.y = lerpf(_tag.position.y, tag_y, 1.0 - exp(-delta * 7.0))
+	_label.position.y = _tag.position.y + 0.004
+	var pulse := 1.0 + sin(_bob_t * 2.4) * 0.045
+	if _hovered:
+		pulse += 0.10
+	_icon.scale = Vector3.ONE * pulse
+	_tag.scale.x = lerpf(_tag.scale.x, 1.0 if _hovered else 0.64, 1.0 - exp(-delta * 10.0))
+
+
+func _set_hovered(value: bool) -> void:
+	if _collected or _hovered == value:
+		return
+	_hovered = value
+	_label.text = ("点击观察 · " + _full_text) if _hovered else ("观察 · " + _short_text)
+	_label.modulate = ACCENT if _hovered else INK
+	_icon.modulate = Color(1.0, 0.94, 0.82) if _hovered else Color.WHITE
 
 
 func _on_input_event(_cam: Node, event: InputEvent, _pos: Vector3, _normal: Vector3, _shape_idx: int) -> void:
 	if _collected:
 		return
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		get_viewport().set_input_as_handled()
 		_collect()
 
 
@@ -98,8 +150,12 @@ func collect_external() -> void:
 
 func _collect() -> void:
 	_collected = true
+	_area.input_ray_pickable = false
 	collected.emit(self)
-	var tween := create_tween()
-	tween.tween_property(_mesh, "scale", Vector3.ZERO, 0.4).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
-	tween.parallel().tween_property(self, "global_position:y", global_position.y + 0.45, 0.4)
-	tween.tween_callback(queue_free)
+	var tween := create_tween().set_parallel(true)
+	tween.tween_property(self, "scale", Vector3.ONE * 0.01, 0.34).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
+	tween.tween_property(self, "global_position:y", global_position.y + 0.28, 0.34).set_trans(Tween.TRANS_SINE)
+	tween.tween_property(_icon, "modulate:a", 0.0, 0.26)
+	tween.tween_property(_tag, "modulate:a", 0.0, 0.26)
+	tween.tween_property(_label, "modulate:a", 0.0, 0.22)
+	tween.chain().tween_callback(queue_free)

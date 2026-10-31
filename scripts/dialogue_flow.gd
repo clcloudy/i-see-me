@@ -219,7 +219,8 @@ func _next_phase() -> void:
 func _enter_choice() -> void:
 	stage = &"choice"
 	_generation += 1
-	camera.set_free_look(false) # 选择窗口交给鼠标操作，视线自动回正
+	camera.set_free_look(true) # 回答框不锁视角；拖动鼠标仍可看别处。
+	camera.set_keyboard_look(false) # 方向键留给输入框光标。
 	_set_ambient_whispers(true) # 同学们此时议论纷纷
 	_start_ambient_loop("murmur_loop")
 	interface.show_choice(_content.get("choice", {}))
@@ -307,6 +308,7 @@ func _play_beat(beat: Dictionary) -> void:
 	# 第一人称段全程可以自由转头（正面锥形内）；转第三人称时关闭
 	var third_person := bool(cam.get("third_person", false))
 	camera.set_free_look(not third_person)
+	camera.set_keyboard_look(true)
 	if not third_person:
 		interface.set_look_hint(str(_content.get("ui", {}).get("look_hint", "")))
 	if third_person:
@@ -454,13 +456,17 @@ func _fire_event(event_id: String, gen: int) -> void:
 			var recover_after := float(event_camera["recover"])
 			_schedule(recover_after, func(): camera.set_look_target(_beat_look_target))
 
-	# 三维事件标记：在事件发生处广播「可观察事件」，由 SceneUI3D 生成可点击收集的小球。
-	var _ev_world := Vector3.ZERO
-	if event_camera.has("look"):
-		_ev_world = _camera_target(str(event_camera["look"]))
-	elif teacher != null:
-		_ev_world = teacher.global_position
-	event_observed.emit(StringName(event_id), str(event.get("label", event_id)), _ev_world)
+	# 三维观察提示使用内容里明确标注的动作部位坐标，不再拿镜头目标代替。
+	# 环境事件可用 orb=false 只保留字幕、词条与声纹。
+	if bool(event.get("orb", true)):
+		var event_world := Vector3.ZERO
+		if event.has("orb_position"):
+			event_world = _vec(event["orb_position"])
+		elif event_camera.has("look"):
+			event_world = _camera_target(str(event_camera["look"]))
+		elif teacher != null:
+			event_world = teacher.global_position
+		event_observed.emit(StringName(event_id), str(event.get("label", event_id)), event_world)
 
 
 func _run_cue(action: String, gen: int) -> void:
@@ -824,11 +830,19 @@ func _reset_world() -> void:
 	# 音频与自由转头
 	_stop_all_audio()
 	camera.set_free_look(false)
+	camera.set_keyboard_look(true)
+	# 复位要清掉上一轮遗留的镜头状态：自由转头的偏角（否则重开后镜头会自己慢慢回正）
+	# 与「四处看」的视线摆幅（躲避视线分支设置过，重开后不该继续晃）。
+	camera.reset_free_look()
+	camera.set_scan(0.0)
 	# 界面与镜头
 	interface.show_intro()
 	interface.clear_subtitle()
 	interface.set_transition_text("")
 	_refresh_controls()
+	# 复位也是一次阶段变化（回到 intro）：三维世界里的临时标记（事件小球等）
+	# 靠这个信号清场，否则上一轮的观察记录会一直留到下一轮。
+	stage_changed.emit(stage)
 
 
 func _kill_tweens() -> void:
@@ -875,6 +889,10 @@ func _set_actor_pose(actor: String, pose: String, transition: float = -1.0) -> v
 	var node := _actor_node(actor)
 	if node == null:
 		push_warning("DialogueFlow: 找不到演员节点 " + actor)
+		return
+	if not "pose" in node:
+		# 座位名配到了非姿态演员节点（例如 marker 或道具）：跳过，别让整条流程解析失败
+		push_warning("DialogueFlow: 演员节点不是姿态角色 " + actor)
 		return
 	if "pose_transition_seconds" in node:
 		node.pose_transition_seconds = _pose_default_seconds if transition < 0.0 else transition
@@ -924,6 +942,8 @@ func _correct_sink_soon(node: Node) -> void:
 
 func _ensure_seat_sink(node: Node) -> void:
 	if not is_instance_valid(node):
+		return
+	if not "pose" in node:
 		return
 	if not _seated_poses.has(int(node.pose)):
 		return
@@ -1346,7 +1366,9 @@ func _process(_delta: float) -> void:
 	protagonist_look.visible = clear and _protagonist_pose == &"look_around"
 
 
-## 第 0 步的“看见才发生”：玩家把视线转到侧前方课桌（或到兜底时间）时触发事件05。
+## “看见才发生”：玩家把视线转到该事件的位置（或到兜底时间）时触发。
+## 目前只有第 5 步的事件05（有人还在忙自己的事）用它——那时镜头仍在老师身上，
+## 侧前方的课桌要玩家自己转过去才看得到。
 func _check_gaze_events() -> void:
 	if _gaze_events.is_empty() or get_tree().paused:
 		return
@@ -1442,6 +1464,11 @@ func _scan_beat_voice(beat: Dictionary, add: Callable) -> void:
 ## 供无头检查：逻辑演员名 → 实际座位节点名（confident/nod/dissent 这类事件演员）。
 func debug_actor_seat(actor: String) -> String:
 	return str(_content.get("actors", {}).get(actor, ""))
+
+
+## 供无头检查：内容里登记的镜头目标世界坐标（事件05 的 gaze 目标等）。
+func debug_camera_target(target_name: String) -> Vector3:
+	return _camera_target(target_name)
 
 
 ## 供无头检查：当前阶段、分支、已触发事件与主角姿态。

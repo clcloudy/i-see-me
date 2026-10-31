@@ -33,6 +33,8 @@ var _smoothed_look: Vector3 = Vector3.ZERO
 var _time: float = 0.0
 var _tween: Tween = null
 var _free_look: bool = false
+## 回答框输入时仍可拖动鼠标看别处，但方向键要留给文字光标。
+var _keyboard_look: bool = true
 var _free_yaw: float = 0.0
 var _free_pitch: float = 0.0
 ## 节拍切换时把视线平滑拉回流程给定的方向；玩家一动鼠标就交还控制权。
@@ -86,16 +88,16 @@ func _step_free_look(delta: float) -> void:
 		return
 	var key_step := 55.0 * delta
 	var keyed := false
-	if Input.is_key_pressed(KEY_LEFT):
+	if _keyboard_look and Input.is_key_pressed(KEY_LEFT):
 		_free_yaw += key_step
 		keyed = true
-	if Input.is_key_pressed(KEY_RIGHT):
+	if _keyboard_look and Input.is_key_pressed(KEY_RIGHT):
 		_free_yaw -= key_step
 		keyed = true
-	if Input.is_key_pressed(KEY_UP):
+	if _keyboard_look and Input.is_key_pressed(KEY_UP):
 		_free_pitch += key_step
 		keyed = true
-	if Input.is_key_pressed(KEY_DOWN):
+	if _keyboard_look and Input.is_key_pressed(KEY_DOWN):
 		_free_pitch -= key_step
 		keyed = true
 	if keyed:
@@ -119,6 +121,14 @@ func set_free_look(enabled: bool) -> void:
 
 func is_free_look() -> bool:
 	return _free_look
+
+
+func set_keyboard_look(enabled: bool) -> void:
+	_keyboard_look = enabled
+
+
+func is_keyboard_look() -> bool:
+	return _keyboard_look
 
 
 ## 平滑把视线拉回流程给定的方向（节拍切换、事件转头时调用）。

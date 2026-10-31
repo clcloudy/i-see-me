@@ -1,90 +1,205 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://scripts/dialogue_ui.gd" id="1_script"]
 
 [sub_resource type="StyleBoxFlat" id="Style_panel"]
-bg_color = Color(0.07, 0.085, 0.08, 0.92)
-content_margin_left = 20.0
-content_margin_top = 14.0
-content_margin_right = 20.0
-content_margin_bottom = 14.0
-
-[sub_resource type="StyleBoxFlat" id="Style_button"]
-bg_color = Color(0.22, 0.29, 0.26, 1)
+bg_color = Color(0.035, 0.063, 0.09, 0.88)
 border_width_left = 1
 border_width_top = 1
 border_width_right = 1
 border_width_bottom = 1
-border_color = Color(0.49, 0.59, 0.52, 1)
-corner_radius_top_left = 4
-corner_radius_top_right = 4
-corner_radius_bottom_left = 4
-corner_radius_bottom_right = 4
-content_margin_left = 16.0
-content_margin_top = 8.0
-content_margin_right = 16.0
-content_margin_bottom = 8.0
+border_color = Color(0.42, 0.64, 0.68, 0.48)
+corner_radius_top_left = 16
+corner_radius_top_right = 16
+corner_radius_bottom_left = 16
+corner_radius_bottom_right = 16
+content_margin_left = 20.0
+content_margin_top = 12.0
+content_margin_right = 20.0
+content_margin_bottom = 12.0
+shadow_color = Color(0, 0, 0, 0.28)
+shadow_size = 8
+shadow_offset = Vector2(0, 4)
 
 [sub_resource type="StyleBoxFlat" id="Style_card"]
-bg_color = Color(0.09, 0.11, 0.10, 0.96)
-content_margin_left = 28.0
-content_margin_top = 24.0
-content_margin_right = 28.0
-content_margin_bottom = 24.0
+bg_color = Color(0.035, 0.058, 0.083, 0.95)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.5, 0.71, 0.73, 0.58)
+corner_radius_top_left = 22
+corner_radius_top_right = 22
+corner_radius_bottom_left = 22
+corner_radius_bottom_right = 22
+content_margin_left = 32.0
+content_margin_top = 28.0
+content_margin_right = 32.0
+content_margin_bottom = 28.0
+shadow_color = Color(0, 0, 0, 0.38)
+shadow_size = 14
+shadow_offset = Vector2(0, 7)
+
+[sub_resource type="StyleBoxFlat" id="Style_button"]
+bg_color = Color(0.09, 0.15, 0.19, 0.92)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.38, 0.56, 0.61, 0.58)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_left = 10
+corner_radius_bottom_right = 10
+content_margin_left = 15.0
+content_margin_top = 8.0
+content_margin_right = 15.0
+content_margin_bottom = 8.0
+
+[sub_resource type="StyleBoxFlat" id="Style_button_hover"]
+bg_color = Color(0.14, 0.25, 0.29, 0.98)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.61, 0.85, 0.84, 0.95)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_left = 10
+corner_radius_bottom_right = 10
+content_margin_left = 15.0
+content_margin_top = 8.0
+content_margin_right = 15.0
+content_margin_bottom = 8.0
+
+[sub_resource type="StyleBoxFlat" id="Style_button_pressed"]
+bg_color = Color(0.2, 0.34, 0.36, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.95, 0.8, 0.55, 0.95)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_left = 10
+corner_radius_bottom_right = 10
+content_margin_left = 15.0
+content_margin_top = 9.0
+content_margin_right = 15.0
+content_margin_bottom = 7.0
+
+[sub_resource type="StyleBoxFlat" id="Style_focus"]
+bg_color = Color(0, 0, 0, 0)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.95, 0.79, 0.52, 0.95)
+corner_radius_top_left = 11
+corner_radius_top_right = 11
+corner_radius_bottom_left = 11
+corner_radius_bottom_right = 11
+
+[sub_resource type="StyleBoxFlat" id="Style_input"]
+bg_color = Color(0.018, 0.035, 0.052, 0.96)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.43, 0.67, 0.7, 0.7)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_left = 12
+corner_radius_bottom_right = 12
+content_margin_left = 18.0
+content_margin_top = 12.0
+content_margin_right = 18.0
+content_margin_bottom = 12.0
+
+[sub_resource type="StyleBoxFlat" id="Style_hint"]
+bg_color = Color(0.025, 0.048, 0.068, 0.76)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.47, 0.66, 0.68, 0.42)
+corner_radius_top_left = 15
+corner_radius_top_right = 15
+corner_radius_bottom_left = 15
+corner_radius_bottom_right = 15
+content_margin_left = 20.0
+content_margin_top = 8.0
+content_margin_right = 20.0
+content_margin_bottom = 8.0
+shadow_color = Color(0, 0, 0, 0.24)
+shadow_size = 7
+shadow_offset = Vector2(0, 3)
+
+[sub_resource type="StyleBoxFlat" id="Style_disabled"]
+bg_color = Color(0.06, 0.09, 0.11, 0.6)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_left = 10
+corner_radius_bottom_right = 10
+content_margin_left = 15.0
+content_margin_top = 8.0
+content_margin_right = 15.0
+content_margin_bottom = 8.0
 
 [sub_resource type="Theme" id="Theme_ui"]
-default_font_size = 18
+default_font_size = 20
 Button/styles/normal = SubResource("Style_button")
-Button/colors/font_color = Color(0.97, 0.98, 0.96, 1)
-Button/colors/font_hover_color = Color(1, 1, 1, 1)
-Label/colors/font_color = Color(0.94, 0.95, 0.93, 1)
-LineEdit/colors/font_color = Color(0.96, 0.97, 0.95, 1)
+Button/styles/hover = SubResource("Style_button_hover")
+Button/styles/pressed = SubResource("Style_button_pressed")
+Button/styles/focus = SubResource("Style_focus")
+Button/styles/disabled = SubResource("Style_disabled")
+Button/colors/font_color = Color(0.87, 0.92, 0.92, 1)
+Button/colors/font_hover_color = Color(0.97, 1, 0.98, 1)
+Button/colors/font_pressed_color = Color(1, 0.93, 0.8, 1)
+Button/colors/font_disabled_color = Color(0.48, 0.56, 0.58, 1)
+Label/colors/font_color = Color(0.91, 0.94, 0.93, 1)
+LineEdit/styles/normal = SubResource("Style_input")
+LineEdit/styles/focus = SubResource("Style_focus")
+LineEdit/colors/font_color = Color(0.94, 0.96, 0.94, 1)
+LineEdit/colors/font_placeholder_color = Color(0.53, 0.65, 0.67, 1)
+LineEdit/colors/caret_color = Color(0.95, 0.79, 0.52, 1)
+TextEdit/styles/normal = SubResource("Style_input")
+TextEdit/styles/focus = SubResource("Style_focus")
+TextEdit/colors/font_color = Color(0.94, 0.96, 0.94, 1)
+TextEdit/colors/font_placeholder_color = Color(0.53, 0.65, 0.67, 1)
+TextEdit/colors/caret_color = Color(0.95, 0.79, 0.52, 1)
+TextEdit/colors/selection_color = Color(0.32, 0.56, 0.58, 0.55)
 PanelContainer/styles/panel = SubResource("Style_panel")
 
 [node name="DialogueUI" type="CanvasLayer"]
 process_mode = 3
 script = ExtResource("1_script")
 
-[node name="Screen" type="Control" parent="."]
-layout_mode = 3
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-theme = SubResource("Theme_ui")
+[node name="Screen" type="SubViewport" parent="."]
+disable_3d = true
+transparent_bg = true
+size = Vector2i(1280, 720)
+render_target_update_mode = 4
+handle_input_locally = true
 
 [node name="Header" type="PanelContainer" parent="Screen"]
-layout_mode = 1
-anchors_preset = 10
-anchor_right = 1.0
-grow_horizontal = 2
-theme_override_styles/panel = SubResource("Style_panel")
-
-[node name="LookHint" type="Label" parent="Screen"]
 unique_name_in_owner = true
-visible = false
 layout_mode = 0
-offset_left = 22.0
-offset_top = 104.0
-offset_right = 640.0
-offset_bottom = 130.0
-theme_override_colors/font_color = Color(0.95, 0.96, 0.92, 1)
-theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.9)
-theme_override_constants/shadow_offset_x = 1
-theme_override_constants/shadow_offset_y = 1
-theme_override_font_sizes/font_size = 15
-text = ""
+offset_left = 24.0
+offset_top = 22.0
+offset_right = 830.0
+offset_bottom = 88.0
+theme = SubResource("Theme_ui")
 
 [node name="Row" type="HBoxContainer" parent="Screen/Header"]
 layout_mode = 2
-theme_override_constants/separation = 12
+theme_override_constants/separation = 9
 
 [node name="Brand" type="Label" parent="Screen/Header/Row"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 18
+theme_override_colors/font_color = Color(0.95, 0.82, 0.6, 1)
+theme_override_font_sizes/font_size = 21
 text = "I See Me · 课堂对话"
 
 [node name="Spacer" type="Control" parent="Screen/Header/Row"]
@@ -94,74 +209,95 @@ size_flags_horizontal = 3
 [node name="Skip" type="Button" parent="Screen/Header/Row"]
 unique_name_in_owner = true
 layout_mode = 2
-custom_minimum_size = Vector2(84, 0)
+custom_minimum_size = Vector2(74, 38)
+theme_override_font_sizes/font_size = 18
 text = "跳过"
 
 [node name="Pause" type="Button" parent="Screen/Header/Row"]
 unique_name_in_owner = true
 layout_mode = 2
-custom_minimum_size = Vector2(84, 0)
+custom_minimum_size = Vector2(74, 38)
+theme_override_font_sizes/font_size = 18
 text = "暂停"
 
 [node name="Mute" type="Button" parent="Screen/Header/Row"]
 unique_name_in_owner = true
 layout_mode = 2
-custom_minimum_size = Vector2(96, 0)
+custom_minimum_size = Vector2(74, 38)
+theme_override_font_sizes/font_size = 18
 text = "静音"
 
 [node name="Restart" type="Button" parent="Screen/Header/Row"]
 unique_name_in_owner = true
 layout_mode = 2
-custom_minimum_size = Vector2(84, 0)
+custom_minimum_size = Vector2(74, 38)
+theme_override_font_sizes/font_size = 18
 text = "重开"
 
 [node name="Quit" type="Button" parent="Screen/Header/Row"]
 unique_name_in_owner = true
 layout_mode = 2
-custom_minimum_size = Vector2(84, 0)
+custom_minimum_size = Vector2(74, 38)
+theme_override_font_sizes/font_size = 18
 text = "退出"
+
+[node name="LookHint" type="PanelContainer" parent="Screen"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 0
+offset_left = 300.0
+offset_top = 610.0
+offset_right = 980.0
+offset_bottom = 662.0
+theme = SubResource("Theme_ui")
+theme_override_styles/panel = SubResource("Style_hint")
+
+[node name="LookText" type="Label" parent="Screen/LookHint"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.84, 0.92, 0.92, 1)
+theme_override_font_sizes/font_size = 19
+text = ""
+horizontal_alignment = 1
+vertical_alignment = 1
 
 [node name="Transition" type="Label" parent="Screen"]
 unique_name_in_owner = true
 visible = false
-layout_mode = 1
-anchors_preset = 10
-anchor_right = 1.0
-offset_top = 66.0
-grow_horizontal = 2
+layout_mode = 0
+offset_left = 350.0
+offset_top = 105.0
+offset_right = 930.0
+offset_bottom = 160.0
+theme = SubResource("Theme_ui")
+theme_override_colors/font_color = Color(0.95, 0.83, 0.62, 1)
+theme_override_colors/font_shadow_color = Color(0.01, 0.025, 0.04, 0.95)
+theme_override_constants/shadow_offset_x = 2
+theme_override_constants/shadow_offset_y = 2
+theme_override_constants/shadow_outline_size = 6
+theme_override_font_sizes/font_size = 25
 horizontal_alignment = 1
-theme_override_font_sizes/font_size = 20
+vertical_alignment = 1
 
 [node name="Chips" type="VBoxContainer" parent="Screen"]
 unique_name_in_owner = true
-layout_mode = 1
-anchors_preset = 6
-anchor_left = 1.0
-anchor_top = 0.5
-anchor_right = 1.0
-anchor_bottom = 0.5
-offset_left = -370.0
-offset_top = -80.0
-offset_right = -20.0
-offset_bottom = 80.0
-grow_horizontal = 0
-grow_vertical = 2
-theme_override_constants/separation = 8
+layout_mode = 0
+offset_left = 950.0
+offset_top = 170.0
+offset_right = 1250.0
+offset_bottom = 500.0
+theme = SubResource("Theme_ui")
+theme_override_constants/separation = 10
 
 [node name="SubtitleBar" type="PanelContainer" parent="Screen"]
 unique_name_in_owner = true
 visible = false
-layout_mode = 1
-anchors_preset = 12
-anchor_top = 1.0
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 160.0
-offset_top = -150.0
-offset_right = -160.0
-offset_bottom = -22.0
-grow_horizontal = 2
-grow_vertical = 0
+layout_mode = 0
+offset_left = 220.0
+offset_top = 540.0
+offset_right = 1060.0
+offset_bottom = 680.0
+theme = SubResource("Theme_ui")
 
 [node name="Row" type="HBoxContainer" parent="Screen/SubtitleBar"]
 layout_mode = 2
@@ -183,103 +319,79 @@ theme_override_font_sizes/font_size = 20
 [node name="ChoicePanel" type="PanelContainer" parent="Screen"]
 unique_name_in_owner = true
 visible = false
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -320.0
-offset_top = -130.0
-offset_right = 320.0
-offset_bottom = 130.0
-grow_horizontal = 2
-grow_vertical = 2
+layout_mode = 0
+offset_left = 320.0
+offset_top = 230.0
+offset_right = 960.0
+offset_bottom = 490.0
+theme = SubResource("Theme_ui")
 theme_override_styles/panel = SubResource("Style_card")
 
 [node name="Box" type="VBoxContainer" parent="Screen/ChoicePanel"]
 layout_mode = 2
-theme_override_constants/separation = 14
+theme_override_constants/separation = 18
 
 [node name="ChoiceTitle" type="Label" parent="Screen/ChoicePanel/Box"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 20
-
-[node name="AnswerButton" type="Button" parent="Screen/ChoicePanel/Box"]
-unique_name_in_owner = true
-layout_mode = 2
-custom_minimum_size = Vector2(0, 46)
-text = "清晰回应"
-
-[node name="StruggleButton" type="Button" parent="Screen/ChoicePanel/Box"]
-unique_name_in_owner = true
-layout_mode = 2
-custom_minimum_size = Vector2(0, 46)
-text = "勉强开口"
-
-[node name="AvoidButton" type="Button" parent="Screen/ChoicePanel/Box"]
-unique_name_in_owner = true
-layout_mode = 2
-custom_minimum_size = Vector2(0, 46)
-text = "躲开视线，低头看看周围"
+theme_override_colors/font_color = Color(0.94, 0.96, 0.94, 1)
+theme_override_font_sizes/font_size = 26
+autowrap_mode = 3
 
 [node name="InputRow" type="HBoxContainer" parent="Screen/ChoicePanel/Box"]
 unique_name_in_owner = true
-visible = false
 layout_mode = 2
-theme_override_constants/separation = 10
+theme_override_constants/separation = 12
 
-[node name="Input" type="LineEdit" parent="Screen/ChoicePanel/Box/InputRow"]
+[node name="Input" type="TextEdit" parent="Screen/ChoicePanel/Box/InputRow"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-custom_minimum_size = Vector2(0, 40)
+size_flags_vertical = 3
+custom_minimum_size = Vector2(0, 124)
+theme_override_font_sizes/font_size = 21
 placeholder_text = "写下你想说的话……"
+wrap_mode = 1
 
 [node name="Submit" type="Button" parent="Screen/ChoicePanel/Box/InputRow"]
 unique_name_in_owner = true
 layout_mode = 2
-custom_minimum_size = Vector2(104, 40)
+size_flags_vertical = 4
+custom_minimum_size = Vector2(128, 50)
+theme_override_font_sizes/font_size = 21
 text = "说出口"
-
-[node name="InputBack" type="Button" parent="Screen/ChoicePanel/Box/InputRow"]
-unique_name_in_owner = true
-layout_mode = 2
-custom_minimum_size = Vector2(104, 40)
-text = "还是算了"
 
 [node name="CardPanel" type="PanelContainer" parent="Screen"]
 unique_name_in_owner = true
 visible = false
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -360.0
-offset_top = -170.0
-offset_right = 360.0
-offset_bottom = 170.0
-grow_horizontal = 2
-grow_vertical = 2
+layout_mode = 0
+offset_left = 280.0
+offset_top = 130.0
+offset_right = 1000.0
+offset_bottom = 590.0
+theme = SubResource("Theme_ui")
 theme_override_styles/panel = SubResource("Style_card")
 
 [node name="Box" type="VBoxContainer" parent="Screen/CardPanel"]
 layout_mode = 2
-theme_override_constants/separation = 16
+theme_override_constants/separation = 20
 
 [node name="CardTitle" type="Label" parent="Screen/CardPanel/Box"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 22
+theme_override_colors/font_color = Color(0.95, 0.83, 0.62, 1)
+theme_override_font_sizes/font_size = 30
+autowrap_mode = 3
 
 [node name="CardBody" type="Label" parent="Screen/CardPanel/Box"]
 unique_name_in_owner = true
 layout_mode = 2
+size_flags_vertical = 3
+custom_minimum_size = Vector2(640, 230)
+theme_override_colors/font_color = Color(0.88, 0.93, 0.92, 1)
+theme_override_constants/line_spacing = 7
+theme_override_font_sizes/font_size = 22
 autowrap_mode = 3
-theme_override_font_sizes/font_size = 18
 
 [node name="CardButtons" type="HBoxContainer" parent="Screen/CardPanel/Box"]
 layout_mode = 2
@@ -289,19 +401,19 @@ alignment = 2
 [node name="CardPrimary" type="Button" parent="Screen/CardPanel/Box/CardButtons"]
 unique_name_in_owner = true
 layout_mode = 2
-custom_minimum_size = Vector2(140, 42)
+custom_minimum_size = Vector2(150, 46)
 text = "进入教室"
 
 [node name="CardRestart" type="Button" parent="Screen/CardPanel/Box/CardButtons"]
 unique_name_in_owner = true
 visible = false
 layout_mode = 2
-custom_minimum_size = Vector2(108, 42)
+custom_minimum_size = Vector2(112, 46)
 text = "重开"
 
 [node name="CardQuit" type="Button" parent="Screen/CardPanel/Box/CardButtons"]
 unique_name_in_owner = true
 visible = false
 layout_mode = 2
-custom_minimum_size = Vector2(108, 42)
+custom_minimum_size = Vector2(112, 46)
 text = "退出"

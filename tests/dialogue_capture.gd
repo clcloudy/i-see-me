@@ -46,6 +46,7 @@ func _run() -> void:
 	root.size = Vector2i(1280, 720)
 	flow.time_scale = 1.0
 	var primary := ui.get_node("Screen/CardPanel/Box/CardButtons/CardPrimary") as Button
+	await _save("dialogue-00-intro")
 	primary.pressed.emit()
 	# 第 0 步：开场教室
 	await create_timer(2.0).timeout
@@ -87,6 +88,13 @@ func _run() -> void:
 	flow.skip()
 	await create_timer(2.6).timeout
 	await _save("dialogue-04-laugh")
+	# 第 8 步：单一回答框（已有默认回答，仍可自由转头）
+	for i in range(12):
+		if flow.stage == &"choice":
+			break
+		flow.skip()
+	await create_timer(0.8).timeout
+	await _save("dialogue-05-choice")
 	main.queue_free()
 	await process_frame
 	print("PASS: dialogue captures saved." if _failures == 0 else "FAIL: dialogue captures.")

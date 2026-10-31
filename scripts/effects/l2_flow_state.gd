@@ -30,6 +30,9 @@ signal isolation_changed(isolated: bool)
 signal isolation_finished
 
 const L3_FLOOR_SHADER = preload("res://shaders/l3_floor.gdshader")
+## 临时反馈效果（声纹）由 SceneUI3D 生成时打进这个组。它们播完就自己 queue_free，
+## 淡出靠自己的材质 alpha；不参与 L2/L3 的灰泥材质替换（分组名两边必须一致）。
+const TRANSIENT_FX_GROUP := &"dialogue_fx"
 
 @export var target_root_path: NodePath = ^".."
 @export var focus_node_path: NodePath
@@ -329,8 +332,8 @@ func _hide_unkept_meshes() -> void:
 	for entry in _entries:
 		if bool(entry.get("kept", true)):
 			continue
-		var mesh := entry["node"] as MeshInstance3D
-		if mesh == null or not is_instance_valid(mesh):
+		var mesh := _entry_mesh(entry)
+		if mesh == null:
 			continue
 		if not entry.has("visible_before"):
 			entry["visible_before"] = mesh.visible
@@ -342,8 +345,8 @@ func _show_unkept_meshes() -> void:
 	for entry in _entries:
 		if bool(entry.get("kept", true)):
 			continue
-		var mesh := entry["node"] as MeshInstance3D
-		if mesh == null or not is_instance_valid(mesh):
+		var mesh := _entry_mesh(entry)
+		if mesh == null:
 			continue
 		if not bool(entry.get("hidden_by_isolation", false)):
 			continue
@@ -545,6 +548,10 @@ func _apply_materials() -> void:
 
 
 func _collect_meshes(node: Node) -> void:
+	# 声纹这类临时反馈整棵子树跳过：换成灰泥会让它的淡出失效，节点释放后还会
+	# 在清单里变成已释放对象（见 _entry_mesh）。
+	if node.is_in_group(TRANSIENT_FX_GROUP):
+		return
 	if node is MeshInstance3D and not _is_own_node(node):
 		var mesh := node as MeshInstance3D
 		_entries.append({"node": mesh, "override": mesh.material_override})
@@ -553,10 +560,21 @@ func _collect_meshes(node: Node) -> void:
 		_collect_meshes(child)
 
 
+## 从清单里取网格。清单会跨帧、跨数秒存活，期间节点可能已被释放（临时效果、
+## 运行时生成的网格等）。Variant 里若存着已释放对象，直接 `as` 会抛
+## "Trying to cast a freed object" 并中断整个函数——L3 渐变、复位都会停在半截，
+## 所以必须先 is_instance_valid 判活（它对已释放对象安全返回 false），再取类型。
+func _entry_mesh(entry: Dictionary) -> MeshInstance3D:
+	var node: Variant = entry.get("node")
+	if not is_instance_valid(node):
+		return null
+	return node as MeshInstance3D
+
+
 func _restore_materials() -> void:
 	for entry in _entries:
-		var mesh := entry["node"] as MeshInstance3D
-		if mesh == null or not is_instance_valid(mesh):
+		var mesh := _entry_mesh(entry)
+		if mesh == null:
 			continue
 		if mesh.material_override == _clay_material:
 			mesh.material_override = entry["override"]
@@ -570,8 +588,8 @@ func _prepare_isolation() -> void:
 	var protagonist := _resolved_protagonist()
 	var target_root := _resolved_target_root()
 	for entry in _entries:
-		var mesh := entry["node"] as MeshInstance3D
-		if mesh == null or not is_instance_valid(mesh):
+		var mesh := _entry_mesh(entry)
+		if mesh == null:
 			continue
 		if not entry.has("visible_before"):
 			entry["visible_before"] = mesh.visible
