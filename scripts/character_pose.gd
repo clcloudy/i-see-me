@@ -180,6 +180,8 @@ func _ready() -> void:
 		return
 	_unify_materials(self)
 	_apply_outfit(self)
+	# 放在 outfit 之后：outfit 会复制出独立的 override 材质，压暗要落在最终生效的那份上。
+	ActorShading.dim(self)
 	if not is_equal_approx(height_scale, 1.0):
 		var model := get_node_or_null("Model") as Node3D
 		if model != null:

@@ -20,16 +20,27 @@
 [ext_resource type="LightmapGIData" uid="uid://bxnuxaegudbjq" path="res://assets/lightmaps/classroom.lmbake" id="15_lightmap"]
 [ext_resource type="PackedScene" path="res://scenes/props/air_conditioner.tscn" id="16_ac"]
 [ext_resource type="PackedScene" path="res://scenes/props/projector_screen.tscn" id="17_screen"]
+[ext_resource type="Material" path="res://assets/materials/ceiling_plastered.tres" id="18_ceiling"]
 
 [sub_resource type="Environment" id="Environment_classroom"]
 background_mode = 2
 sky = ExtResource("14_sky")
 ambient_light_source = 2
-ambient_light_color = Color(0.95, 0.96, 1, 1)
+ambient_light_color = Color(0.97, 0.98, 1, 1)
+ambient_light_energy = 0.45
+tonemap_mode = 2
+tonemap_exposure = 1.15
 ssao_enabled = true
-ssao_radius = 1.6
-ssao_intensity = 2.2
-ssao_power = 1.4
+ssao_radius = 1.2
+ssao_intensity = 1.0
+ssao_power = 1.2
+ssao_light_affect = 0.15
+glow_enabled = true
+glow_intensity = 0.45
+glow_bloom = 0.08
+glow_blend_mode = 2
+glow_hdr_threshold = 1.0
+glow_hdr_scale = 2.0
 
 [sub_resource type="ArrayMesh" id="ArrayMesh_0xj61"]
 lightmap_size_hint = Vector2i(406, 230)
@@ -257,6 +268,7 @@ mesh = SubResource("ArrayMesh_0xj61")
 
 [node name="Ceiling" parent="Room" index="1"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.7, 0)
+material_override = ExtResource("18_ceiling")
 mesh = SubResource("ArrayMesh_0xj61")
 
 [node name="BackWall" parent="Room" index="2"]

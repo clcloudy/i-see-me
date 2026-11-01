@@ -9,6 +9,12 @@ extends RefCounted
 ## 返回的 Node3D 原点都在道具的“握持/放置中心”，朝向统一为：
 ##   +X = 长边方向，+Y = 朝上，+Z = 厚度方向。调用方只需摆位置和旋转。
 
+## 纸张反照率。原来课本 0.95/0.94/0.89、本子 0.96/0.96/0.93，sRGB 太接近 1，
+## 在灯直射下整片顶白、看不出纸的质感（教室光照调到 0.6 之后尤其明显）。
+## 真实书纸的白度约 0.8，这里压到 0.84 一档，近景能看到纸和桌面木色的反差。
+const PAPER_COLOR := Color(0.84, 0.83, 0.78)
+
+
 static func material(color: Color, double_sided: bool = false) -> StandardMaterial3D:
 	var mat := StandardMaterial3D.new()
 	mat.albedo_color = color
@@ -88,7 +94,7 @@ static func textbook(cover_color: Color = Color(0.42, 0.52, 0.40),
 	var cover := box(size, material(cover_color))
 	root.add_child(cover)
 	var pages_size := Vector3(size.x - 0.012, size.y * 0.62, size.z - 0.012)
-	var pages := box(pages_size, material(Color(0.95, 0.94, 0.89)))
+	var pages := box(pages_size, material(PAPER_COLOR))
 	pages.position = Vector3(0.003, size.y * 0.10, 0.0)
 	root.add_child(pages)
 	# 书脊颜色略深，放在 -X 侧
@@ -207,7 +213,7 @@ static func notebook(size: Vector3 = Vector3(0.19, 0.012, 0.26)) -> Node3D:
 	var cover := box(size, material(Color(0.28, 0.38, 0.55)))
 	root.add_child(cover)
 	var page_size := Vector3(size.x - 0.008, size.y * 0.55, size.z - 0.008)
-	var pages := box(page_size, material(Color(0.96, 0.96, 0.93)))
+	var pages := box(page_size, material(PAPER_COLOR))
 	pages.position.y = size.y * 0.30
 	root.add_child(pages)
 	# 横线：几条极薄的白/灰线，低成本但在近景能看出是横格本

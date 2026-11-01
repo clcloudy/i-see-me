@@ -4,7 +4,7 @@
 
 [sub_resource type="PanoramaSkyMaterial" id="PanoramaSkyMaterial_day"]
 panorama = ExtResource("1_panorama")
-energy_multiplier = 2.0
+energy_multiplier = 2.6
 
 [resource]
 sky_material = SubResource("PanoramaSkyMaterial_day")
