@@ -50,9 +50,9 @@
 	"extension": ".ogg",
 	"padding": 0.25,
 	"cues": {
-	  "stage.class_open": "stage_class_open.ogg",
-	  "stage.ready_to_call": "stage_ready_to_call.ogg",
-	  "stage.look_at_you": "stage_look_at_you.ogg",
+	  "teacher.class_open": "teacher_class_open.ogg",
+	  "teacher.call_out": "teacher_call_out.ogg",
+	  "teacher.pick_you": "teacher_pick_you.ogg",
 	  "stage.stand_up": "stage_stand_up.ogg",
 	  "stage.after_answer": "stage_after_answer.ogg",
 	  "stage.textbook_down": "stage_textbook_down.ogg",
@@ -302,8 +302,14 @@
 		{
 		  "speaker": "stage",
 		  "text": "语文课。黑板上写着老师刚写下的“坚持”两个字，老师站在讲台前，讲着课文里几次受挫后仍然继续尝试的那一段。",
-		  "seconds": 7.0,
-		  "voice": "stage.class_open"
+		  "seconds": 7.0
+		},
+		{
+		  "speaker": "teacher",
+		  "text": "同学们，刚才我们读了主人公几次受挫、几次又站起来继续尝试的段落。",
+		  "seconds": 6.1,
+		  "at": 7.0,
+		  "voice": "teacher.class_open"
 		}
 	  ]
 	},
@@ -322,8 +328,14 @@
 		{
 		  "speaker": "stage",
 		  "text": "老师合上课本，抬头扫了一圈教室，准备点人。",
-		  "seconds": 4.4,
-		  "voice": "stage.ready_to_call"
+		  "seconds": 4.4
+		},
+		{
+		  "speaker": "teacher",
+		  "text": "我想找一个同学提问一下。",
+		  "seconds": 2.1,
+		  "at": 4.4,
+		  "voice": "teacher.call_out"
 		}
 	  ]
 	},
@@ -342,8 +354,14 @@
 		{
 		  "speaker": "stage",
 		  "text": "老师的目光停在你这一排，抬手指了一下，示意你回答。",
-		  "seconds": 4.8,
-		  "voice": "stage.look_at_you"
+		  "seconds": 4.8
+		},
+		{
+		  "speaker": "teacher",
+		  "text": "就你了同学。",
+		  "seconds": 1.6,
+		  "at": 4.8,
+		  "voice": "teacher.pick_you"
 		}
 	  ]
 	},
