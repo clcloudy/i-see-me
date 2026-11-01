@@ -19,6 +19,7 @@
 [ext_resource type="Sky" path="res://assets/sky/classroom_sky.tres" id="14_sky"]
 [ext_resource type="LightmapGIData" uid="uid://bxnuxaegudbjq" path="res://assets/lightmaps/classroom.lmbake" id="15_lightmap"]
 [ext_resource type="PackedScene" path="res://scenes/props/air_conditioner.tscn" id="16_ac"]
+[ext_resource type="PackedScene" path="res://scenes/props/projector_screen.tscn" id="17_screen"]
 
 [sub_resource type="Environment" id="Environment_classroom"]
 background_mode = 2
@@ -356,6 +357,9 @@ mesh = SubResource("ArrayMesh_qibtv")
 
 [node name="Board" parent="Front" unique_id=2018580403 instance=ExtResource("2_board")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -4.94)
+
+[node name="ProjectorScreen" parent="Front" instance=ExtResource("17_screen")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.05, 0, -4.7)
 
 [node name="Podium" parent="Front" unique_id=1239325463 instance=ExtResource("3_podium")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.2, 0.15, -1.5)

@@ -1,0 +1,74 @@
+[gd_scene load_steps=11 format=3]
+
+[sub_resource type="StandardMaterial3D" id="Material_fabric"]
+albedo_color = Color(0.93, 0.93, 0.915, 1)
+roughness = 0.88
+
+[sub_resource type="StandardMaterial3D" id="Material_border"]
+albedo_color = Color(0.06, 0.06, 0.07, 1)
+roughness = 0.7
+
+[sub_resource type="StandardMaterial3D" id="Material_housing"]
+albedo_color = Color(0.72, 0.72, 0.71, 1)
+metallic = 0.45
+roughness = 0.4
+
+[sub_resource type="StandardMaterial3D" id="Material_bar"]
+albedo_color = Color(0.26, 0.26, 0.27, 1)
+metallic = 0.35
+roughness = 0.45
+
+[sub_resource type="BoxMesh" id="Mesh_housing"]
+size = Vector3(2.44, 0.12, 0.13)
+
+[sub_resource type="BoxMesh" id="Mesh_screen"]
+size = Vector3(2.3, 1.75, 0.012)
+
+[sub_resource type="BoxMesh" id="Mesh_border_side"]
+size = Vector3(0.05, 1.75, 0.014)
+
+[sub_resource type="BoxMesh" id="Mesh_border_bottom"]
+size = Vector3(2.3, 0.05, 0.014)
+
+[sub_resource type="BoxMesh" id="Mesh_bar"]
+size = Vector3(2.36, 0.05, 0.045)
+
+[sub_resource type="BoxMesh" id="Mesh_cord"]
+size = Vector3(0.01, 0.3, 0.01)
+
+[node name="ProjectorScreen" type="Node3D"]
+
+[node name="Housing" type="MeshInstance3D" parent="."]
+position = Vector3(0, 3.54, 0)
+mesh = SubResource("Mesh_housing")
+material_override = SubResource("Material_housing")
+
+[node name="Screen" type="MeshInstance3D" parent="."]
+position = Vector3(0, 2.605, 0)
+mesh = SubResource("Mesh_screen")
+material_override = SubResource("Material_fabric")
+
+[node name="BorderLeft" type="MeshInstance3D" parent="."]
+position = Vector3(-1.125, 2.605, 0.001)
+mesh = SubResource("Mesh_border_side")
+material_override = SubResource("Material_border")
+
+[node name="BorderRight" type="MeshInstance3D" parent="."]
+position = Vector3(1.125, 2.605, 0.001)
+mesh = SubResource("Mesh_border_side")
+material_override = SubResource("Material_border")
+
+[node name="BorderBottom" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.755, 0.001)
+mesh = SubResource("Mesh_border_bottom")
+material_override = SubResource("Material_border")
+
+[node name="BottomBar" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.705, 0)
+mesh = SubResource("Mesh_bar")
+material_override = SubResource("Material_bar")
+
+[node name="PullCord" type="MeshInstance3D" parent="."]
+position = Vector3(0.85, 1.555, 0)
+mesh = SubResource("Mesh_cord")
+material_override = SubResource("Material_bar")
