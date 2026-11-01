@@ -13,6 +13,7 @@ extends Node3D
 ## - ending：第 9–11 步（E03 不再按分支过滤，固定在第 9.1 步）；
 ## - segments：字幕分段（speaker + text + seconds + 可选 voice 配音 id）；
 ## - events：事件按时间戳触发（姿态/动作、台词、道具、词条）；可带 gaze，玩家转到该方向即提前触发；
+##   可被观察的事件带 orb_position，玩家点开（收集）后才会在第二层变成内心 OS（见 _l2_observation_entries）；
 ## - voice / sfx：配音与音效清单（id → 文件名，root 统一前缀）。台词 id 未登记时报警并静默跳过，
 ##   文件缺失时只按预留时长走，不阻塞流程。
 ##
@@ -28,6 +29,18 @@ signal stage_changed(stage_id: StringName)
 ##  - sound_emitted：某个位置发出了动静（台词、走位、音效），携带世界坐标与强度。
 signal event_observed(event_id: StringName, label: String, world_position: Vector3)
 signal sound_emitted(world_position: Vector3, intensity: float)
+## L1 里被玩家点开的观察（收集）。只决定第二层回放哪几段内心 OS，
+## 不参与任何判定：不加分、不影响第 9–11 步、不改变老师语气与后续事件。
+signal observation_collected(event_id: StringName, label: String)
+## 第二层的思绪不再平铺在相机前的面片上：每一条都带一个世界坐标，
+## 由 SceneUI3D 在教室里的对应位置长出一块三维思绪牌。
+## kind 只用于配色：seen（我看到的）/ rewind（回溯）/ replay（倒放）/ concept（概念）。
+## origin 是「这一条从哪儿飞出来」：L1 收集过的观察从屏幕右下的收集夹起飞，
+## 其余（回溯 / 倒放 / 概念）没有起点，用 Vector3.INF 表示直接淡入。
+signal thought_presented(
+	title: String, body: String, anchor: Vector3, kind: StringName, origin: Vector3
+)
+signal thought_cleared
 
 const CHARACTER_POSE_PATH := "res://scripts/character_pose.gd"
 const DEFAULT_CONTENT_PATH := "res://content/classroom_dialogue.json"
@@ -107,6 +120,9 @@ var _beat_index: int = -1
 var _generation: int = 0
 
 var _event_log: Array[Dictionary] = []
+## L1 收集到的观察（事件 id → true）。第二层的「我看到的」只取得这里的条目，
+## 没点开的观察不会变成回想；环境事件（没有提示可点）在下游另行放行。
+var _collected: Dictionary = {}
 var _l2_cards: Array[Dictionary] = []
 var _l2_index: int = -1
 
@@ -118,6 +134,11 @@ var _rise_seconds := 0.8
 var _pose_default_seconds := 0.5
 var _l2_position := Vector3(0.0, 1.75, 2.9)
 var _l2_seconds := 2.5
+## 第二层「正对」这一条时注视点的抬升量（米）。牌面挂在锚点上方一截
+## （亮点在下、细线往上拉起文字），所以视线要落在锚点之上，牌才落在画面中央。
+var _l2_aim_lift := 0.5
+## 第二层转视线的平滑速度（越小越慢）；由内容 camera.l2_look_smoothing 覆盖。
+var _l2_look_smoothing := 2.6
 var _podium_position := Vector3(-2.8, 0.0, -3.05)
 var _walk_seconds := 2.8
 var _board_position := Vector3(0.9, 0.15, -4.44)
@@ -174,6 +195,8 @@ func _ready() -> void:
 	interface.restart_requested.connect(restart)
 	interface.quit_requested.connect(quit)
 	interface.answer_submitted.connect(_on_answer_submitted)
+	# 收集要当场看见：点开一个观察就往右下角的收集夹放一条，第二层再从那里展开。
+	observation_collected.connect(_on_observation_collected)
 	_build_audio()
 	_place_teacher_opening()
 	_build_props()
@@ -235,6 +258,13 @@ func _enter_ending() -> void:
 func _enter_l2() -> void:
 	stage = &"l2"
 	interface.set_transition_text("")
+	# 第一层的感受词条到这里已经过期：第二层的词条是另一套（三维思绪牌）。
+	interface.clear_chips()
+	# 第二层由流程控制镜头：每条内容开始播时正对它（见 _aim_l2_camera）。
+	# 这里先关掉自由转头，玩家的朝向不会和「正对」打架。
+	camera.set_free_look(false)
+	camera.set_slow_look(true)
+	camera.set_scan(0.0)
 	_l3_entered = false
 	_build_l2_cards()
 	_l2_index = -1
@@ -246,7 +276,11 @@ func _enter_l2() -> void:
 func _enter_complete() -> void:
 	stage = &"complete"
 	_flow_state_active = false
+	thought_cleared.emit()
 	flow_state.deactivate()
+	# 收集夹里的东西到第二层就都展开完了；万一还有剩下的（跳过流程），也别留到结束卡上。
+	if interface != null and interface.has_method("clear_collected"):
+		interface.clear_collected()
 	interface.show_complete()
 	_refresh_controls()
 	stage_changed.emit(stage)
@@ -383,11 +417,23 @@ func _fire_event(event_id: String, gen: int) -> void:
 	if event.is_empty():
 		push_warning("DialogueFlow: 未知事件 " + event_id)
 		return
-	# 第二层词条：事件发生时登记，L2 回看（按 step 记录时序，回溯从第 0 步开始）
+	# 这件事在教室里的位置：第二层的思绪要长在这里（不再飘在相机前）。
+	# 观察提示用 orb_position；环境事件（没有提示可点）用内容里的 thought_position，
+	# 都没有时退回镜头目标 / 老师位置，保证任何事件都有一个可以指的地方。
+	var event_camera: Dictionary = event.get("camera", {})
+	var event_world := _event_anchor(event, event_camera)
+	# 第二层素材：事件发生时登记（按 step 记录时序，回溯从第 0 步开始）。
+	# 真正会不会出现在第二层，由「有没有被点开收集」决定（见 _l2_observation_entries）。
 	_event_log.append({
+		"id": event_id,
 		"label": str(event.get("label", event_id)),
 		"step": float(event.get("step", 0.0)),
 		"thoughts": event.get("thoughts", []),
+		"os": event.get("os", []),
+		"os_voice": str(event.get("os_voice", "")),
+		"orb": bool(event.get("orb", true)),
+		"position": event_world,
+		"order": _event_log.size(),
 	})
 	# 感受词条 chip（事件发生时直接加入）
 	var feelings: Array = event.get("feelings", [])
@@ -444,7 +490,6 @@ func _fire_event(event_id: String, gen: int) -> void:
 			func(): _apply_prop_action(str(prop["prop"]), str(prop["action"]))
 		)
 	# 镜头吸引：auto_look 打开时事件才转头（默认关闭，朝向交给玩家）
-	var event_camera: Dictionary = event.get("camera", {})
 	if auto_look and event_camera.has("look"):
 		camera.recenter_free_look() # 先交还视线控制权，事件才框得住
 		camera.set_look_target(_camera_target(str(event_camera["look"])))
@@ -455,14 +500,22 @@ func _fire_event(event_id: String, gen: int) -> void:
 	# 三维观察提示使用内容里明确标注的动作部位坐标，不再拿镜头目标代替。
 	# 环境事件可用 orb=false 只保留字幕、词条与声纹。
 	if bool(event.get("orb", true)):
-		var event_world := Vector3.ZERO
-		if event.has("orb_position"):
-			event_world = _vec(event["orb_position"])
-		elif event_camera.has("look"):
-			event_world = _camera_target(str(event_camera["look"]))
-		elif teacher != null:
-			event_world = teacher.global_position
 		event_observed.emit(StringName(event_id), str(event.get("label", event_id)), event_world)
+
+
+## 事件在教室里的世界坐标（第二层思绪牌的落点）。
+## 优先级：thought_position（内容里直接标注，环境事件用）→ orb_position（观察提示）
+## → 事件镜头目标 → 老师位置 → 主角座位上方。任何事件都要有一个能指的地方。
+func _event_anchor(event: Dictionary, event_camera: Dictionary) -> Vector3:
+	if event.has("thought_position"):
+		return _vec(event["thought_position"])
+	if event.has("orb_position"):
+		return _vec(event["orb_position"])
+	if event_camera.has("look"):
+		return _camera_target(str(event_camera["look"]))
+	if teacher != null:
+		return teacher.global_position
+	return _seat + Vector3(0.0, _seated_height, 0.0)
 
 
 func _run_cue(action: String, gen: int) -> void:
@@ -584,6 +637,9 @@ func _load_beats(source: Variant) -> Array:
 
 # ——— L2 词条序列 ———
 
+## 第二层每一条都带一个世界坐标（`position`）：卡片不再是相机前的一块面片，
+## 而是长在它对应的地方——回溯在自己课桌上方，内心 OS 在事件发生的那个座位/桌角，
+## 倒放沿着过道往讲台走，概念卡在抽离后围着主角浮一圈。
 func _build_l2_cards() -> void:
 	_l2_cards.clear()
 	var l2: Dictionary = _content.get("l2", {})
@@ -592,52 +648,182 @@ func _build_l2_cards() -> void:
 	# 0) 回溯起点：进入 L2 后从第 0 步重新看一遍（“回溯到 0”）
 	var rewind_line := str(l2.get("rewind_line", ""))
 	if not rewind_line.is_empty():
+		# 回溯卡落在自己课桌上方：这一步本来就是「回到你被点到名字之前」。
+		var rewind_position := _seat + Vector3(0.0, 1.15, -0.50)
+		if l2.has("rewind_position"):
+			rewind_position = _vec(l2["rewind_position"])
 		_l2_cards.append({
 			"title": str(l2.get("rewind_title", "思绪倒放 · 回到最开始")),
 			"body": rewind_line,
 			"seconds": float(l2.get("rewind_seconds", 2.6)),
 			"voice": str(l2.get("rewind_voice", "")),
+			"kind": &"rewind",
+			"position": rewind_position,
 		})
-	# 1) 事件词条：主角想法，按发生的流程步号从第 0 步排起
-	for entry in _sorted_event_log():
-		var thoughts: Array = entry.get("thoughts", [])
-		if thoughts.is_empty():
+	# 1) 「我看到的」：只回放 L1 里被点开收集过的观察，按发生的流程步号从第 0 步排起。
+	#    没点开的不进第二层——没看见的东西不能变成回想；没提示可点的环境事件
+	#    （忽然安静 / 课堂往下走）属于自己在那几秒里的状态，照旧保留。
+	var os_title := str(l2.get("os_title", "我看到的"))
+	for entry in _l2_observation_entries():
+		var lines := _os_lines(entry)
+		if lines.is_empty():
 			continue
+		var card_title := str(entry.get("label", ""))
+		if bool(entry.get("collected", false)):
+			card_title = os_title + " · " + card_title
 		_l2_cards.append({
-			"title": str(entry.get("label", "")),
-			"body": "\n".join(thoughts),
-			"seconds": base + per_line * thoughts.size(),
+			"title": card_title,
+			"body": "\n".join(lines),
+			"seconds": base + per_line * lines.size(),
+			"voice": str(entry.get("os_voice", "")),
+			"kind": &"seen",
+			"position": entry.get("position", _seat + Vector3(0.0, _seated_height, 0.0)),
+			# 这一条是从收集夹里飞出来的：记下事件 id，展开时才知道抽哪一行。
+			"source_event": str(entry.get("id", "")),
 		})
 	# 2) 思绪倒放（只有一套，不再按回答分支区分）
 	var replay: Array = l2.get("replay", [])
 	var replay_title := str(l2.get("replay_title", "思绪倒放"))
+	var replay_index := 0
 	for line in replay:
 		var text := str(line)
 		var voice := ""
+		var position := _l2_replay_position(replay_index)
 		if line is Dictionary:
 			text = str(line.get("text", ""))
 			voice = str(line.get("voice", ""))
-		_l2_cards.append({"title": replay_title, "body": text, "seconds": 2.8, "voice": voice})
-	# 3) 对观察的观察（心理概念）
+			if (line as Dictionary).has("position"):
+				position = _vec((line as Dictionary)["position"])
+		_l2_cards.append({
+			"title": replay_title,
+			"body": text,
+			"seconds": 2.8,
+			"voice": voice,
+			"kind": &"replay",
+			"position": position,
+		})
+		replay_index += 1
+	# 3) 对观察的观察（心理概念）：此时已经抽离，教室只剩地板与主角，
+	#    所以这些概念不指房间里的某个座位，而是围着坐着的自己浮一圈。
 	var observation_title := str(l2.get("observations_title", "对观察的观察"))
-	for observation in l2.get("observations", []):
-		var obs: Dictionary = observation
+	var observations: Array = l2.get("observations", [])
+	for index in range(observations.size()):
+		var obs: Dictionary = observations[index]
+		var concept_position := _l2_concept_position(index, observations.size(), l2)
+		if obs.has("position"):
+			concept_position = _vec(obs["position"])
 		_l2_cards.append({
 			"title": observation_title + " · " + str(obs.get("concept", "")),
 			"body": str(obs.get("line", "")),
 			"seconds": 3.0,
 			"isolate": true,
 			"voice": str(obs.get("voice", "")),
+			"kind": &"concept",
+			"position": concept_position,
 		})
+
+
+## 倒放的落点：沿着主角课桌往讲台的那条过道依次往前，像把回忆铺在教室里。
+## 内容里给 `replay[i].position` 即可覆盖。
+func _l2_replay_position(index: int) -> Vector3:
+	return _seat + Vector3(0.0, 1.32 + 0.10 * float(index), -0.30 - 0.72 * float(index))
+
+
+## 抽离后的概念落点：以主角头部为心的半圆（朝向教室），半径 / 张角 / 高度可配。
+## 高度取负值是有意的：牌面本身要往上抬一截，落点低一点，牌才落在胸口到头部这一带，
+## 不会顶到画面顶边（那里还有顶部控制条）。
+func _l2_concept_position(index: int, count: int, l2: Dictionary) -> Vector3:
+	var center := _l2_focus_point()
+	var radius := float(l2.get("observation_radius", 1.15))
+	var span := deg_to_rad(float(l2.get("observation_span_degrees", 150.0)))
+	var height := float(l2.get("observation_height", -0.25))
+	if count <= 1:
+		return center + Vector3(0.0, height, -radius)
+	var t := float(index) / float(count - 1)
+	var angle := lerpf(-span * 0.5, span * 0.5, t)
+	# 交错一点高度，避免五块牌落在同一个水平面上像一排字幕。
+	var lift := height + 0.10 * float(index % 2)
+	return center + Vector3(sin(angle) * radius, lift, -cos(angle) * radius)
+
+
+## 主角头部（L2 的清晰球心 / L3 唯一留在场上的人）。
+func _l2_focus_point() -> Vector3:
+	if protagonist_sit != null:
+		var anchor := protagonist_sit.get_node_or_null("ViewAnchor") as Node3D
+		if anchor != null:
+			return anchor.global_position
+		return protagonist_sit.global_position + Vector3(0.0, _seated_height, 0.0)
+	return _seat + Vector3(0.0, _seated_height, 0.0)
 
 
 func _sorted_event_log() -> Array:
 	var entries := _event_log.duplicate()
+	# 步号相同的事件按实际触发顺序排（同一步里 gaze 提前触发的会先记下来）。
 	entries.sort_custom(
 		func(a: Dictionary, b: Dictionary) -> bool:
-			return float(a.get("step", 0.0)) < float(b.get("step", 0.0))
+			var step_a := float(a.get("step", 0.0))
+			var step_b := float(b.get("step", 0.0))
+			if not is_equal_approx(step_a, step_b):
+				return step_a < step_b
+			return int(a.get("order", 0)) < int(b.get("order", 0))
 	)
 	return entries
+
+
+## 第二层「我看到的」素材：
+## - 有提示可点的观察，只有被点开收集过才进来；
+## - 没有提示的环境事件（orb=false）直接算自己经历过的，不需要收集。
+## 返回按流程步号排好的条目副本，附 `collected` 标记供卡片标题区分。
+func _l2_observation_entries() -> Array:
+	var out: Array = []
+	for entry in _sorted_event_log():
+		var collected := _collected.has(str(entry.get("id", "")))
+		if bool(entry.get("orb", true)) and not collected:
+			continue
+		var item: Dictionary = entry.duplicate()
+		item["collected"] = collected
+		out.append(item)
+	return out
+
+
+## 内心 OS 正文：优先用事件自己的 `os`（第二层回看时的说法），缺省回落到
+## `thoughts`（事件当下就写好的想法）。两者都支持单条字符串或字符串数组。
+func _os_lines(entry: Dictionary) -> PackedStringArray:
+	var lines := PackedStringArray()
+	var raw: Variant = entry.get("os", [])
+	if raw is String:
+		raw = [str(raw)]
+	if not raw is Array or (raw as Array).is_empty():
+		raw = entry.get("thoughts", [])
+	if not raw is Array:
+		return lines
+	for line in raw:
+		var text := str(line.get("text", "")) if line is Dictionary else str(line)
+		if not text.strip_edges().is_empty():
+			lines.append(text)
+	return lines
+
+
+## 登记一次观察收集（由三维观察提示的 collected 信号转进来）。
+## 只记录「看见过什么」，不写进任何判定；重复点同一个不会重复计数。
+## 内容里没有的事件、以及没有提示的环境事件都不登记（也不报警：这里进来的 id
+## 也可能来自调试用的临时提示，不该每点一次就刷一条警告）。
+func note_observation_collected(event_id: StringName) -> bool:
+	var key := String(event_id)
+	if _collected.has(key):
+		return false
+	var event: Dictionary = _content.get("events", {}).get(key, {})
+	if event.is_empty() or not bool(event.get("orb", true)):
+		return false
+	_collected[key] = true
+	observation_collected.emit(event_id, str(event.get("label", key)))
+	return true
+
+
+## 把收集到的观察交给界面：右下角收集夹多一条（L2 时逐条展开到教室里）。
+func _on_observation_collected(event_id: StringName, label: String) -> void:
+	if interface != null and interface.has_method("collect_observation"):
+		interface.collect_observation(event_id, label)
 
 
 func _next_card() -> void:
@@ -652,7 +838,7 @@ func _next_card() -> void:
 		_l3_entered = true
 		if flow_state != null:
 			flow_state.enter_l3()
-	interface.show_card(str(card.get("title", "")), str(card.get("body", "")))
+	_present_l2_card(card)
 	var voice_path := _resolve_cue("voice", str(card.get("voice", "")))
 	var seconds := float(card.get("seconds", 2.8))
 	if not voice_path.is_empty():
@@ -660,6 +846,37 @@ func _next_card() -> void:
 		seconds = maxf(seconds, _voice_length(voice_path) + float(_content.get("voice", {}).get("padding", 0.25)))
 	_schedule(seconds, func(): _next_card_if(gen))
 	_refresh_controls()
+
+
+## 摆出这一条：默认交给世界层（SceneUI3D）在卡片自带的世界坐标上生成三维思绪牌。
+## 没有接世界层时（例如只实例化了 DialogueUI 的调试场景）退回原来的相机前面片，
+## 免得整段第二层什么都看不见。
+func _present_l2_card(card: Dictionary) -> void:
+	var title := str(card.get("title", ""))
+	var body := str(card.get("body", ""))
+	var anchor: Vector3 = card.get("position", _seat + Vector3(0.0, _seated_height, 0.0))
+	# 先在镜头里正对这一条，再让牌出现：牌一出来就在画面中央，
+	# 而不是先在画面边角露一下、再被 _shift_into_frame 推回来。
+	_aim_l2_camera(anchor)
+	# 收集过的观察从右下角的收集夹起飞：卡片出现的同时，口袋里那一条被抽走。
+	var origin := Vector3.INF
+	var source := str(card.get("source_event", ""))
+	if not source.is_empty() and interface != null and interface.has_method("expand_collected"):
+		origin = interface.expand_collected(StringName(source))
+	if thought_presented.get_connections().is_empty():
+		interface.show_card(title, body)
+		return
+	thought_presented.emit(title, body, anchor, card.get("kind", &"seen"), origin)
+
+
+## 第二层：把镜头转向正在播放的这一条。
+## 注视点取锚点（那件事发生的世界坐标）上方 `_l2_aim_lift`——牌面挂在亮点之上、
+## 细线连接两者，视线落在锚点上方时，亮点在下、牌在中央偏上，两者都看得见。
+## 位置不动（仍停在 L2 机位）：镜头只转、不走近，看得出内容确实长在教室里。
+func _aim_l2_camera(anchor: Vector3) -> void:
+	if camera == null:
+		return
+	camera.set_look_target(anchor + Vector3.UP * _l2_aim_lift)
 
 
 func _next_card_if(gen: int) -> void:
@@ -701,10 +918,12 @@ func toggle_pause() -> void:
 		return
 	get_tree().paused = not get_tree().paused
 	var paused: bool = get_tree().paused
+	# 暂停时把三维思绪收起来，让位给暂停面板；恢复后再摆回同一条。
+	if stage == &"l2":
+		thought_cleared.emit()
 	interface.show_paused(paused)
 	if not paused and stage == &"l2" and _l2_index >= 0 and _l2_index < _l2_cards.size():
-		var card: Dictionary = _l2_cards[_l2_index]
-		interface.show_card(str(card.get("title", "")), str(card.get("body", "")))
+		_present_l2_card(_l2_cards[_l2_index])
 	_refresh_controls()
 	interface.focus_primary()
 
@@ -763,14 +982,18 @@ func _reset_world() -> void:
 	if _flow_state_active:
 		flow_state.deactivate(true)
 	_flow_state_active = false
+	if flow_state != null and flow_state.has_method("set_highlight_nodes"):
+		flow_state.set_highlight_nodes([])
 	_l3_entered = false
 	# 状态机
 	stage = &"intro"
 	_beats = []
 	_beat_index = -1
 	_event_log.clear()
+	_collected.clear()
 	_l2_cards.clear()
 	_l2_index = -1
+	thought_cleared.emit()
 	_played_steps.clear()
 	_gaze_events.clear()
 	_beat_fired.clear()
@@ -783,6 +1006,7 @@ func _reset_world() -> void:
 	# 复位要清掉上一轮遗留的镜头状态：自由转头的偏角（否则重开后镜头会自己慢慢回正）
 	# 与「四处看」的视线摆幅（躲避视线分支设置过，重开后不该继续晃）。
 	camera.reset_free_look()
+	camera.set_slow_look(false)
 	camera.set_scan(0.0)
 	# 界面与镜头
 	interface.show_intro()
@@ -1254,7 +1478,59 @@ func _activate_flow_state() -> void:
 	if _flow_state_active or flow_state == null:
 		return
 	_flow_state_active = true
+	# 灰泥世界里把「对我做出反应的人」换成另一种颜色；先指定再激活，
+	# 第一次上色就用对材质（激活后再改要走一次全量重刷）。
+	if flow_state.has_method("set_highlight_nodes"):
+		flow_state.set_highlight_nodes(_l2_highlight_nodes())
 	flow_state.activate()
+
+
+## L2 里要换色的人际互动角色（座位节点）。
+## 取事件的姿势/动作演员表（`poses[].actor` / `clips[].actor` → `actors` 映射 → 座位节点），
+## 只收带观察提示的事件；环境事件（忽然安静 / 课堂往下走）不算「谁在回应我」。
+## 口径由 `l2.highlight_actors` 决定：
+##   "observed"  —— 所有发生过、带提示的观察（默认）；
+##   "collected" —— 只看玩家点开收集过的；
+##   "off"       —— 不换色，全班灰泥。
+func _l2_highlight_nodes() -> Array:
+	var mode := str(Dictionary(_content.get("l2", {})).get("highlight_actors", "observed"))
+	if mode == "off":
+		return []
+	var events: Dictionary = _content.get("events", {})
+	var actors_table: Dictionary = _content.get("actors", {})
+	var seats: Array[String] = []
+	for entry in _sorted_event_log():
+		var event_id := str(entry.get("id", ""))
+		if not bool(entry.get("orb", true)):
+			continue
+		if mode == "collected" and not _collected.has(event_id):
+			continue
+		for key in _event_actor_keys(Dictionary(events.get(event_id, {}))):
+			var seat := str(actors_table.get(key, ""))
+			if seat.is_empty() or seats.has(seat):
+				continue
+			seats.append(seat)
+	var nodes: Array = []
+	if seating == null:
+		return nodes
+	for seat in seats:
+		var node := seating.get_node_or_null(seat)
+		if node != null:
+			nodes.append(node)
+	return nodes
+
+
+## 一个事件里出现过的演员键（姿态与动作都会点名演员）。
+func _event_actor_keys(event: Dictionary) -> Array[String]:
+	var keys: Array[String] = []
+	for list_key in ["poses", "clips"]:
+		for item in event.get(list_key, []):
+			if not item is Dictionary:
+				continue
+			var actor := str((item as Dictionary).get("actor", ""))
+			if not actor.is_empty() and not keys.has(actor):
+				keys.append(actor)
+	return keys
 
 
 # ——— 场景清理与配置读取 ———
@@ -1279,6 +1555,9 @@ func _read_config() -> void:
 	_rise_seconds = float(cam.get("rise_seconds", 0.8))
 	_l2_position = _vec(cam.get("l2_position", [0.0, 1.75, 2.9]))
 	_l2_seconds = float(cam.get("l2_seconds", 2.5))
+	_l2_aim_lift = float(cam.get("l2_aim_lift", 0.5))
+	_l2_look_smoothing = float(cam.get("l2_look_smoothing", 2.6))
+	camera.l2_look_smoothing = _l2_look_smoothing
 	camera.idle_position_amplitude = float(cam.get("idle_position_amplitude", 0.004))
 	camera.idle_look_amplitude = float(cam.get("idle_look_amplitude", 0.035))
 	camera.free_look_yaw_limit = float(cam.get("free_look_yaw_limit", camera.free_look_yaw_limit))
@@ -1378,6 +1657,7 @@ func debug_voice_usage() -> Dictionary:
 		var voice: Dictionary = event.get("voice", {})
 		var kind := str(voice.get("kind", "speech"))
 		add.call("voice" if kind == "speech" else "sfx", str(voice.get("cue", "")))
+		add.call("voice", str(event.get("os_voice", "")))
 	# 第 8 步：默认回答的配音与老师的中性收束
 	var choice: Dictionary = _content.get("choice", {})
 	add.call("voice", str(choice.get("answer_fallback_voice", "")))
@@ -1426,6 +1706,48 @@ func debug_l2_card_bodies() -> Array:
 	for card in _l2_cards:
 		bodies.append(str(card.get("body", "")))
 	return bodies
+
+
+## 供无头检查：L2 词条序列的标题（「我看到的 · …」与回溯 / 倒放 / 观察卡的区别）。
+func debug_l2_card_titles() -> Array:
+	var titles: Array = []
+	for card in _l2_cards:
+		titles.append(str(card.get("title", "")))
+	return titles
+
+
+## 供无头检查：L2 每一条思绪在教室里的落点（世界坐标）与配色类别。
+func debug_l2_card_positions() -> Array:
+	var out: Array = []
+	for card in _l2_cards:
+		out.append({
+			"title": str(card.get("title", "")),
+			"kind": str(card.get("kind", "seen")),
+			"position": card.get("position", Vector3.ZERO),
+		})
+	return out
+
+
+## 供无头检查：模拟玩家点开某个观察提示（不经过鼠标拾取）。
+func debug_collect(event_id: String) -> bool:
+	return note_observation_collected(StringName(event_id))
+
+
+## 供无头检查：已收集到的观察标签（按流程步号顺序）。
+func debug_collected_labels() -> Array[String]:
+	var labels: Array[String] = []
+	for entry in _l2_observation_entries():
+		if bool(entry.get("collected", false)):
+			labels.append(str(entry.get("label", "")))
+	return labels
+
+
+## 供无头检查：第二层要换成暖色的座位节点名。
+func debug_highlight_seats() -> Array[String]:
+	var seats: Array[String] = []
+	for node in _l2_highlight_nodes():
+		seats.append(String((node as Node).name))
+	return seats
 
 
 ## 供无头检查：按生成代调度（与节拍同一套时间基准）。

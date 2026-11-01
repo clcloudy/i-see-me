@@ -59,6 +59,7 @@ func _run() -> void:
 	await _check_pose_transition()
 	await _check_step_zero_free_look()
 	await _check_step_five_busy_hands()
+	await _check_orb_click_collect()
 	await _run_answer_flow()
 	await _run_empty_answer_flow()
 	await _check_skip_and_pause()
@@ -291,6 +292,80 @@ func _check_step_five_busy_hands() -> void:
 
 
 
+# ——— L1 收集：真的用鼠标点一下观察提示 ———
+
+## 收集靠 Area3D 的鼠标事件，前提是视口开了三维拾取（默认是关的，关着就永远点不动）。
+## 这里走真实路径：相机 unproject → 鼠标按下 → 视口拾取 → collected → 流程登记，
+## 点中的那条之后必须出现在第二层的「我看到的」里。
+func _check_orb_click_collect() -> void:
+	_check(root.physics_object_picking, "The viewport enables 3D picking for observation markers.")
+	var world := _main.get_node_or_null("WorldUI")
+	_check(world != null, "The world UI node exists.")
+	if world == null or _camera == null or _camera.camera == null:
+		return
+	var viewport_size := Vector2(root.size)
+	var center := viewport_size * 0.5
+	var target: EventOrb3D = null
+	var target_screen := Vector2.ZERO
+	var best := INF
+	for child in world.get_children():
+		if not child is EventOrb3D:
+			continue
+		var orb := child as EventOrb3D
+		if _camera.camera.is_position_behind(orb.global_position):
+			continue
+		var screen := _camera.camera.unproject_position(orb.global_position)
+		if screen.distance_to(center) > minf(viewport_size.x, viewport_size.y) * 0.4:
+			continue
+		if screen.distance_to(center) < best:
+			best = screen.distance_to(center)
+			target = orb
+			target_screen = screen
+	_check(target != null, "An observation marker is on screen to be clicked.")
+	if target == null:
+		return
+	var label := target.label_text()
+	var motion := InputEventMouseMotion.new()
+	motion.position = target_screen
+	motion.global_position = target_screen
+	root.push_input(motion)
+	var press := InputEventMouseButton.new()
+	press.position = target_screen
+	press.global_position = target_screen
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	root.push_input(press)
+	await process_frame
+	await physics_frame
+	var release := InputEventMouseButton.new()
+	release.position = target_screen
+	release.global_position = target_screen
+	release.button_index = MOUSE_BUTTON_LEFT
+	release.pressed = false
+	root.push_input(release)
+	await process_frame
+	_check(
+		_flow.debug_collected_labels().has(label),
+		"Clicking a marker collects it into the flow (\"%s\" at %s)." % [label, str(target_screen)]
+	)
+	# 收集要当场看得见：右下角的收集夹多一条，
+	# 而且那块面片确实在画面右下（第二层要从那儿起飞）。
+	_check(
+		_ui.debug_collected_rows().size() >= 1,
+		"The collected observation shows up in the pocket."
+	)
+	var slot := _ui.collected_world_point()
+	_check(slot.is_finite(), "The collection pocket has a world position.")
+	if slot.is_finite():
+		var slot_screen := _camera.camera.unproject_position(slot)
+		var norm := Vector2(slot_screen.x / float(root.size.x), slot_screen.y / float(root.size.y))
+		_check(
+			norm.x > 0.6 and norm.y > 0.5,
+			"The collection pocket sits in the lower-right of the frame (%s)." % str(norm)
+		)
+	print("CHECK: observation marker click")
+
+
 # ——— 互动提示坐标（内容静态校验） ———
 
 ## 8 个可观察事件必须在站立后默认朝向的视野内，彼此不挤在一起；
@@ -399,6 +474,20 @@ func _run_answer_flow() -> void:
 		"The single replay set appears in the second layer."
 	)
 	_check(bodies.has("我能看见自己在紧张，光是看见，就平静了一点。"), "Observation cards appear.")
+	# 进入第二层 = 收集窗口结束：没点开的提示不能留到已经灰化的教室里
+	var leftover := 0
+	var world := _main.get_node_or_null("WorldUI")
+	if world != null:
+		for child in world.get_children():
+			if child is EventOrb3D:
+				leftover += 1
+	_check(leftover == 0, "Entering the second layer clears the unopened markers (got %d)." % leftover)
+	# L1 的收集 → L2 的内心 OS：点开过的那条才回放
+	_check_l2_observation_cards()
+	# 第二层的思绪长在事件发生的位置上，不是相机前的一块面片
+	await _check_l2_thoughts()
+	# L1 收进右下角的那几条，是一条条被抽走、飞到教室里的（不是结束时一起清空）
+	await _check_collection_pocket()
 	await _check_seated_sinks("ending")
 	await _check_l2_state()
 	await _wait_until(func() -> bool: return _flow_state.is_l3(), 1200)
@@ -499,6 +588,12 @@ func _run_empty_answer_flow() -> void:
 		_flow.debug_l2_card_bodies().has("我站起来的时候，手扶着桌沿。"),
 		"The same replay set is used for an empty answer."
 	)
+	# 这一轮一个提示都没点：有提示的观察全部不进第二层，环境事件照旧
+	_check(
+		not _l2_has_line("他们在看我"),
+		"Without collecting, no observation inner voice appears in L2."
+	)
+	_check(_l2_has_line("轮到我说了"), "Environment events still speak when nothing was collected.")
 	print("CHECK: empty answer")
 
 
@@ -577,6 +672,14 @@ func _check_restart() -> void:
 	_check(_pose_of("SeatC10") == _pose_id("WHISPER_R"), "Restart restores ambient whispers.")
 	_check(_flow.debug_protagonist_pose() == &"sit", "Restart seats the protagonist.")
 	_check(_flow.debug_played_steps().is_empty(), "Restart clears the step record.")
+	_check(
+		_flow.debug_collected_labels().is_empty(),
+		"Restart clears the observations collected in the previous run."
+	)
+	_check(
+		_ui.debug_collected_rows().is_empty(),
+		"Restart empties the collection pocket in the lower-right corner."
+	)
 	var seated_self := _seating.get_node_or_null("ProtagonistSit") as Node3D
 	_check(seated_self != null and not seated_self.visible, "Restart hides the protagonist again.")
 	# 上一轮的事件小球属于上一轮的观察记录，复位时必须清掉（否则会一轮轮叠加）
@@ -744,9 +847,49 @@ func _check_l2_state() -> void:
 	)
 	_check(_flow_state.is_active(), "L2 activates the flow state.")
 	_check(_flow_state.get_clay_mesh_count() > 0, "L2 applies the clay material.")
+	# L2 后处理是一整块不测深度的全屏四边形：它的绘制优先级必须排在三维 UI 之前，
+	# 否则第二层的词条卡会被它整块盖住（曾经是 127，整段 L2 卡片都看不见）。
+	var screen_node := _flow_state.get_node_or_null("Screen") as GeometryInstance3D
+	var screen_material: Material = screen_node.material_override if screen_node != null else null
+	var ui_priority := 0
+	for panel in _ui._panels:
+		ui_priority = maxi(ui_priority, int((panel["sprite"] as Sprite3D).render_priority))
+	_check(
+		screen_material != null and screen_material.render_priority < ui_priority,
+		"The L2 screen effect draws before the world-space UI (effect %s vs UI %d)."
+		% [str(screen_material.render_priority) if screen_material != null else "none", ui_priority]
+	)
 	var seated_self := _seating.get_node_or_null("ProtagonistSit") as Node3D
 	_check(seated_self != null and seated_self.visible, "L2 reveals the seated protagonist.")
 	_check(_pose_of("SeatB06") == _pose_id("READ"), "Classroom settles before the second layer.")
+	# 互动角色不跟着一起变灰：灰泥世界里他们换成暖色
+	var seats := _flow.debug_highlight_seats()
+	_check(not seats.is_empty(), "Interacting classmates are highlighted in the grey world: " + str(seats))
+	_check(seats.has("SeatB06"), "The classmate who laughed is highlighted.")
+	_check(seats.has("SeatC06"), "The desk mate who picked the pen up is highlighted.")
+	_check(not seats.has("SeatB09"), "Environment-only actors (quiet lookers) stay grey.")
+	var highlighted := _flow_state.get_highlight_mesh_count()
+	_check(highlighted > 0, "Highlighted characters use the accent clay (got %d meshes)." % highlighted)
+	_check(
+		highlighted < _flow_state.get_clay_mesh_count(),
+		"Only the interacting characters leave the grey clay (%d of %d)."
+		% [highlighted, _flow_state.get_clay_mesh_count()]
+	)
+	_check(
+		_flow_state.highlight_color != _flow_state.clay_color,
+		"The accent colour is a different colour from the clay."
+	)
+	# 口径可切到「只标收集到的」：未点开的人回到灰泥
+	var l2_config: Dictionary = _flow._content.get("l2", {})
+	var mode_before := str(l2_config.get("highlight_actors", "observed"))
+	l2_config["highlight_actors"] = "collected"
+	var collected_seats := _flow.debug_highlight_seats()
+	l2_config["highlight_actors"] = mode_before
+	_check(
+		collected_seats.size() < seats.size(),
+		"Only collected observations highlight when l2.highlight_actors = collected (%d vs %d)."
+		% [collected_seats.size(), seats.size()]
+	)
 
 
 # ——— 坐姿下沉校验 ———
@@ -782,6 +925,169 @@ func _check_seated_sinks(where: String) -> void:
 
 
 # ——— 工具 ———
+
+## L2 的「我看到的」按收集过滤：有提示的事件必须被点开才回放内心 OS，
+## 没点开的不能出现；没有提示的环境事件（忽然安静 / 课堂往下走）仍然保留。
+func _check_l2_observation_cards() -> void:
+	var events := _content_events()
+	var collected := _flow.debug_collected_labels()
+	_check(not collected.is_empty(), "The run collected at least one observation.")
+	var present := 0
+	var absent := 0
+	for id in events.keys():
+		var event: Dictionary = events[id]
+		if not bool(event.get("orb", true)):
+			continue
+		var thoughts: Array = event.get("thoughts", [])
+		if thoughts.is_empty():
+			continue
+		var line := str(thoughts[0])
+		if collected.has(str(event.get("label", id))):
+			_check(_l2_has_line(line), "Collected observation becomes an inner-voice card: " + line)
+			present += 1
+		else:
+			_check(not _l2_has_line(line), "Uncollected observation stays out of the second layer: " + line)
+			absent += 1
+	_check(
+		present > 0 and absent > 0,
+		"The second layer filters observations by collection (%d in / %d out)." % [present, absent]
+	)
+	# 收集到的观察卡在标题上标出来源，和环境事件（没有提示可点）区分开
+	var prefixed := 0
+	for title in _flow.debug_l2_card_titles():
+		if str(title).begins_with("我看到的 · "):
+			prefixed += 1
+	_check(
+		prefixed == collected.size(),
+		"Every collected observation gets a 「我看到的」 card (%d of %d)." % [prefixed, collected.size()]
+	)
+	_check(_l2_has_line("轮到我说了"), "Environment events (no marker) keep their inner voice.")
+
+
+func _l2_has_line(text: String) -> bool:
+	for body in _flow.debug_l2_card_bodies():
+		if str(body).contains(text):
+			return true
+	return false
+
+
+## L1 收集 → L2 展开的连贯性：口袋里的每一条要在它对应的卡片播放时被抽走，
+## 而不是等到第二层结束再一起清空（那样玩家看不出东西去了哪）。
+func _check_collection_pocket() -> void:
+	var collected := _flow.debug_collected_labels().size()
+	_check(collected > 0, "The run collected at least one observation before the second layer.")
+	var pocket := _ui.debug_collected_rows().size()
+	_check(pocket <= collected, "The pocket holds at most the observations collected in L1.")
+	await _wait_until(func() -> bool: return _ui.debug_expanded_count() > 0, 4000)
+	_check(
+		_ui.debug_expanded_count() > 0,
+		"A collected observation is taken out of the pocket when its card plays."
+	)
+	_check(
+		_ui.debug_collected_rows().size() < pocket or _ui.debug_collected_rows().is_empty(),
+		"The pocket shrinks as its observations unfold into the classroom."
+	)
+
+
+# ——— 第二层的三维思绪（长在世界坐标上） ———
+
+## 第二层不再是「相机前的一块面片」：
+## - 每一条词条都带世界坐标，落点是它对应的地方（观察 = 事件的 orb_position，
+##   回溯 = 自己课桌上方，倒放 = 沿过道往讲台，概念 = 抽离后围着主角的一圈）；
+## - 场上同时只有一块 L2Thought3D，并且它必须在这块相机画幅里；
+## - 它打进 dialogue_fx 组，所以灰泥材质替换与 L3 隐藏都不会波及它（否则字会跟着变灰/消失）。
+func _check_l2_thoughts() -> void:
+	await process_frame
+	_check(not _ui.card_panel.visible, "L2 does not fall back to the flat camera panel.")
+	var world := _main.get_node_or_null("WorldUI")
+	_check(world != null, "The world layer exists to host the L2 thoughts.")
+	if world == null:
+		return
+	var thoughts: Array = []
+	for child in world.get_children():
+		if child is L2Thought3D:
+			thoughts.append(child)
+	_check(thoughts.size() == 1, "Exactly one thought is on stage in L2 (got %d)." % thoughts.size())
+	var entries := _flow.debug_l2_card_positions()
+	_check(entries.size() > 0, "Every L2 card carries a world anchor.")
+	# 落点必须都在教室里（不是随便飘在虚空或相机原点）
+	var outside: Array[String] = []
+	var concepts := 0
+	for entry in entries:
+		var point: Vector3 = entry["position"]
+		if absf(point.x) > 6.0 or point.z > 5.0 or point.z < -6.0 or point.y < 0.6 or point.y > 3.0:
+			outside.append("%s(%.2f, %.2f, %.2f)" % [str(entry["title"]), point.x, point.y, point.z])
+		if str(entry["kind"]) == "concept":
+			concepts += 1
+			_check(
+				point.distance_to(Vector3(-0.7, 1.36, 1.78)) < 1.8,
+				"Concept cards float around the seated protagonist (%.2f m)."
+				% point.distance_to(Vector3(-0.7, 1.36, 1.78))
+			)
+	_check(outside.is_empty(), "Every L2 thought anchors inside the classroom: " + ", ".join(outside))
+	_check(concepts > 0, "The observation cards become concept cards around the protagonist.")
+	# 收集到的观察：落点就是那件事的 orb_position（这支笔就在那张桌子边）
+	var events := _content_events()
+	for label in _flow.debug_collected_labels():
+		var expected := Vector3.ZERO
+		var found := false
+		for id in events.keys():
+			if str((events[id] as Dictionary).get("label", "")) != str(label):
+				continue
+			var raw: Variant = (events[id] as Dictionary).get("orb_position")
+			if raw is Array and (raw as Array).size() >= 3:
+				expected = Vector3(float(raw[0]), float(raw[1]), float(raw[2]))
+				found = true
+		if not found:
+			continue
+		var matched := false
+		for entry in entries:
+			if str(entry["title"]).contains(str(label)) and (entry["position"] as Vector3).distance_to(expected) < 0.01:
+				matched = true
+		_check(matched, "「%s」的思绪落在它发生的位置（%s）。" % [str(label), str(expected)])
+	# 场上的那块：在前方、在画幅内、且不进灰泥材质清单
+	if thoughts.is_empty():
+		return
+	var thought := thoughts[0] as L2Thought3D
+	_check(
+		thought.is_in_group(L2FlowState.TRANSIENT_FX_GROUP),
+		"L2 thoughts stay out of the clay material list."
+	)
+	var card_point := thought.card_position()
+	_check(
+		not _camera.camera.is_position_behind(card_point),
+		"The live thought card faces the camera from inside the room."
+	)
+	var screen := _camera.camera.unproject_position(card_point)
+	_check(
+		screen.x > 0.0 and screen.x < float(root.size.x) and screen.y > 0.0 and screen.y < float(root.size.y),
+		"The live thought card lands inside the frame (%s)." % str(screen)
+	)
+	# 镜头逐条「正对」正在播放的那一条：注视点落在它的锚点上方，而不是一直盯着主角。
+	var anchor := thought.anchor_position()
+	var aimed := _camera.look_target()
+	var flat := Vector2(aimed.x - anchor.x, aimed.z - anchor.z).length()
+	_check(
+		flat < 0.05 and aimed.y > anchor.y,
+		"The camera faces the card that is playing (aim %s over anchor %s)." % [str(aimed), str(anchor)]
+	)
+	# 正对之后牌面应该落在画面中央一带（不再靠 _shift_into_frame 从画面边缘推回来）
+	var norm := Vector2(screen.x / float(root.size.x), screen.y / float(root.size.y))
+	_check(
+		norm.x > 0.28 and norm.x < 0.72 and norm.y > 0.15 and norm.y < 0.8,
+		"The aimed card sits in the middle of the frame (%.2f, %.2f)." % [norm.x, norm.y]
+	)
+	print("CHECK: L2 thoughts in world space")
+
+
+func _content_events() -> Dictionary:
+	var parsed: Variant = JSON.parse_string(
+		FileAccess.get_file_as_string("res://content/classroom_dialogue.json")
+	)
+	if not parsed is Dictionary:
+		return {}
+	return (parsed as Dictionary).get("events", {})
+
 
 func _press_intro() -> void:
 	var primary := _ui.get_node("Screen/CardPanel/Box/CardButtons/CardPrimary") as Button

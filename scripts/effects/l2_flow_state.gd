@@ -5,6 +5,8 @@ extends Node3D
 ##
 ## L2（activate）：
 ## - 把 target_root 下的网格替换为灰黑、无贴图的共享材质；
+## - `set_highlight_nodes()` 指定的子树（互动角色）不用灰色，换成 `highlight_color` 的暖色，
+##   让「这一节课里对我做出反应的人」在灰泥教室里一眼可辨；
 ## - 以 focus 节点（或 set_focus_point 的点）为球心，focus_radius 米内保持清晰，
 ##   之外经过 focus_falloff 米逐渐模糊，并轻微去饱和/压暗。
 ##
@@ -51,6 +53,14 @@ const TRANSIENT_FX_GROUP := &"dialogue_fx"
 			_clay_material.albedo_color = value.lerp(l3_clay_color, _isolation)
 ## L3 中保留物件的中性灰（纯灰度，不带蓝/暖色偏）。
 @export var l3_clay_color: Color = Color(0.30, 0.30, 0.30, 1.0)
+## 灰泥世界里「互动角色」的颜色：这一节课里对我做出反应的那几个人不用灰色，
+## 换成这个暖色，一眼能看出谁在看、谁在笑、谁在低头。由流程用
+## `set_highlight_nodes()` 指定是哪些人（见 DialogueFlow 的 l2.highlight_actors）。
+@export var highlight_color: Color = Color(0.21, 0.14, 0.09, 1.0):
+	set(value):
+		highlight_color = value
+		if _accent_material != null:
+			_accent_material.albedo_color = value.lerp(l3_clay_color, _isolation)
 ## L3 中天空/背景退成的中性灰，让画面只剩地板与主角。
 @export var void_color: Color = Color(0.11, 0.11, 0.11, 1.0)
 ## 名字匹配的节点（含其子树）在 L3 中保留；默认是教室地板与舞台地台。
@@ -76,6 +86,10 @@ var _focus_override: Node3D
 var _focus_point_override := Vector3.ZERO
 var _has_focus_point_override := false
 var _clay_material: StandardMaterial3D
+## 互动角色用的第二种灰泥（同粗糙度、只换颜色），与 _clay_material 共用一套保存/恢复。
+var _accent_material: StandardMaterial3D
+## 要换成 highlight_color 的节点子树（通常是几名同学的座位节点）。
+var _highlight_roots: Array[Node] = []
 var _entries: Array[Dictionary] = []
 var _screen: MeshInstance3D
 var _material: ShaderMaterial
@@ -94,6 +108,7 @@ var _isolation_tween: Tween
 
 func _ready() -> void:
 	_clay_material = _make_clay_material(clay_color)
+	_accent_material = _make_clay_material(highlight_color)
 	_screen = get_node_or_null("Screen") as MeshInstance3D
 	if _screen == null:
 		push_error("L2FlowState: missing Screen MeshInstance3D.")
@@ -432,6 +447,26 @@ func set_blur_pixels(value: float) -> void:
 		_material.set_shader_parameter("blur_pixels", blur_pixels * (1.0 - _isolation))
 
 
+## 指定灰泥世界里要换成 `highlight_color` 的节点子树（通常是几名同学的座位节点）。
+## 传空数组即全部回到灰泥。激活状态下调用会立即重新上色。
+func set_highlight_nodes(nodes: Array) -> void:
+	_highlight_roots.clear()
+	for node in nodes:
+		if node is Node and is_instance_valid(node):
+			_highlight_roots.append(node)
+	if _active:
+		refresh_targets()
+
+
+## 用灰泥世界里唯一那点暖色标出的网格数（测试/调试用）。
+func get_highlight_mesh_count() -> int:
+	var count := 0
+	for entry in _entries:
+		if bool(entry.get("highlight", false)):
+			count += 1
+	return count
+
+
 ## 场景里新增网格（例如后来实例化的人物）后调用，重新收集并覆盖。
 func refresh_targets() -> void:
 	if not _active:
@@ -547,17 +582,20 @@ func _apply_materials() -> void:
 	_collect_meshes(root)
 
 
-func _collect_meshes(node: Node) -> void:
+func _collect_meshes(node: Node, highlighted: bool = false) -> void:
 	# 声纹这类临时反馈整棵子树跳过：换成灰泥会让它的淡出失效，节点释放后还会
 	# 在清单里变成已释放对象（见 _entry_mesh）。
 	if node.is_in_group(TRANSIENT_FX_GROUP):
 		return
+	# 互动角色的整棵子树（人 + 桌面上属于他的小物件）一起换成暖色，
+	# 否则只剩身体是彩色、桌上道具还是灰的，看着像没换干净。
+	var inside := highlighted or _highlight_roots.has(node)
 	if node is MeshInstance3D and not _is_own_node(node):
 		var mesh := node as MeshInstance3D
-		_entries.append({"node": mesh, "override": mesh.material_override})
-		mesh.material_override = _clay_material
+		_entries.append({"node": mesh, "override": mesh.material_override, "highlight": inside})
+		mesh.material_override = _accent_material if inside else _clay_material
 	for child in node.get_children():
-		_collect_meshes(child)
+		_collect_meshes(child, inside)
 
 
 ## 从清单里取网格。清单会跨帧、跨数秒存活，期间节点可能已被释放（临时效果、
@@ -576,7 +614,7 @@ func _restore_materials() -> void:
 		var mesh := _entry_mesh(entry)
 		if mesh == null:
 			continue
-		if mesh.material_override == _clay_material:
+		if mesh.material_override == _clay_material or mesh.material_override == _accent_material:
 			mesh.material_override = entry["override"]
 		if entry.has("visible_before"):
 			mesh.visible = bool(entry["visible_before"])
@@ -635,6 +673,9 @@ func _set_isolation_progress(value: float) -> void:
 	var current := clay_color.lerp(l3_clay_color, _isolation)
 	if _clay_material != null:
 		_clay_material.albedo_color = current
+	if _accent_material != null:
+		# 抽离时暖色也一起退成中性灰：L3 的画面里不留任何彩色。
+		_accent_material.albedo_color = highlight_color.lerp(l3_clay_color, _isolation)
 	if _overlay != null:
 		_overlay.modulate.a = 1.0 - _isolation
 		if _isolation >= 0.999:

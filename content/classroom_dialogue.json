@@ -237,6 +237,8 @@
 	  2.9
 	],
 	"l2_seconds": 2.5,
+	"l2_aim_lift": 0.5,
+	"l2_look_smoothing": 2.6,
 	"idle_position_amplitude": 0.004,
 	"idle_look_amplitude": 0.035
   },
@@ -816,6 +818,7 @@
 	  "step": 3,
 	  "label": "忽然安静下来",
 	  "orb": false,
+	  "thought_position": [-0.7, 1.5, 0.3],
 	  "short": "安静",
 	  "ambient_to_sit": true,
 	  "clips": [
@@ -1181,6 +1184,7 @@
 	  "step": 10,
 	  "label": "课堂已经往下走了",
 	  "orb": false,
+	  "thought_position": [0.55, 1.62, -2.6],
 	  "short": "往下走",
 	  "ambient_to_sit": true,
 	  "all_managed_to_sit": true,
@@ -1248,6 +1252,8 @@
 	"rewind_voice": "l2.rewind",
 	"card_seconds_per_line": 0.55,
 	"card_base_seconds": 1.8,
+	"os_title": "我看到的",
+	"highlight_actors": "observed",
 	"replay_title": "思绪倒放",
 	"replay": [
 	  {

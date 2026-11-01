@@ -33,6 +33,10 @@ var _full_text: String = ""
 var _short_text: String = ""
 var _pending_label: String = ""
 var _pending_position: Vector3 = Vector3.ZERO
+## 被点开之后飞向哪里（屏幕右下角的收集夹）。由世界层在 collected 信号里给出；
+## 没给就原地缩掉——调试场景里没有收集夹，也不该让提示卡在半空。
+var _fly_target: Vector3 = Vector3.ZERO
+var _has_fly_target: bool = false
 
 
 func _ready() -> void:
@@ -148,14 +152,52 @@ func collect_external() -> void:
 		_collect()
 
 
+## 收进右下角的收集夹：在 collected 信号里给一个世界坐标，提示就会飞过去再消失，
+## 玩家看得见「这一条被我收着了」。不给（或给非有限值）就退回原来的原地缩掉。
+func collect_into(world_point: Vector3) -> void:
+	if not world_point.is_finite():
+		return
+	_fly_target = world_point
+	_has_fly_target = true
+
+
+## 完整标签（悬停展开的那句），供流程/检查按名字找到对应的观察。
+func label_text() -> String:
+	return _full_text
+
+
 func _collect() -> void:
 	_collected = true
 	_area.input_ray_pickable = false
 	collected.emit(self)
+	# 信号是同步的：世界层在上面那一刻就把收集夹的位置给了我们。
+	if _has_fly_target:
+		_fly_into_slot()
+		return
 	var tween := create_tween().set_parallel(true)
 	tween.tween_property(self, "scale", Vector3.ONE * 0.01, 0.34).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
 	tween.tween_property(self, "global_position:y", global_position.y + 0.28, 0.34).set_trans(Tween.TRANS_SINE)
 	tween.tween_property(_icon, "modulate:a", 0.0, 0.26)
 	tween.tween_property(_tag, "modulate:a", 0.0, 0.26)
 	tween.tween_property(_label, "modulate:a", 0.0, 0.22)
+	tween.chain().tween_callback(queue_free)
+
+
+## 飞向收集夹：先提一下再滑向右下，同时缩小淡出——像被从教室里捡起来收进口袋。
+func _fly_into_slot() -> void:
+	var start := global_position
+	var target := _fly_target
+	var seconds := 0.46
+	var tween := create_tween().set_parallel(true)
+	tween.tween_method(
+		func(t: float) -> void:
+			if not is_instance_valid(self):
+				return
+			global_position = start.lerp(target, t) + Vector3.UP * sin(t * PI) * 0.14,
+		0.0, 1.0, seconds
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tween.tween_property(self, "scale", Vector3.ONE * 0.06, seconds).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tween.tween_property(_icon, "modulate:a", 0.0, seconds * 0.7).set_delay(seconds * 0.3)
+	tween.tween_property(_tag, "modulate:a", 0.0, seconds * 0.6).set_delay(seconds * 0.2)
+	tween.tween_property(_label, "modulate:a", 0.0, seconds * 0.5)
 	tween.chain().tween_callback(queue_free)

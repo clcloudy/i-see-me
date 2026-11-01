@@ -1,17 +1,26 @@
 class_name SceneUI3D
 extends Node3D
 
-## 世界空间表现：说话者旁的分行字幕、可点击观察标记，以及轻量声纹。
+## 世界空间表现：说话者旁的分行字幕、可点击观察标记、轻量声纹，
+## 以及第二层长在事件位置上的三维思绪牌。
 ## 只监听流程与界面信号，不推进任何剧情时序。
 
 const EventOrbScript := preload("res://scripts/event_orb_3d.gd")
 const SoundRippleScript := preload("res://scripts/sound_ripple_3d.gd")
+const ThoughtScript := preload("res://scripts/l2_thought_3d.gd")
 const FX_GROUP := L2FlowState.TRANSIENT_FX_GROUP
 const SPEAKER_COLORS := {
 	&"teacher": Color(0.95, 0.79, 0.52),
 	&"protagonist": Color(0.61, 0.85, 0.84),
 	&"classmate": Color(0.82, 0.89, 0.76),
 	&"stage": Color(0.67, 0.77, 0.80),
+}
+## 第二层思绪牌的主色：回看自己的观察 = 青，回溯 = 暖黄，倒放 = 灰绿，概念 = 米金。
+const THOUGHT_COLORS := {
+	&"seen": Color(0.61, 0.85, 0.84),
+	&"rewind": Color(0.95, 0.79, 0.52),
+	&"replay": Color(0.80, 0.88, 0.78),
+	&"concept": Color(0.93, 0.83, 0.64),
 }
 
 @export var flow: NodePath
@@ -34,12 +43,15 @@ var _subtitle_viewport: SubViewport = null
 var _subtitle_speaker: Label = null
 var _subtitle_line: Label = null
 var _subtitle_tween: Tween = null
+## 当前显示的三维思绪牌（同一时刻只有一块，换下一条时旧的淡出）。
+var _thought: Node3D = null
 
 
 func _ready() -> void:
 	_flow = get_node_or_null(flow)
 	_interface = get_node_or_null(interface)
 	_camera = get_node_or_null(camera_path)
+	_enable_picking()
 	_build_subtitle()
 	if _interface != null and _interface.has_signal("world_subtitle"):
 		_interface.world_subtitle.connect(_on_world_subtitle)
@@ -51,6 +63,22 @@ func _ready() -> void:
 			_flow.sound_emitted.connect(_on_sound_emitted)
 		if _flow.has_signal("stage_changed"):
 			_flow.stage_changed.connect(_on_stage_changed)
+		if _flow.has_signal("thought_presented"):
+			_flow.thought_presented.connect(_on_thought_presented)
+		if _flow.has_signal("thought_cleared"):
+			_flow.thought_cleared.connect(_on_thought_cleared)
+
+
+## 三维拾取：观察提示靠 Area3D 的鼠标事件收起，而视口默认不做三维拾取。
+## 不打开的话小球看着在、却永远点不动（悬停也不会有反应）。
+## 只取最近的一个，避免两个提示叠在一块时被同时点掉。
+func _enable_picking() -> void:
+	var viewport := get_viewport()
+	if viewport == null:
+		return
+	viewport.physics_object_picking = true
+	viewport.physics_object_picking_sort = true
+	viewport.physics_object_picking_first_only = true
 
 
 func _build_subtitle() -> void:
@@ -111,8 +139,14 @@ func _build_subtitle() -> void:
 
 
 func _on_stage_changed(stage_id: StringName) -> void:
-	if stage_id == &"intro":
+	# 进第二层后收集窗口就关上了：没点开的提示不能留到已经灰化、抽离的教室里
+	# （提示是 Sprite3D/Label3D，不跟着 L2 的材质覆盖变灰，留着会很扎眼）。
+	if stage_id in [&"intro", &"l2", &"complete"]:
 		_clear_orbs()
+	# 第二层的思绪牌只属于这一轮：回到开场或通关时清掉，别让它飘在提示卡旁边。
+	# 注意不能对 l2 本身清场——_enter_l2 先摆第一块牌，随后才发 stage_changed。
+	if stage_id in [&"intro", &"complete"]:
+		clear_thoughts()
 
 
 func _clear_orbs() -> void:
@@ -180,8 +214,66 @@ func _on_event_observed(event_id: StringName, label: String, world_position: Vec
 	add_child(orb)
 
 
-func _on_orb_collected(orb: Node, _event_id: StringName) -> void:
+func _on_orb_collected(orb: Node, event_id: StringName) -> void:
 	_spawn_ripple((orb as Node3D).global_position, 0.35)
+	# 把「看见了什么」交给流程：第二层的内心 OS 只回放这里登记过的观察。
+	var registered := false
+	if _flow != null and _flow.has_method("note_observation_collected"):
+		registered = bool(_flow.note_observation_collected(event_id))
+	# 登记成功才飞：界面此时已经在右下角放好这一条，提示朝它滑过去，
+	# 玩家看得见「被我收着了」；没登记（不是可观察事件）就原地缩掉。
+	if registered and orb is Node3D and orb.has_method("collect_into") and _interface != null:
+		if _interface.has_method("collected_world_point"):
+			(orb as Node3D).call("collect_into", _interface.call("collected_world_point"))
+
+
+## ——— 第二层的三维思绪 ———
+
+## 一条内心 OS / 回溯 / 概念，长在它对应的地方：宿舍楼下那个座位、桌角那支笔、
+## 或者抽离之后围着自己的那圈概念。位置由流程给（世界坐标），这里只负责长得好看。
+func _on_thought_presented(
+	title: String, body: String, anchor: Vector3, kind: StringName, origin: Vector3
+) -> void:
+	if not is_inside_tree():
+		return
+	_clear_thought()
+	var thought := ThoughtScript.new()
+	if thought == null:
+		return
+	thought.setup(title, body, THOUGHT_COLORS.get(kind, THOUGHT_COLORS[&"seen"]))
+	add_child(thought)
+	thought.global_position = anchor
+	# 收集过的观察带着起点（右下角收集夹）：从那儿飞过来，落在这件事发生的位置。
+	if origin.is_finite():
+		thought.appear_from(origin)
+	else:
+		thought.appear()
+	_thought = thought
+
+
+func _on_thought_cleared() -> void:
+	_clear_thought()
+
+
+## 立即收掉当前思绪牌（切换、暂停、重开、截图用）。
+func clear_thoughts() -> void:
+	_clear_thought()
+
+
+## 当前三维思绪牌的节点（没有则为 null）。测试用。
+func current_thought() -> Node3D:
+	if _thought != null and not is_instance_valid(_thought):
+		_thought = null
+	return _thought
+
+
+func _clear_thought() -> void:
+	if _thought == null:
+		return
+	# 换下一条时旧牌退得快一点：两条文字叠在一起会糊成一团。
+	if is_instance_valid(_thought) and _thought.has_method("dismiss"):
+		_thought.dismiss(0.16)
+	_thought = null
 
 
 ## ——— 声纹 ———

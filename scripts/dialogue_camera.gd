@@ -17,6 +17,9 @@ extends Node3D
 @export var idle_position_amplitude: float = 0.004 ## 呼吸位移幅度（米）
 @export var idle_look_amplitude: float = 0.035 ## 待机视线游移幅度（米）
 @export var look_smoothing: float = 6.0 ## 注视点平滑速度（越大越跟手）
+## 第二层逐条「正对」一条思绪时用的平滑速度。比第一人称慢：镜头是慢慢看过去，
+## 不是甩头换焦点；两条内容之间隔 2~3 秒，够它走完。由流程 set_slow_look() 切换。
+@export var l2_look_smoothing: float = 2.6
 ## 自由转头（第 0 步“可以在正面的角度内自由旋转”）：按住右键拖动 / 方向键，
 ## 在正面锥形范围内叠加到流程给定的注视点之上；关闭后平滑回到流程视线。
 @export var free_look_yaw_limit: float = 42.0 ## 左右各多少度
@@ -39,6 +42,8 @@ var _free_yaw: float = 0.0
 var _free_pitch: float = 0.0
 ## 节拍切换时把视线平滑拉回流程给定的方向；玩家一动鼠标就交还控制权。
 var _recenter: bool = false
+## 慢速转视线（第二层逐条正对内容时打开），关闭后回到 look_smoothing。
+var _slow_look: bool = false
 
 @onready var camera: Camera3D = $Camera3D
 
@@ -58,7 +63,7 @@ func _process(delta: float) -> void:
 	) * (idle_look_amplitude + scan_amplitude)
 	camera.global_position = _position + idle
 	var target := _look_target + drift
-	var blend: float = 1.0 - exp(-delta * look_smoothing)
+	var blend: float = 1.0 - exp(-delta * _active_look_smoothing())
 	_smoothed_look = _smoothed_look.lerp(target, blend)
 	camera.look_at(_smoothed_look, Vector3.UP)
 	# 自由转头叠加在流程注视点之上（每帧 look_at 会重算基底，所以放在其后）
@@ -180,9 +185,23 @@ func snap(position: Vector3, look_target: Vector3) -> void:
 	camera.look_at(look_target, Vector3.UP)
 
 
-## 只切换注视点（事件吸引、节拍切换）。
+## 只切换注视点（事件吸引、节拍切换、第二层逐条正对内容）。
 func set_look_target(target: Vector3) -> void:
 	_look_target = target
+
+
+## 切换「慢速转视线」：打开后视线以 l2_look_smoothing 逼近注视点，
+## 适合第二层那种「慢慢看过去」的转场；关闭即恢复 look_smoothing。
+func set_slow_look(enabled: bool) -> void:
+	_slow_look = enabled
+
+
+func is_slow_look() -> bool:
+	return _slow_look
+
+
+func _active_look_smoothing() -> float:
+	return l2_look_smoothing if _slow_look else look_smoothing
 
 
 ## 设置四处看摆幅（米）。

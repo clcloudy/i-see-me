@@ -13,6 +13,18 @@ signal answer_submitted(text: String)
 signal world_subtitle(speaker_key: StringName, display: String, text: String)
 signal world_subtitle_cleared
 
+## 右下角的收集夹：L1 每点开一个观察就多一条，L2 时逐条被抽走、飞到教室里对应的位置。
+## 位置与 Screen 里 Collected 的实际矩形一致（改布局必须一起改）。
+const COLLECTED_REGION := Rect2(974, 396, 280, 304)
+## 相机局部坐标：画面右下角，贴在镜头前的一块面片（与其他面板同一套世界空间做法）。
+## fov 65°、16:9、距离 1.22 m 时可见半宽约 1.38 m，所以右边缘 = 0.90 + 0.38 = 1.28 仍在画内。
+const COLLECTED_OFFSET := Vector3(0.90, -0.33, -1.22)
+const COLLECTED_WIDTH := 0.76
+## 收集夹一出现，右上的感受词条就整体抬这么高，别被口袋压住（米）。
+const CHIPS_LIFT := 0.17
+## 收集夹最多能放几条（可观察事件只有 8 个；放不下时先挤掉最旧的一条）。
+const COLLECTED_LIMIT := 8
+
 const SPEAKER_COLORS := {
 	&"teacher": Color(0.95, 0.79, 0.52),
 	&"protagonist": Color(0.61, 0.85, 0.84),
@@ -29,6 +41,11 @@ var _paused: bool = false
 var _look_hint_done: bool = false
 var _chip_records: Array[Dictionary] = []
 var _panels: Array[Dictionary] = []
+## 收集夹里的一行：event_id → Control，顺序即放入顺序（也是第二层的展开顺序）。
+var _collected_rows: Dictionary = {}
+var _collected_order: Array[String] = []
+## 已经被「从口袋里抽走、飞到教室里」的条数（测试用，不复位就无法验证展开过）。
+var _expanded_count: int = 0
 var _world_ready: bool = false
 var _pressed_panel: int = -1
 var _hover_panel: int = -1
@@ -58,6 +75,8 @@ var _hover_panel: int = -1
 @onready var transition_label: Label = %Transition
 @onready var look_hint: PanelContainer = %LookHint
 @onready var look_hint_text: Label = %LookText
+@onready var collected_box: VBoxContainer = %Collected
+@onready var collected_title: Label = %CollectedTitle
 
 
 func _ready() -> void:
@@ -100,6 +119,10 @@ func _build_world_panels() -> void:
 	_add_world_panel("Chips", chips, Rect2(950, 170, 300, 330), Vector3(0.92, 0.02, -1.35), 0.46, false)
 	_add_world_panel("Transition", transition_label, Rect2(350, 105, 580, 55), Vector3(0.0, 0.12, -1.12), 0.72, false)
 	_add_world_panel("LookHint", look_hint, Rect2(300, 610, 680, 52), Vector3(0.0, -0.53, -1.15), 0.90, false)
+	# 收集夹是屏幕上的一块「口袋」，不该被课桌或同学挡住：叠在所有三维内容之上。
+	_add_world_panel(
+		"Collected", collected_box, COLLECTED_REGION, COLLECTED_OFFSET, COLLECTED_WIDTH, false, 0.0, true
+	)
 
 
 func _add_world_panel(
@@ -109,7 +132,8 @@ func _add_world_panel(
 	camera_offset: Vector3,
 	world_width: float,
 	interactive: bool,
-	initial_alpha: float = 0.0
+	initial_alpha: float = 0.0,
+	overlay: bool = false
 ) -> void:
 	var camera := get_viewport().get_camera_3d()
 	var root_3d := Node3D.new()
@@ -125,11 +149,18 @@ func _add_world_panel(
 	sprite.texture = atlas
 	sprite.pixel_size = world_width / region.size.x
 	sprite.billboard = BaseMaterial3D.BILLBOARD_DISABLED
-	sprite.no_depth_test = false
+	# 收集夹是一块 HUD 性质的口袋：永远浮在最上面，不参与遮挡关系。
+	sprite.no_depth_test = overlay
 	sprite.shaded = false
 	sprite.double_sided = true
 	sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_DISABLED
-	sprite.render_priority = 4
+	# 顶部控制条排在第二层思绪牌（6）之上：牌飘到画面顶端时不能压住按钮。
+	if overlay:
+		sprite.render_priority = 9
+	elif panel_name == "Header":
+		sprite.render_priority = 8
+	else:
+		sprite.render_priority = 4
 	root_3d.add_child(sprite)
 	_panels.append({
 		"control": control,
@@ -141,6 +172,7 @@ func _add_world_panel(
 		"interactive": interactive,
 		"alpha": initial_alpha,
 		"base_position": camera_offset,
+		"lift": 0.0,
 	})
 
 
@@ -159,7 +191,15 @@ func _process(delta: float) -> void:
 		panel["alpha"] = alpha
 		root_3d.visible = alpha > 0.01
 		(panel["sprite"] as Sprite3D).modulate.a = alpha
-		root_3d.position = (panel["base_position"] as Vector3) + Vector3(0.0, -(1.0 - alpha) * 0.025, 0.0)
+		# 收集夹在右下角，会压到右上的感受词条：它一出现就把词条整体抬上去。
+		var lift := 0.0
+		if control == chips and not _collected_rows.is_empty():
+			lift = CHIPS_LIFT
+		panel["lift"] = move_toward(float(panel["lift"]), lift, delta * 0.55)
+		root_3d.position = (
+			(panel["base_position"] as Vector3)
+			+ Vector3(0.0, float(panel["lift"]) - (1.0 - alpha) * 0.025, 0.0)
+		)
 
 
 func _input(event: InputEvent) -> void:
@@ -348,6 +388,145 @@ func clear_chips() -> void:
 	_chip_records.clear()
 
 
+## ——— 右下角的收集夹（L1 收集 → L2 展开） ———
+
+## L1 每点开一个观察就往右下角放一条：序号 + 名字，堆成一小叠。
+## 只是「我收着了」的反馈，不参与任何判定（判定仍然只看 flow 的 _collected）。
+func collect_observation(event_id: StringName, label: String) -> void:
+	var key := String(event_id)
+	if _collected_rows.has(key):
+		return
+	if _collected_order.size() >= COLLECTED_LIMIT:
+		_drop_collected_row(_collected_order[0])
+	_collected_order.append(key)
+	var row := _build_collected_row(_collected_order.size() - 1, label)
+	collected_box.add_child(row)
+	collected_box.visible = true
+	_collected_rows[key] = row
+	_refresh_collected_title()
+	# 从口袋里弹出来：只做透明度与轻微放大（容器会覆盖 position，位移动画会打架）。
+	row.modulate.a = 0.0
+	row.pivot_offset = Vector2(COLLECTED_REGION.size.x * 0.5, 15.0)
+	row.scale = Vector2(0.95, 0.95)
+	var tween := create_tween().set_parallel(true)
+	tween.tween_property(row, "modulate:a", 1.0, 0.22)
+	tween.tween_property(row, "scale", Vector2.ONE, 0.28).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+
+## L2 展开：把这一条从收集夹里抽出来，返回它此刻所在的世界坐标（思绪牌从这里起飞）。
+## 返回 Vector3.INF 表示没有这一条（或界面还没准备好）——调用方按「不飞、直接出现」处理。
+func expand_collected(event_id: StringName) -> Vector3:
+	var key := String(event_id)
+	var row_variant: Variant = _collected_rows.get(key)
+	if row_variant == null:
+		# 没有对应的一行（环境事件本来就没有提示可点）：不飞，直接出现。
+		return Vector3.INF
+	var origin := collected_world_point()
+	_collected_rows.erase(key)
+	_collected_order.erase(key)
+	_expanded_count += 1
+	var row := row_variant as Control
+	if is_instance_valid(row):
+		# 先亮一下（像被抽出来），再淡出；下面的条目自然补位。
+		var tween := create_tween()
+		tween.tween_property(row, "modulate", Color(1.16, 1.12, 1.04, 1.0), 0.10)
+		tween.tween_property(row, "modulate:a", 0.0, 0.22)
+		tween.tween_callback(row.queue_free)
+	_refresh_collected_title()
+	if _collected_rows.is_empty():
+		# 口袋空了就收起来，别在画面角落留一个空框。
+		var hide := create_tween()
+		hide.tween_interval(0.30)
+		hide.tween_callback(func() -> void: collected_box.visible = not _collected_rows.is_empty())
+	return origin
+
+
+## 收集夹当前所在的世界坐标（相机前的右下角）。取不到时返回 Vector3.INF。
+func collected_world_point() -> Vector3:
+	for panel in _panels:
+		if panel["control"] == collected_box:
+			var root_3d := panel["root"] as Node3D
+			if is_instance_valid(root_3d):
+				return root_3d.global_position
+	return Vector3.INF
+
+
+func clear_collected() -> void:
+	for key in _collected_rows.keys():
+		var row_variant: Variant = _collected_rows[key]
+		if is_instance_valid(row_variant):
+			(row_variant as Control).queue_free()
+	_collected_rows.clear()
+	_collected_order.clear()
+	_expanded_count = 0
+	if collected_box != null:
+		collected_box.visible = false
+	_refresh_collected_title()
+
+
+## 测试用：收集夹里还剩哪几条（按放入顺序）。
+func debug_collected_rows() -> Array[String]:
+	return _collected_order.duplicate()
+
+
+## 测试用：有多少条已经被抽走、展开到教室里。
+func debug_expanded_count() -> int:
+	return _expanded_count
+
+
+func _drop_collected_row(key: String) -> void:
+	var row_variant: Variant = _collected_rows.get(key)
+	_collected_rows.erase(key)
+	_collected_order.erase(key)
+	if is_instance_valid(row_variant):
+		var row := row_variant as Control
+		var tween := create_tween()
+		tween.tween_property(row, "modulate:a", 0.0, 0.18)
+		tween.tween_callback(row.queue_free)
+
+
+func _build_collected_row(index: int, label: String) -> Control:
+	var row := PanelContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.custom_minimum_size = Vector2(0.0, 30.0)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.024, 0.046, 0.062, 0.86)
+	style.border_color = Color(0.61, 0.85, 0.84, 0.42)
+	style.set_border_width_all(1)
+	style.border_width_left = 3
+	style.set_corner_radius_all(9)
+	style.content_margin_left = 9
+	style.content_margin_right = 10
+	style.content_margin_top = 3
+	style.content_margin_bottom = 3
+	row.add_theme_stylebox_override("panel", style)
+	var box := HBoxContainer.new()
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_theme_constant_override("separation", 8)
+	row.add_child(box)
+	var index_label := Label.new()
+	index_label.text = "%02d" % (index + 1)
+	index_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	index_label.add_theme_font_size_override("font_size", 14)
+	index_label.add_theme_color_override("font_color", Color(0.61, 0.85, 0.84, 0.78))
+	box.add_child(index_label)
+	var name_label := Label.new()
+	name_label.text = str(label)
+	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name_label.clip_text = true
+	name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	name_label.add_theme_font_size_override("font_size", 18)
+	name_label.add_theme_color_override("font_color", Color(0.90, 0.95, 0.93))
+	box.add_child(name_label)
+	return row
+
+
+func _refresh_collected_title() -> void:
+	if collected_title != null:
+		collected_title.text = "我看到的 · %d" % _collected_order.size()
+
+
 ## ——— 第 8 步：一个回答框，预填默认回答 ———
 
 func show_choice(choice: Dictionary) -> void:
@@ -397,6 +576,7 @@ func hide_card() -> void:
 func show_intro() -> void:
 	clear_chips()
 	clear_subtitle()
+	clear_collected()
 	hide_choice()
 	_look_hint_done = false
 	look_hint.visible = false

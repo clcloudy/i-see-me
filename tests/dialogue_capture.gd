@@ -95,6 +95,40 @@ func _run() -> void:
 		flow.skip()
 	await create_timer(0.8).timeout
 	await _save("dialogue-05-choice")
+	# 第二层「我看到的」：先收集两处观察，再看它们变成内心 OS；没点开的不出现
+	flow.debug_collect("pen_fall")
+	flow.debug_collect("e02_laugh")
+	await create_timer(0.6).timeout
+	await _save("dialogue-05b-collected")
+	flow.debug_choose("")
+	for i in range(600):
+		if flow.stage == &"l2":
+			break
+		flow.skip()
+		await create_timer(0.12).timeout
+	await create_timer(0.5).timeout
+	await _save("dialogue-06-l2-rewind")
+	# 收起这块三维思绪牌，单看灰泥教室：互动角色应该不是灰的
+	var world := main.get_node_or_null("WorldUI") as SceneUI3D
+	if world != null:
+		world.clear_thoughts()
+	await create_timer(0.5).timeout
+	await _save("dialogue-06b-l2-highlight")
+	flow.skip() # → 第一张「我看到的」
+	await create_timer(0.6).timeout
+	await _save("dialogue-07-l2-seen-1")
+	flow.skip()
+	await create_timer(0.6).timeout
+	await _save("dialogue-08-l2-seen-2")
+	# 抽离（L3）：概念牌围着坐着的自己浮一圈，教室只剩地板与主角
+	var state := main.get_node_or_null("L2FlowState") as L2FlowState
+	for i in range(20):
+		if state == null or state.is_l3() or flow.stage == &"complete":
+			break
+		flow.skip()
+		await create_timer(0.15).timeout
+	await create_timer(0.9).timeout
+	await _save("dialogue-09-l3-concepts")
 	main.queue_free()
 	await process_frame
 	print("PASS: dialogue captures saved." if _failures == 0 else "FAIL: dialogue captures.")
