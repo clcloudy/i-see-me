@@ -78,6 +78,12 @@ func _run() -> void:
 
 func _check_initial() -> void:
 	_check(_flow.stage == &"intro", "Flow starts at the notice card.")
+	var ambient := _flow.debug_ambient_state()
+	_check(not bool(ambient["playing"]), "Class murmur does not start behind the notice card.")
+	_check(
+		is_equal_approx(float(ambient["volume_db"]), -26.0),
+		"Class murmur stays at background level (-26 dB)."
+	)
 	# seating 自带的 WorldEnvironment/Daylight 应已被移除，场景里各剩一个
 	var lighting := _count_lighting(_main)
 	_check(
@@ -207,6 +213,10 @@ func _head_basis(skeleton: Skeleton3D, head: int) -> Basis:
 func _check_step_zero_free_look() -> void:
 	_press_intro()
 	await process_frame
+	_check(
+		bool(_flow.debug_ambient_state()["playing"]),
+		"Class murmur starts with the classroom at step 0."
+	)
 	_check(_camera.is_free_look(), "Step 0 allows free look inside the frontal cone.")
 	# 记录初始机位，确认转头只改朝向、不改机位
 	var eye := _camera.current_position()
@@ -456,6 +466,10 @@ func _run_answer_flow() -> void:
 	await _wait_until(func() -> bool: return _flow.stage == &"l2", 6000)
 	_check(_flow.stage == &"l2", "Ending reaches the second layer.")
 	_check(
+		not bool(_flow.debug_ambient_state()["playing"]),
+		"Entering the second layer stops the class murmur."
+	)
+	_check(
 		_flow.debug_protagonist_pose() == &"sit",
 		"Protagonist sits down before the second layer (step 10)."
 	)
@@ -656,6 +670,10 @@ func _check_restart() -> void:
 	_flow.restart()
 	await process_frame
 	_check(_flow.stage == &"intro", "Restart returns to the notice card.")
+	_check(
+		not bool(_flow.debug_ambient_state()["playing"]),
+		"Restart silences the classroom until the player enters again."
+	)
 	_check(
 		_camera.current_position().distance_to(Vector3(-0.7, 1.36, 1.78)) < 0.05,
 		"Restart snaps the camera back to the seat."

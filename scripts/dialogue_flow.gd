@@ -12,7 +12,7 @@ extends Node3D
 ##   protagonist_clip / camera / free_look / cues / events / segments；
 ## - ending：第 9–11 步（E03 不再按分支过滤，固定在第 9.1 步）；
 ## - segments：字幕分段（speaker + text + seconds + 可选 voice 配音 id）；
-## - events：事件按时间戳触发（姿态/动作、台词、道具、词条）；可带 gaze，玩家转到该方向即提前触发；
+## - events：事件按时间戳触发（姿态/动作、台词、独立音效、道具、词条）；可带 gaze，玩家转到该方向即提前触发；
 ##   可被观察的事件带 orb_position，玩家点开（收集）后才会在第二层变成内心 OS（见 _l2_observation_entries）；
 ## - voice / sfx：配音与音效清单（id → 文件名，root 统一前缀）。台词 id 未登记时报警并静默跳过，
 ##   文件缺失时只按预留时长走，不阻塞流程。
@@ -211,6 +211,7 @@ func _start_l1() -> void:
 	_beat_index = -1
 	_played_steps.clear()
 	interface.hide_card() # 收起内容提示卡，进入课堂
+	_start_ambient_loop("murmur_loop") # 从第 0 步起铺底，进入 L2 转场时停止
 	_advance_phase()
 	_refresh_controls()
 
@@ -241,7 +242,7 @@ func _enter_choice() -> void:
 	camera.set_free_look(true) # 回答框不锁视角；拖动鼠标仍可看别处。
 	camera.set_keyboard_look(false) # 方向键留给输入框光标。
 	_set_ambient_whispers(true) # 同学们此时议论纷纷
-	_start_ambient_loop("murmur_loop")
+	# 议论底噪从开场就在播，这里不重新起播，避免循环断一下。
 	interface.show_choice(_content.get("choice", {}))
 	_refresh_controls()
 	stage_changed.emit(stage)
@@ -257,6 +258,8 @@ func _enter_ending() -> void:
 
 func _enter_l2() -> void:
 	stage = &"l2"
+	# 议论底噪只属于第一层：进入第二层时收掉，L2 的独白才是唯一的声音。
+	_stop_ambient()
 	interface.set_transition_text("")
 	# 第一层的感受词条到这里已经过期：第二层的词条是另一套（三维思绪牌）。
 	interface.clear_chips()
@@ -344,6 +347,8 @@ func _play_beat(beat: Dictionary) -> void:
 	if third_person:
 		camera.transition_to(_l2_position, _camera_target("self_head"), _l2_seconds * time_scale)
 	if beat.has("transition_text"):
+		# 进入第二层的转场一开始就收掉第一层的课堂底噪，别把教室的声音带进 L2。
+		_stop_ambient()
 		interface.set_transition_text(str(beat["transition_text"]))
 	# 通用 cue
 	for cue in beat.get("cues", []):
@@ -468,6 +473,12 @@ func _fire_event(event_id: String, gen: int) -> void:
 				float(pose["recover"]),
 				func(): _set_actor_pose(str(pose["actor"]), "SIT", pose_out)
 			)
+	# 与道具/动作对齐的独立音效（例如笔开始掉落时的碰撞声）。
+	for sfx_cue in event.get("sfx", []):
+		var sfx: Dictionary = sfx_cue
+		var sfx_path := _resolve_cue("sfx", str(sfx.get("cue", "")))
+		if not sfx_path.is_empty():
+			_schedule(float(sfx.get("at", 0.0)), func(): _play_cue(sfx_path, true))
 	# 第一层声音：speech 走字幕条，ambient 只放音频
 	var voice: Dictionary = event.get("voice", {})
 	if not voice.is_empty():
@@ -481,7 +492,8 @@ func _fire_event(event_id: String, gen: int) -> void:
 			}))
 		var cue_path := _resolve_cue("voice" if kind == "speech" else "sfx", str(voice.get("cue", "")))
 		if not cue_path.is_empty():
-			_schedule(voice_at, func(): _play_cue(cue_path, kind != "speech"))
+			var volume_db := float(voice.get("volume_db", 0.0))
+			_schedule(voice_at, func(): _play_cue(cue_path, kind != "speech", volume_db))
 	# 道具
 	for prop_cue in event.get("props", []):
 		var prop: Dictionary = prop_cue
@@ -563,7 +575,7 @@ func _on_answer_submitted(text: String) -> void:
 		return
 	stage = &"answer"
 	interface.hide_choice()
-	_stop_ambient()
+	# 底噪要继续铺到第 9–11 步，直到进入 L2 才停。
 	var choice: Dictionary = _content.get("choice", {})
 	var line := text.strip_edges()
 	var fallback := str(choice.get("answer_fallback", ""))
@@ -999,7 +1011,7 @@ func _reset_world() -> void:
 	_beat_fired.clear()
 	_teacher_moving = false
 	_beat_look_target = _camera_target("podium_teacher")
-	# 音频与自由转头
+	# 音频与自由转头（底噪等真正进入课堂的第 0 步再起播）
 	_stop_all_audio()
 	camera.set_free_look(false)
 	camera.set_keyboard_look(true)
@@ -1376,7 +1388,8 @@ func _build_audio() -> void:
 	add_child(_sfx)
 	_ambient = AudioStreamPlayer.new()
 	_ambient.name = "Ambient"
-	_ambient.volume_db = -9.0
+	# 贯穿全场的底噪只需托住教室空间感，不能压过台词；具体值放内容配置便于试听后调整。
+	_ambient.volume_db = float(Dictionary(_content.get("sfx", {})).get("ambient_volume_db", -26.0))
 	add_child(_ambient)
 
 
@@ -1419,18 +1432,21 @@ func _play_voice(path: String) -> void:
 	var stream := _stream(path)
 	if stream == null:
 		return
+	_voice.volume_db = 0.0 # 事件里的单独音量不带到下一句
 	_voice.stream = stream
 	_voice.play()
 
 
 ## 事件里的环境音/同学低声说话。as_sfx=true 时走音效通道，不打断台词。
-func _play_cue(path: String, as_sfx: bool) -> void:
+## volume_db 只作用于这一条；后续台词恢复到 0 dB。
+func _play_cue(path: String, as_sfx: bool, volume_db: float = 0.0) -> void:
 	var player := _sfx if as_sfx else _voice
 	if player == null:
 		return
 	var stream := _stream(path)
 	if stream == null:
 		return
+	player.volume_db = volume_db
 	player.stream = stream
 	player.play()
 	# 三维声纹：环境音 / 同学低语等「动静」出现的位置（以教师附近作为教室声源近似）。
@@ -1457,6 +1473,11 @@ func _start_ambient_loop(key: String) -> void:
 		(looped as AudioStreamOggVorbis).loop = true
 	elif looped is AudioStreamMP3:
 		(looped as AudioStreamMP3).loop = true
+	elif looped is AudioStreamWAV:
+		var wav := looped as AudioStreamWAV
+		wav.loop_mode = AudioStreamWAV.LOOP_FORWARD
+		wav.loop_begin = 0
+		wav.loop_end = int(round(wav.get_length() * wav.mix_rate))
 	_ambient.stream = looped
 	_ambient.play()
 
@@ -1627,6 +1648,14 @@ func debug_played_steps() -> Array:
 	return _played_steps.duplicate()
 
 
+## 供无头检查：议论底噪的播放状态与背景音量。
+func debug_ambient_state() -> Dictionary:
+	return {
+		"playing": _ambient.playing if _ambient != null else false,
+		"volume_db": _ambient.volume_db if _ambient != null else 0.0,
+	}
+
+
 ## 供无头检查：配音清单逐条解析结果（缺失文件不报错，只标记 exists=false）。
 func debug_voice_report() -> Array:
 	var report: Array = []
@@ -1657,6 +1686,8 @@ func debug_voice_usage() -> Dictionary:
 		var voice: Dictionary = event.get("voice", {})
 		var kind := str(voice.get("kind", "speech"))
 		add.call("voice" if kind == "speech" else "sfx", str(voice.get("cue", "")))
+		for sfx in event.get("sfx", []):
+			add.call("sfx", str((sfx as Dictionary).get("cue", "")))
 		add.call("voice", str(event.get("os_voice", "")))
 	# 第 8 步：默认回答的配音与老师的中性收束
 	var choice: Dictionary = _content.get("choice", {})
@@ -1669,7 +1700,7 @@ func debug_voice_usage() -> Dictionary:
 			add.call("voice", str(line.get("voice", "")))
 	for observation in l2.get("observations", []):
 		add.call("voice", str(observation.get("voice", "")))
-	add.call("sfx", "murmur_loop") # 第 8 步选择窗口的议论纷纷底噪
+	add.call("sfx", "murmur_loop") # 开场到进入 L2 的议论底噪
 	return used
 
 

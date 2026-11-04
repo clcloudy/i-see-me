@@ -67,9 +67,9 @@
 	  "protagonist.stance": "protagonist_stance.ogg",
 	  "protagonist.answer_default": "protagonist_answer_default.ogg",
 	  "classmate.pen": "classmate_pen.ogg",
-	  "classmate.agree": "classmate_agree.ogg",
-	  "classmate.mishear": "classmate_mishear.ogg",
-	  "classmate.dissent": "classmate_dissent.ogg",
+	  "classmate.agree": "classmate_agree.wav",
+	  "classmate.mishear": "classmate_mishear.wav",
+	  "classmate.dissent": "classmate_dissent.wav",
 	  "l2.rewind": "l2_rewind.ogg",
 	  "l2.replay_1": "l2_replay_1.ogg",
 	  "l2.replay_2": "l2_replay_2.ogg",
@@ -85,12 +85,13 @@
   "sfx": {
 	"root": "res://assets/audio/sfx/",
 	"extension": ".ogg",
+	"ambient_volume_db": -26.0,
 	"cues": {
-	  "room_quiet": "room_quiet.ogg",
-	  "laugh_short": "laugh_short.ogg",
+	  "room_quiet": "room_quiet.wav",
+	  "pen_drop": "pen_drop.wav",
 	  "pencil": "pencil.ogg",
-	  "class_resume": "class_resume.ogg",
-	  "murmur_loop": "murmur_loop.ogg"
+	  "class_resume": "class_resume.wav",
+	  "murmur_loop": "murmur_loop.wav"
 	}
   },
   "actors": {
@@ -902,6 +903,12 @@
 		"look": "left_neighbor",
 		"recover": 13.5
 	  },
+	  "sfx": [
+		{
+		  "at": 2.6,
+		  "cue": "pen_drop"
+		}
+	  ],
 	  "voice": {
 		"speaker": "classmate",
 		"kind": "speech",
@@ -1018,13 +1025,6 @@
 		"look": "laugh_seat",
 		"recover": 3.6
 	  },
-	  "voice": {
-		"speaker": "stage",
-		"kind": "ambient",
-		"text": "（斜前方传来两声低笑，短促后停下，没有人开口解释。）",
-		"seconds": 3.4,
-		"cue": "laugh_short"
-	  },
 	  "feelings": [
 		"脸上有点烫",
         "一下分了神"
@@ -1080,6 +1080,7 @@
 		"text": "他是说遇到难的就不做了吗？",
 		"seconds": 3.4,
 		"at": 1.6,
+		"volume_db": -6.0,
 		"cue": "classmate.mishear"
 	  },
 	  "feelings": [
