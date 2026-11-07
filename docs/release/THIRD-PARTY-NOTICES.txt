@@ -1,0 +1,40 @@
+I See Me — 第三方素材及音频声明
+
+Godot Engine 4.6.1
+https://godotengine.org/
+Copyright (c) 2014-present Godot Engine contributors.
+Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.
+MIT License；全文见 licenses/Godot-LICENSE.txt。
+引擎包含的第三方组件许可见 licenses/Godot-COPYRIGHT.txt。
+
+Quaternius — Modular Men / Modular Women
+https://quaternius.com/packs/modularmen.html
+https://quaternius.com/packs/modularwomen.html
+使用 Casual、Casual2、WomensCasual、Suit；CC0 1.0 Universal。
+许可全文见 licenses/Quaternius-LICENSE-CC0-1.0.txt。
+项目内调色、骨骼姿态和程序化动画不改变原模型来源。
+
+Poly Haven — CC0 1.0
+https://polyhaven.com/license
+hinoki_planks: https://polyhaven.com/a/hinoki_planks
+oak_veneer_05: https://polyhaven.com/a/oak_veneer_05
+smoked_walnut_veneer: https://polyhaven.com/a/smoked_walnut_veneer
+plastered_wall: https://polyhaven.com/a/plastered_wall
+lacquered_cherry_wood: https://polyhaven.com/a/lacquered_cherry_wood
+corrugated_iron: https://polyhaven.com/a/corrugated_iron
+J&E Gray 02: https://polyhaven.com/a/je_gray_02
+纹理经过格式转换；天空 HDRI 从 4K 缩为 2K。
+CC0 全文见 licenses/Quaternius-LICENSE-CC0-1.0.txt（相同许可）。
+
+音频（用户提供）
+VOICE-001：老师及主角已有八段语音由 AI 生成，不是真人录音，
+不得标成团队原创人声。提供者已于 2026-11-01 确认可课堂展示及随包分发。
+VOICE-002：三段同学台词；SFX-001：课堂音效。
+提供者已于 2026-11-06 明确确认有分发权、允许随游戏对外分发。
+原始作者、音源、AI 生成工具和音色库信息仍待提供者补充；
+分发确认不等于授予这些音频开源许可，也不将其标为团队原创或真人录音。
+
+字体
+未随包嵌入独立字体文件；使用 Godot 内置字体和 Windows 系统回退。
+
+本清单不为游戏代码、自制内容或用户提供的音频授予额外使用权。

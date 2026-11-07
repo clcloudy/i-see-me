@@ -11,7 +11,8 @@ config_version=5
 [application]
 
 config/name="I See Me"
-run/main_scene="res://scenes/main.tscn"
+config/version="0.1.0-demo"
+run/main_scene="res://scenes/classroom_dialogue.tscn"
 config/features=PackedStringArray("4.6", "GL Compatibility")
 
 [display]

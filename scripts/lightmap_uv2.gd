@@ -2,12 +2,15 @@ class_name LightmapUV2
 extends RefCounted
 
 ## 给静态场景里的网格补第二套 UV（UV2），并统一 GI Mode，供 LightmapGI 烘焙。
-## 编辑器烘焙与运行时加载走同一段代码，保证两次生成的 UV2 布局一致。
+## 编辑器烘焙与构建准备走同一段代码；发行模板没有 lightmap_unwrap，读取构建时缓存。
 
 const TEXEL_SIZE := 0.05
+const EXPORT_CACHE := "res://assets/lightmaps/classroom_uv2_cache.res"
 
 
 static func prepare(scene_root: Node, texel_size: float = TEXEL_SIZE) -> int:
+	if OS.has_feature("template"):
+		return _apply_export_cache(scene_root)
 	var cache: Dictionary = {}
 	var converted := 0
 	for node in scene_root.find_children("*", "MeshInstance3D", true, false):
@@ -34,6 +37,24 @@ static func prepare(scene_root: Node, texel_size: float = TEXEL_SIZE) -> int:
 		item.mesh = baked_mesh
 		converted += 1
 	return converted
+
+
+static func _apply_export_cache(scene_root: Node) -> int:
+	if not ResourceLoader.exists(EXPORT_CACHE):
+		push_error("Missing export UV2 cache. Build with tools/Export-Windows.ps1.")
+		return 0
+	var resource := load(EXPORT_CACHE)
+	var meshes: Dictionary = resource.get_meta("meshes", {})
+	var applied := 0
+	for path in meshes:
+		var item := scene_root.get_node_or_null(NodePath(path)) as MeshInstance3D
+		if item == null:
+			push_error("Export UV2 cache does not match the classroom: " + str(path))
+			continue
+		item.mesh = meshes[path] as Mesh
+		item.gi_mode = GeometryInstance3D.GI_MODE_STATIC
+		applied += 1
+	return applied
 
 
 static func has_uv2(mesh: Mesh) -> bool:

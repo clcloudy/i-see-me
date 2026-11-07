@@ -22,8 +22,8 @@
 088da0457e2d1f7f8a45e6d4605a42b756ea33b9ccd75059bdbc01bb31c2b40d
 ```
 
-当前只需编辑和运行项目，未下载体积较大的导出模板。
-以后需要导出 Windows 程序时，再下载匹配的 4.6.1 模板到 D 盘的便携数据目录；不要直接使用默认用户目录安装。
+Windows x64 release 模板已配置在 D 盘便携数据目录；安装和复现见 [Windows Demo 打包](windows-release.md)。
+不要使用默认 C 盘用户目录安装模板。
 
 ## 启动
 
@@ -33,21 +33,27 @@
 # 打开编辑器，F6 运行当前场景，F5 运行整个项目。
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\Start-Godot.ps1
 
-# 直接运行三层灰盒小样。
+# 直接运行主课堂 Demo。
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\Start-Godot.ps1 -Mode Play
 
 # 导入、流程交互与各阶段退出检查，不弹出游戏窗口。
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\Start-Godot.ps1 -Mode Check
 
+# 检查主课堂流程、回答、第二层、暂停、重开与音轨清单。
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\Start-Godot.ps1 -Mode DialogueCheck
+
 # 实际渲染检查，自动保存两种窗口尺寸下的各层与界面截图并退出。
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\Start-Godot.ps1 -Mode Capture
 ```
 
-也可双击项目根目录的 `打开编辑器.cmd` 或 `查看房间.cmd`（现运行三层小样）。
+也可双击项目根目录的 `打开编辑器.cmd` 或 `查看房间.cmd`（现运行课堂主流程）。
 其他成员可修改启动脚本参数 `-InstallDirectory` 为自己的非 C 盘目录，不需要修改项目场景。
 启动器不会下载任何内容，也不会提交或推送代码。
 
 ## 当前工程内容
+
+2026-11-06：默认入口已切换为 `scenes/classroom_dialogue.tscn`，以下列表描述保留的旧灰盒。
+当前课堂主流程与导出范围见 [Windows Demo 打包](windows-release.md)。
 
 - `scenes/main.tscn`：场景入口，组合灰盒教室、镜头、界面和唯一流程控制器，保留环境和灯光。
 - `scenes/room.tscn`：8 × 6 米的空房间，高 3.4 米，地板、天花板、四面墙及踢脚线。
