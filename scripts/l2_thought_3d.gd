@@ -13,8 +13,8 @@ extends Node3D
 ##
 ## 两条取值原则：
 ## 1. 屏幕占比固定（而不是世界尺寸固定）：远处的事件不能小到读不出来——可读性优先于透视正确。
-## 2. 牌面始终贴回画内：锚点可能靠画面边缘（事件坐标来自内容），牌面按相机上/右方向平移，
-##    只平移、不缩小，所以「它挂在那儿」的关系还在。
+## 2. 人物事件牌固定在头部正上方，跟随姿态，不做横向画内修正或上下浮动。
+##    没有人物目标的回溯/概念牌仍按相机上/右方向移回画内。
 
 ## 与 L2FlowState.TRANSIENT_FX_GROUP 必须一致：临时三维效果不进灰泥材质清单。
 const FX_GROUP := &"dialogue_fx"
@@ -48,12 +48,17 @@ var _tween: Tween
 var _leaving := false
 ## 正在从收集夹飞向锚点：飞行中不做「拉回画内」的平移，否则牌会被一路按住。
 var _flying := false
+var _actor: Node3D
 
 
-func setup(title: String, body: String, accent: Color) -> void:
+func bind_actor(actor: Node3D) -> void:
+	_actor = actor
+
+
+func setup(title: String, body: String, accent: Color, heading: String = "") -> void:
 	add_to_group(FX_GROUP)
 	_accent = accent
-	_build_viewport(str(title), str(body))
+	_build_viewport(str(title), str(body), heading)
 	_build_marker()
 	set_process(true)
 
@@ -100,7 +105,8 @@ func appear_from(origin: Vector3, seconds: float = 0.62) -> void:
 			if not is_inside_tree():
 				return
 			# 先往上抛一点再落位：直线会像被瞬移，弧线才像「飞过去」。
-			global_position = start.lerp(anchor, t) + Vector3.UP * sin(t * PI) * 0.24,
+			var target := EventOrb3D.head_position(_actor) if is_instance_valid(_actor) else anchor
+			global_position = start.lerp(target, t) + Vector3.UP * sin(t * PI) * 0.24,
 		0.0, 1.0, seconds
 	).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	_tween.tween_method(_apply_alpha, 0.0, 1.0, seconds * 0.7)
@@ -122,6 +128,8 @@ func dismiss(seconds: float = 0.30) -> void:
 
 func _process(delta: float) -> void:
 	_time += delta
+	if is_instance_valid(_actor) and not _flying and not _leaving:
+		global_position = EventOrb3D.head_position(_actor)
 	_layout()
 
 
@@ -141,9 +149,9 @@ func _layout() -> void:
 	var half_width := float(_viewport.size.x) * pixel * 0.5
 	var half_height := float(_viewport.size.y) * pixel * 0.5
 
-	var bob := sin(_time * 1.25) * 0.01
+	var bob := 0.0 if is_instance_valid(_actor) else sin(_time * 1.25) * 0.01
 	var center := Vector3(0.0, lift_gap + bob + half_height, 0.0)
-	if not _flying:
+	if not _flying and not is_instance_valid(_actor):
 		center = _shift_into_frame(camera, center, half_width, half_height, view, distance)
 	_sprite.position = center
 	_connect_leader(center - Vector3(0.0, half_height, 0.0))
@@ -196,7 +204,7 @@ func _connect_leader(bottom: Vector3) -> void:
 	_line.transform = Transform3D(basis, bottom * 0.5)
 
 
-func _build_viewport(title: String, body: String) -> void:
+func _build_viewport(title: String, body: String, heading: String) -> void:
 	_viewport = SubViewport.new()
 	_viewport.name = "ThoughtViewport"
 	_viewport.size = Vector2i(int(TEXT_WIDTH), _estimate_height(body))
@@ -209,16 +217,16 @@ func _build_viewport(title: String, body: String) -> void:
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_panel = panel
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.020, 0.037, 0.050, 0.74)
-	style.border_color = Color(_accent.r, _accent.g, _accent.b, 0.62)
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(15)
-	style.content_margin_left = 18
-	style.content_margin_right = 18
-	style.content_margin_top = 13
-	style.content_margin_bottom = 14
+	style.bg_color = Color(0.95, 0.91, 0.82, 0.98)
+	style.border_color = Color(0.56, 0.69, 0.62, 0.95)
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(14)
+	style.content_margin_left = 30
+	style.content_margin_right = 30
+	style.content_margin_top = 22
+	style.content_margin_bottom = 22
 	style.shadow_color = Color(0, 0, 0, 0.34)
-	style.shadow_size = 10
+	style.shadow_size = 4
 	style.shadow_offset = Vector2(0, 4)
 	panel.add_theme_stylebox_override("panel", style)
 	_viewport.add_child(panel)
@@ -226,25 +234,28 @@ func _build_viewport(title: String, body: String) -> void:
 
 	var box := VBoxContainer.new()
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.add_theme_constant_override("separation", 7)
+	box.add_theme_constant_override("separation", 16)
 	panel.add_child(box)
 
 	var title_label := Label.new()
-	title_label.text = title
+	title_label.text = title if heading.is_empty() else heading + "  |  " + title
 	title_label.add_theme_font_size_override("font_size", 17)
-	title_label.add_theme_color_override("font_color", _accent)
+	title_label.add_theme_color_override("font_color", Color(0.28, 0.43, 0.38))
 	title_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	title_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(title_label)
 
-	var body_label := Label.new()
-	body_label.text = body
-	body_label.add_theme_font_size_override("font_size", 28)
-	body_label.add_theme_color_override("font_color", Color(0.93, 0.95, 0.93))
-	body_label.add_theme_constant_override("line_spacing", 5)
-	body_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	body_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.add_child(body_label)
+	# 每句保留原文；首句更醒目，其余句子轻一档，避免整块字都在抢注意力。
+	var lines := body.split("\n")
+	for i in range(lines.size()):
+		var body_label := Label.new()
+		body_label.text = lines[i]
+		body_label.add_theme_font_size_override("font_size", 30 if i == 0 else 25)
+		body_label.add_theme_color_override("font_color", Color(0.09, 0.18, 0.17) if i == 0 else Color(0.22, 0.33, 0.29))
+		body_label.add_theme_constant_override("line_spacing", 5)
+		body_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		body_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		box.add_child(body_label)
 
 	_sprite = Sprite3D.new()
 	_sprite.name = "Surface"
@@ -318,7 +329,7 @@ func _estimate_height(body: String) -> int:
 	var lines := 0
 	for raw in body.split("\n"):
 		lines += maxi(1, ceili(float(str(raw).length()) / CHARS_PER_LINE))
-	return int(27 + TITLE_HEIGHT + 7 + float(lines) * LINE_HEIGHT)
+	return int(27 + TITLE_HEIGHT + 12 + float(lines) * LINE_HEIGHT)
 
 
 func _apply_alpha(value: float) -> void:

@@ -364,6 +364,15 @@ func _check_orb_click_collect() -> void:
 		_ui.debug_collected_rows().size() >= 1,
 		"The collected observation shows up in the pocket."
 	)
+	# 左侧感受面片不能采样到右下角收集夹，即使没有感受词条也会显示重复条目。
+	for panel in _ui._panels:
+		if panel["control"] == _ui.chips:
+			var region: Rect2 = panel["region"]
+			_check(not region.intersects(DialogueUI.COLLECTED_REGION), "Feelings never sample the collection pocket.")
+			_check(
+				region.position == _ui.chips.position and is_equal_approx(region.size.x, _ui.chips.size.x),
+				"The feelings texture region matches its control position and width."
+			)
 	var slot := _ui.collected_world_point()
 	_check(slot.is_finite(), "The collection pocket has a world position.")
 	if slot.is_finite():
@@ -378,7 +387,8 @@ func _check_orb_click_collect() -> void:
 
 # ——— 互动提示坐标（内容静态校验） ———
 
-## 8 个可观察事件必须在站立后默认朝向的视野内，彼此不挤在一起；
+## 8 个事件的第二层思绪落点必须在站立后默认朝向的视野内，彼此不挤在一起；
+## 第一层头部提示的绑定、姿态跟随与拾取由 observation_actor_check.gd 检查。
 ## 环境事件（忽然安静 / 课堂往下走）明确不出提示。
 func _check_orb_content() -> void:
 	var parsed: Variant = JSON.parse_string(
@@ -403,13 +413,13 @@ func _check_orb_content() -> void:
 		var az := _azimuth(eye, forward, point)
 		_check(
 			absf(float(az["yaw"])) <= 60.0 and float(az["pitch"]) <= 18.0 and -float(az["pitch"]) <= 40.0,
-			"%s's marker stays in the normal view (yaw %.1f, pitch %.1f)." % [event_id, az["yaw"], az["pitch"]]
+			"%s's thought anchor stays in the normal view (yaw %.1f, pitch %.1f)." % [event_id, az["yaw"], az["pitch"]]
 		)
 	for i in range(points.size()):
 		for j in range(i + 1, points.size()):
 			_check(
 				points[i].distance_to(points[j]) >= 0.5,
-				"Markers %s and %s do not overlap (%.2f m)." % [expected[i], expected[j], points[i].distance_to(points[j])]
+				"Thought anchors %s and %s do not overlap (%.2f m)." % [expected[i], expected[j], points[i].distance_to(points[j])]
 			)
 	for quiet_id in ["quiet", "class_moves_on"]:
 		_check(
@@ -1010,7 +1020,7 @@ func _check_collection_pocket() -> void:
 # ——— 第二层的三维思绪（长在世界坐标上） ———
 
 ## 第二层不再是「相机前的一块面片」：
-## - 每一条词条都带世界坐标，落点是它对应的地方（观察 = 事件的 orb_position，
+## - 每一条词条都带世界坐标，落点是它对应的地方（观察 = 事件人物头部，
 ##   回溯 = 自己课桌上方，倒放 = 沿过道往讲台，概念 = 抽离后围着主角的一圈）；
 ## - 场上同时只有一块 L2Thought3D，并且它必须在这块相机画幅里；
 ## - 它打进 dialogue_fx 组，所以灰泥材质替换与 L3 隐藏都不会波及它（否则字会跟着变灰/消失）。
@@ -1044,7 +1054,7 @@ func _check_l2_thoughts() -> void:
 			)
 	_check(outside.is_empty(), "Every L2 thought anchors inside the classroom: " + ", ".join(outside))
 	_check(concepts > 0, "The observation cards become concept cards around the protagonist.")
-	# 收集到的观察：落点就是那件事的 orb_position（这支笔就在那张桌子边）
+	# 收集到的观察：与第一层提示共用人物头部锚点。
 	var events := _content_events()
 	for label in _flow.debug_collected_labels():
 		var expected := Vector3.ZERO
@@ -1052,9 +1062,9 @@ func _check_l2_thoughts() -> void:
 		for id in events.keys():
 			if str((events[id] as Dictionary).get("label", "")) != str(label):
 				continue
-			var raw: Variant = (events[id] as Dictionary).get("orb_position")
-			if raw is Array and (raw as Array).size() >= 3:
-				expected = Vector3(float(raw[0]), float(raw[1]), float(raw[2]))
+			var actor := _flow.observation_actor(StringName(id))
+			if actor != null:
+				expected = EventOrb3D.head_position(actor)
 				found = true
 		if not found:
 			continue

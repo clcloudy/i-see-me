@@ -3,12 +3,12 @@
 [ext_resource type="Script" path="res://scripts/dialogue_ui.gd" id="1_script"]
 
 [sub_resource type="StyleBoxFlat" id="Style_panel"]
-bg_color = Color(0.035, 0.063, 0.09, 0.88)
+bg_color = Color(0.09, 0.18, 0.17, 0.96)
 border_width_left = 1
 border_width_top = 1
 border_width_right = 1
 border_width_bottom = 1
-border_color = Color(0.42, 0.64, 0.68, 0.48)
+border_color = Color(0.65, 0.79, 0.75, 0.48)
 corner_radius_top_left = 16
 corner_radius_top_right = 16
 corner_radius_bottom_left = 16
@@ -22,16 +22,16 @@ shadow_size = 8
 shadow_offset = Vector2(0, 4)
 
 [sub_resource type="StyleBoxFlat" id="Style_card"]
-bg_color = Color(0.035, 0.058, 0.083, 0.95)
+bg_color = Color(0.09, 0.18, 0.17, 0.98)
 border_width_left = 1
 border_width_top = 1
 border_width_right = 1
 border_width_bottom = 1
-border_color = Color(0.5, 0.71, 0.73, 0.58)
-corner_radius_top_left = 22
-corner_radius_top_right = 22
-corner_radius_bottom_left = 22
-corner_radius_bottom_right = 22
+border_color = Color(0.65, 0.79, 0.75, 0.58)
+corner_radius_top_left = 14
+corner_radius_top_right = 14
+corner_radius_bottom_left = 14
+corner_radius_bottom_right = 14
 content_margin_left = 32.0
 content_margin_top = 28.0
 content_margin_right = 32.0
@@ -41,23 +41,23 @@ shadow_size = 14
 shadow_offset = Vector2(0, 7)
 
 [sub_resource type="StyleBoxFlat" id="Style_button"]
-bg_color = Color(0.09, 0.15, 0.19, 0.92)
+bg_color = Color(0.16, 0.25, 0.23, 0.72)
 border_width_left = 1
 border_width_top = 1
 border_width_right = 1
 border_width_bottom = 1
-border_color = Color(0.38, 0.56, 0.61, 0.58)
+border_color = Color(0.65, 0.79, 0.75, 0.25)
 corner_radius_top_left = 10
 corner_radius_top_right = 10
 corner_radius_bottom_left = 10
 corner_radius_bottom_right = 10
-content_margin_left = 15.0
+content_margin_left = 10.0
 content_margin_top = 8.0
-content_margin_right = 15.0
+content_margin_right = 10.0
 content_margin_bottom = 8.0
 
 [sub_resource type="StyleBoxFlat" id="Style_button_hover"]
-bg_color = Color(0.14, 0.25, 0.29, 0.98)
+bg_color = Color(0.23, 0.35, 0.31, 0.98)
 border_width_left = 1
 border_width_top = 1
 border_width_right = 1
@@ -67,13 +67,13 @@ corner_radius_top_left = 10
 corner_radius_top_right = 10
 corner_radius_bottom_left = 10
 corner_radius_bottom_right = 10
-content_margin_left = 15.0
+content_margin_left = 10.0
 content_margin_top = 8.0
-content_margin_right = 15.0
+content_margin_right = 10.0
 content_margin_bottom = 8.0
 
 [sub_resource type="StyleBoxFlat" id="Style_button_pressed"]
-bg_color = Color(0.2, 0.34, 0.36, 1)
+bg_color = Color(0.11, 0.22, 0.19, 1)
 border_width_left = 1
 border_width_top = 1
 border_width_right = 1
@@ -83,9 +83,9 @@ corner_radius_top_left = 10
 corner_radius_top_right = 10
 corner_radius_bottom_left = 10
 corner_radius_bottom_right = 10
-content_margin_left = 15.0
+content_margin_left = 10.0
 content_margin_top = 9.0
-content_margin_right = 15.0
+content_margin_right = 10.0
 content_margin_bottom = 7.0
 
 [sub_resource type="StyleBoxFlat" id="Style_focus"]
@@ -101,7 +101,7 @@ corner_radius_bottom_left = 11
 corner_radius_bottom_right = 11
 
 [sub_resource type="StyleBoxFlat" id="Style_input"]
-bg_color = Color(0.018, 0.035, 0.052, 0.96)
+bg_color = Color(0.055, 0.12, 0.11, 0.96)
 border_width_left = 1
 border_width_top = 1
 border_width_right = 1
@@ -117,7 +117,7 @@ content_margin_right = 18.0
 content_margin_bottom = 12.0
 
 [sub_resource type="StyleBoxFlat" id="Style_hint"]
-bg_color = Color(0.025, 0.048, 0.068, 0.76)
+bg_color = Color(0.09, 0.18, 0.17, 0.9)
 border_width_left = 1
 border_width_top = 1
 border_width_right = 1
@@ -141,18 +141,18 @@ corner_radius_top_left = 10
 corner_radius_top_right = 10
 corner_radius_bottom_left = 10
 corner_radius_bottom_right = 10
-content_margin_left = 15.0
+content_margin_left = 10.0
 content_margin_top = 8.0
-content_margin_right = 15.0
+content_margin_right = 10.0
 content_margin_bottom = 8.0
 
 [sub_resource type="StyleBoxFlat" id="Style_pocket"]
-bg_color = Color(0.02, 0.038, 0.052, 0.8)
+bg_color = Color(0.09, 0.18, 0.17, 0.96)
 border_width_left = 1
 border_width_top = 1
 border_width_right = 1
 border_width_bottom = 1
-border_color = Color(0.47, 0.69, 0.71, 0.3)
+border_color = Color(0.65, 0.79, 0.75, 0.45)
 corner_radius_top_left = 8
 corner_radius_top_right = 8
 corner_radius_bottom_left = 8
@@ -169,11 +169,11 @@ Button/styles/hover = SubResource("Style_button_hover")
 Button/styles/pressed = SubResource("Style_button_pressed")
 Button/styles/focus = SubResource("Style_focus")
 Button/styles/disabled = SubResource("Style_disabled")
-Button/colors/font_color = Color(0.87, 0.92, 0.92, 1)
+Button/colors/font_color = Color(0.95, 0.93, 0.88, 1)
 Button/colors/font_hover_color = Color(0.97, 1, 0.98, 1)
 Button/colors/font_pressed_color = Color(1, 0.93, 0.8, 1)
 Button/colors/font_disabled_color = Color(0.48, 0.56, 0.58, 1)
-Label/colors/font_color = Color(0.91, 0.94, 0.93, 1)
+Label/colors/font_color = Color(0.95, 0.93, 0.88, 1)
 LineEdit/styles/normal = SubResource("Style_input")
 LineEdit/styles/focus = SubResource("Style_focus")
 LineEdit/colors/font_color = Color(0.94, 0.96, 0.94, 1)
@@ -214,8 +214,8 @@ theme_override_constants/separation = 9
 [node name="Brand" type="Label" parent="Screen/Header/Row"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_colors/font_color = Color(0.95, 0.82, 0.6, 1)
-theme_override_font_sizes/font_size = 21
+theme_override_colors/font_color = Color(0.84, 0.76, 0.59, 1)
+theme_override_font_sizes/font_size = 20
 text = "I See Me · 课堂对话"
 
 [node name="Spacer" type="Control" parent="Screen/Header/Row"]
@@ -298,9 +298,9 @@ vertical_alignment = 1
 [node name="Chips" type="VBoxContainer" parent="Screen"]
 unique_name_in_owner = true
 layout_mode = 0
-offset_left = 950.0
+offset_left = 24.0
 offset_top = 170.0
-offset_right = 1250.0
+offset_right = 324.0
 offset_bottom = 500.0
 theme = SubResource("Theme_ui")
 theme_override_constants/separation = 10
@@ -434,6 +434,16 @@ layout_mode = 2
 custom_minimum_size = Vector2(112, 46)
 text = "退出"
 
+[node name="CollectedFolio" type="Panel" parent="Screen"]
+visible = false
+offset_left = 974.0
+offset_top = 396.0
+offset_right = 1254.0
+offset_bottom = 700.0
+mouse_filter = 2
+theme = SubResource("Theme_ui")
+theme_override_styles/panel = SubResource("Style_pocket")
+
 [node name="Collected" type="VBoxContainer" parent="Screen"]
 unique_name_in_owner = true
 visible = false
@@ -443,7 +453,7 @@ offset_top = 396.0
 offset_right = 1254.0
 offset_bottom = 700.0
 theme = SubResource("Theme_ui")
-theme_override_constants/separation = 4
+theme_override_constants/separation = 2
 alignment = 2
 
 [node name="CollectedTitleRow" type="PanelContainer" parent="Screen/Collected"]
@@ -453,6 +463,6 @@ theme_override_styles/panel = SubResource("Style_pocket")
 [node name="CollectedTitle" type="Label" parent="Screen/Collected/CollectedTitleRow"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_colors/font_color = Color(0.61, 0.85, 0.84, 0.92)
+theme_override_colors/font_color = Color(0.84, 0.76, 0.59, 1)
 theme_override_font_sizes/font_size = 15
 text = "我看到的 · 0"

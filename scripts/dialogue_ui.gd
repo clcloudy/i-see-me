@@ -20,8 +20,8 @@ const COLLECTED_REGION := Rect2(974, 396, 280, 304)
 ## fov 65°、16:9、距离 1.22 m 时可见半宽约 1.38 m，所以右边缘 = 0.90 + 0.38 = 1.28 仍在画内。
 const COLLECTED_OFFSET := Vector3(0.90, -0.33, -1.22)
 const COLLECTED_WIDTH := 0.76
-## 收集夹一出现，右上的感受词条就整体抬这么高，别被口袋压住（米）。
-const CHIPS_LIFT := 0.17
+## 感受放在左侧，与右下角的事件收集夹分开，不再需要向上避让。
+const CHIPS_LIFT := 0.0
 ## 收集夹最多能放几条（可观察事件只有 8 个；放不下时先挤掉最旧的一条）。
 const COLLECTED_LIMIT := 8
 
@@ -81,6 +81,13 @@ var _hover_panel: int = -1
 
 func _ready() -> void:
 	process_priority = -100
+	_style_header()
+	var title_surface := StyleBoxEmpty.new()
+	title_surface.content_margin_left = 15.0
+	title_surface.content_margin_right = 15.0
+	title_surface.content_margin_top = 8.0
+	title_surface.content_margin_bottom = 8.0
+	collected_title.get_parent().add_theme_stylebox_override("panel", title_surface)
 	skip_button.pressed.connect(func() -> void: advance_requested.emit())
 	pause_button.pressed.connect(func() -> void: pause_requested.emit())
 	mute_button.pressed.connect(func() -> void: mute_requested.emit())
@@ -103,6 +110,42 @@ func configure(content: Dictionary) -> void:
 	quit_button.text = _text("quit")
 
 
+## 小图标由本项目的几何线条绘制，不依赖图标字体或新增外部素材。
+func _style_header() -> void:
+	var paths := [
+		'<path d="M2 12Q12 0 22 12Q12 24 2 12Z"/><circle cx="12" cy="12" r="3"/>',
+		'<path d="m3 6 8 6-8 6Zm9 0 8 6-8 6Z"/>',
+		'<path d="M8 5v14M16 5v14"/>',
+		'<path d="M10 8 6 11H3v4h3l4 3ZM15 9l6 8m0-8-6 8"/>',
+		'<path d="M5 8a8 8 0 1 1-1 8M5 3v5h5"/>',
+		'<path d="M12 2v9M7 5a9 9 0 1 0 10 0"/>',
+	]
+	var targets: Array[Control] = [brand, skip_button, pause_button, mute_button, restart_button, quit_button]
+	for i in range(targets.size()):
+		var image := Image.new()
+		var svg := '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none" stroke="#d6c297" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">%s</g></svg>' % paths[i]
+		if image.load_svg_from_string(svg) != OK:
+			continue
+		var texture := ImageTexture.create_from_image(image)
+		if i == 0:
+			var icon := TextureRect.new()
+			icon.texture = texture
+			icon.custom_minimum_size = Vector2(30, 24)
+			icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			brand.get_parent().add_child(icon)
+			brand.get_parent().move_child(icon, 0)
+		else:
+			var button := targets[i] as Button
+			button.icon = texture
+			button.add_theme_constant_override("icon_max_width", 18)
+			button.add_theme_constant_override("h_separation", 6)
+	var divider := VSeparator.new()
+	divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	brand.get_parent().add_child(divider)
+	brand.get_parent().move_child(divider, brand.get_index() + 1)
+
+
 ## ——— 世界空间面板与输入转发 ———
 
 func _build_world_panels() -> void:
@@ -113,10 +156,11 @@ func _build_world_panels() -> void:
 		call_deferred("_build_world_panels")
 		return
 	_world_ready = true
-	_add_world_panel("Header", %Header, Rect2(24, 22, 806, 66), Vector3(-0.37, 0.52, -1.20), 1.12, true, 1.0)
+	_add_world_panel("Header", %Header, Rect2(24, 22, 806, 66), Vector3(-0.16, 0.52, -1.20), 1.54, true, 1.0)
 	_add_world_panel("Choice", choice_panel, Rect2(320, 230, 640, 260), Vector3(0.0, -0.03, -1.22), 1.02, true)
 	_add_world_panel("Card", card_panel, Rect2(280, 130, 720, 460), Vector3(0.0, 0.0, -1.16), 1.12, true)
-	_add_world_panel("Chips", chips, Rect2(950, 170, 300, 330), Vector3(0.92, 0.02, -1.35), 0.46, false)
+	# 离屏画布上的感受区与收集区也必须分开，否则左侧面片会采样到右侧收集条目。
+	_add_world_panel("Chips", chips, Rect2(24, 170, 300, 330), Vector3(-0.95, -0.02, -1.35), 0.50, false, 0.0, true)
 	_add_world_panel("Transition", transition_label, Rect2(350, 105, 580, 55), Vector3(0.0, 0.12, -1.12), 0.72, false)
 	_add_world_panel("LookHint", look_hint, Rect2(300, 610, 680, 52), Vector3(0.0, -0.53, -1.15), 0.90, false)
 	# 收集夹是屏幕上的一块「口袋」，不该被课桌或同学挡住：叠在所有三维内容之上。
@@ -141,6 +185,9 @@ func _add_world_panel(
 	camera.add_child(root_3d)
 	root_3d.position = camera_offset
 	root_3d.rotation_degrees.x = -4.0 if panel_name in ["Choice", "Card"] else -2.0
+	if panel_name == "Header":
+		root_3d.rotation_degrees.y = -3.0
+		root_3d.rotation_degrees.z = -1.0
 	var sprite := Sprite3D.new()
 	sprite.name = "Surface"
 	var atlas := AtlasTexture.new()
@@ -150,12 +197,15 @@ func _add_world_panel(
 	sprite.pixel_size = world_width / region.size.x
 	sprite.billboard = BaseMaterial3D.BILLBOARD_DISABLED
 	# 收集夹是一块 HUD 性质的口袋：永远浮在最上面，不参与遮挡关系。
-	sprite.no_depth_test = overlay
+	sprite.no_depth_test = overlay or panel_name == "Card"
 	sprite.shaded = false
 	sprite.double_sided = true
 	sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_DISABLED
 	# 顶部控制条排在第二层思绪牌（6）之上：牌飘到画面顶端时不能压住按钮。
-	if overlay:
+	if panel_name == "Card":
+		# 暂停/说明卡必须盖住思绪和收集夹，保证继续与退出按钮可见。
+		sprite.render_priority = 12
+	elif overlay:
 		sprite.render_priority = 9
 	elif panel_name == "Header":
 		sprite.render_priority = 8
@@ -179,6 +229,15 @@ func _add_world_panel(
 func _process(delta: float) -> void:
 	if not _world_ready:
 		return
+	# 菜单出现时暂收观察夹，既让按钮无遮挡，也避免两个离屏区域交叠采样。
+	collected_box.visible = not _collected_rows.is_empty() and not card_panel.visible
+	# 背板随实际条目高度贴底伸展，仍在原有离屏采样区域内。
+	var folio := _screen.get_node_or_null("CollectedFolio") as Panel
+	if folio != null:
+		folio.visible = collected_box.visible
+		var height := minf(COLLECTED_REGION.size.y, collected_box.get_combined_minimum_size().y)
+		folio.position = COLLECTED_REGION.position + Vector2(0, COLLECTED_REGION.size.y - height)
+		folio.size = Vector2(COLLECTED_REGION.size.x, height)
 	for panel in _panels:
 		var control := panel["control"] as Control
 		var root_3d := panel["root"] as Node3D
@@ -191,7 +250,7 @@ func _process(delta: float) -> void:
 		panel["alpha"] = alpha
 		root_3d.visible = alpha > 0.01
 		(panel["sprite"] as Sprite3D).modulate.a = alpha
-		# 收集夹在右下角，会压到右上的感受词条：它一出现就把词条整体抬上去。
+		# 感受与事件收集分居两侧；保留面板的平滑位置更新。
 		var lift := 0.0
 		if control == chips and not _collected_rows.is_empty():
 			lift = CHIPS_LIFT
@@ -329,11 +388,11 @@ func clear_subtitle() -> void:
 func show_chip(title: String, body: String) -> void:
 	var chip := PanelContainer.new()
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.035, 0.063, 0.09, 0.9)
-	style.border_color = Color(0.47, 0.69, 0.71, 0.55)
-	style.set_border_width_all(1)
-	style.border_width_left = 3
-	style.set_corner_radius_all(13)
+	style.bg_color = Color(0.09, 0.18, 0.17, 0.94)
+	style.border_color = Color(0.65, 0.79, 0.75, 0.78)
+	style.set_border_width_all(0)
+	style.border_width_left = 2
+	style.set_corner_radius_all(10)
 	style.content_margin_left = 16
 	style.content_margin_right = 16
 	style.content_margin_top = 13
@@ -342,13 +401,14 @@ func show_chip(title: String, body: String) -> void:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 5)
 	var title_label := Label.new()
-	title_label.text = "第二层  /  " + title
-	title_label.add_theme_font_size_override("font_size", 15)
-	title_label.add_theme_color_override("font_color", Color(0.61, 0.82, 0.82))
+	title_label.text = title
+	title_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	title_label.add_theme_font_size_override("font_size", 18)
+	title_label.add_theme_color_override("font_color", Color(0.65, 0.79, 0.75))
 	var body_label := Label.new()
 	body_label.text = body
-	body_label.add_theme_font_size_override("font_size", 19)
-	body_label.add_theme_color_override("font_color", Color(0.93, 0.94, 0.9))
+	body_label.add_theme_font_size_override("font_size", 24)
+	body_label.add_theme_color_override("font_color", Color(0.95, 0.93, 0.88))
 	body_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(title_label)
 	box.add_child(body_label)
@@ -357,7 +417,7 @@ func show_chip(title: String, body: String) -> void:
 	chips.add_child(chip)
 	var record := {"chip": chip, "done": false}
 	_chip_records.append(record)
-	if _chip_records.size() > 3:
+	if _chip_records.size() > 2:
 		_retire_chip(_chip_records[0])
 	var tween := create_tween()
 	tween.tween_property(chip, "modulate:a", 1.0, 0.25)
@@ -490,15 +550,13 @@ func _build_collected_row(index: int, label: String) -> Control:
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.custom_minimum_size = Vector2(0.0, 30.0)
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.024, 0.046, 0.062, 0.86)
-	style.border_color = Color(0.61, 0.85, 0.84, 0.42)
-	style.set_border_width_all(1)
-	style.border_width_left = 3
-	style.set_corner_radius_all(9)
-	style.content_margin_left = 9
-	style.content_margin_right = 10
-	style.content_margin_top = 3
-	style.content_margin_bottom = 3
+	style.bg_color = Color(0, 0, 0, 0)
+	style.border_color = Color(0.65, 0.79, 0.75, 0.20)
+	style.border_width_top = 1
+	style.content_margin_left = 15
+	style.content_margin_right = 15
+	style.content_margin_top = 4
+	style.content_margin_bottom = 4
 	row.add_theme_stylebox_override("panel", style)
 	var box := HBoxContainer.new()
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -508,7 +566,7 @@ func _build_collected_row(index: int, label: String) -> Control:
 	index_label.text = "%02d" % (index + 1)
 	index_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	index_label.add_theme_font_size_override("font_size", 14)
-	index_label.add_theme_color_override("font_color", Color(0.61, 0.85, 0.84, 0.78))
+	index_label.add_theme_color_override("font_color", Color(0.94, 0.80, 0.57, 0.90))
 	box.add_child(index_label)
 	var name_label := Label.new()
 	name_label.text = str(label)
@@ -516,8 +574,8 @@ func _build_collected_row(index: int, label: String) -> Control:
 	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name_label.clip_text = true
 	name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	name_label.add_theme_font_size_override("font_size", 18)
-	name_label.add_theme_color_override("font_color", Color(0.90, 0.95, 0.93))
+	name_label.add_theme_font_size_override("font_size", 16)
+	name_label.add_theme_color_override("font_color", Color(0.95, 0.93, 0.88))
 	box.add_child(name_label)
 	return row
 
@@ -672,3 +730,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 
 func _text(key: String) -> String:
 	return str(_copy.get(key, key))
+
+
+func thought_heading() -> String:
+	return _text("inner_os")

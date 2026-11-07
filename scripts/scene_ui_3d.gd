@@ -33,6 +33,9 @@ const THOUGHT_COLORS := {
 @export var classmate_anchor: NodePath
 @export var stage_anchor: NodePath
 @export var subtitle_height: float = 1.75
+## 字幕底边与说话者头顶之间留的空隙（米）。字幕永远浮在头顶之上，
+## 不再以人物中心为基准——否则老师站在讲台后时，字幕框正好压住他的脸。
+@export var subtitle_head_gap: float = 0.16
 @export var ripple_color: Color = Color(0.61, 0.85, 0.84, 0.60)
 
 var _flow: Node = null
@@ -42,9 +45,14 @@ var _subtitle: Sprite3D = null
 var _subtitle_viewport: SubViewport = null
 var _subtitle_speaker: Label = null
 var _subtitle_line: Label = null
+var _subtitle_style: StyleBoxFlat = null
 var _subtitle_tween: Tween = null
 ## 当前显示的三维思绪牌（同一时刻只有一块，换下一条时旧的淡出）。
 var _thought: Node3D = null
+## 说话者头顶高度缓存（相对其根节点，米）：人物身高在动画中基本恒定，算一次即可。
+var _head_height_cache := {}
+## 同一人物的事件排队，只保留一个头部点击目标。
+var _observation_queues: Dictionary = {}
 
 
 func _ready() -> void:
@@ -93,32 +101,34 @@ func _build_subtitle() -> void:
 	var panel := PanelContainer.new()
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.025, 0.048, 0.068, 0.88)
-	style.border_color = Color(0.48, 0.68, 0.70, 0.52)
+	_subtitle_style = style
+	style.bg_color = Color(0.09, 0.18, 0.17, 0.97)
+	style.border_color = Color(0.78, 0.67, 0.46, 0.85)
 	style.set_border_width_all(1)
-	style.set_corner_radius_all(18)
-	style.content_margin_left = 24
-	style.content_margin_right = 24
-	style.content_margin_top = 17
-	style.content_margin_bottom = 18
+	style.border_width_left = 4
+	style.set_corner_radius_all(14)
+	style.content_margin_left = 30
+	style.content_margin_right = 30
+	style.content_margin_top = 18
+	style.content_margin_bottom = 20
 	style.shadow_color = Color(0, 0, 0, 0.32)
-	style.shadow_size = 10
-	style.shadow_offset = Vector2(0, 5)
+	style.shadow_size = 4
+	style.shadow_offset = Vector2(0, 2)
 	panel.add_theme_stylebox_override("panel", style)
 	_subtitle_viewport.add_child(panel)
 	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
 	var box := VBoxContainer.new()
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.add_theme_constant_override("separation", 7)
+	box.add_theme_constant_override("separation", 9)
 	panel.add_child(box)
 	_subtitle_speaker = Label.new()
-	_subtitle_speaker.add_theme_font_size_override("font_size", 23)
+	_subtitle_speaker.add_theme_font_size_override("font_size", 22)
 	_subtitle_speaker.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(_subtitle_speaker)
 	_subtitle_line = Label.new()
 	_subtitle_line.add_theme_font_size_override("font_size", 36)
-	_subtitle_line.add_theme_color_override("font_color", Color(0.93, 0.96, 0.94))
+	_subtitle_line.add_theme_color_override("font_color", Color(0.95, 0.93, 0.88))
 	_subtitle_line.add_theme_constant_override("line_spacing", 5)
 	_subtitle_line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_subtitle_line.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -150,6 +160,7 @@ func _on_stage_changed(stage_id: StringName) -> void:
 
 
 func _clear_orbs() -> void:
+	_observation_queues.clear()
 	for child in get_children():
 		if child is EventOrbScript:
 			remove_child(child)
@@ -166,33 +177,68 @@ func _add_ripple(ripple: Node3D) -> void:
 func _on_world_subtitle(speaker_key: StringName, display: String, text: String) -> void:
 	if _subtitle_tween != null and _subtitle_tween.is_valid():
 		_subtitle_tween.kill()
-	var anchor := _anchor_for_speaker(speaker_key)
-	var pos := anchor.global_position if anchor != null else Vector3.ZERO
-	match speaker_key:
-		&"teacher":
-			pos.y += subtitle_height
-		&"classmate":
-			pos.y += 0.85
-		&"protagonist":
-			pos.y += 1.55
-		&"stage":
-			pass # StageAnchor 已经是旁白面板的实际高度，不再重复加人物身高。
-	if speaker_key == &"protagonist" and _camera != null and _camera.global_position.distance_to(pos) < 0.9:
-		pos = _camera.global_position - _camera.global_basis.z * 1.95 - _camera.global_basis.y * 0.40
-	_subtitle.global_position = pos
-
 	_subtitle.pixel_size = 0.0021 if speaker_key == &"protagonist" else 0.0027
 	_subtitle_speaker.text = str(display)
+	var accent: Color = SPEAKER_COLORS.get(speaker_key, Color(0.65, 0.79, 0.75))
+	_subtitle_style.border_color = Color(accent.r, accent.g, accent.b, 0.65)
 	_subtitle_speaker.add_theme_color_override(
 		"font_color", SPEAKER_COLORS.get(speaker_key, Color(0.72, 0.82, 0.83))
 	)
 	_subtitle_line.text = str(text)
 	var lines := maxi(1, ceili(float(str(text).length()) / 16.0))
-	_subtitle_viewport.size = Vector2i(680, 124 + lines * 56)
+	_subtitle_viewport.size = Vector2i(680, 82 + lines * 52)
+
+	var anchor := _anchor_for_speaker(speaker_key)
+	var pos := anchor.global_position if anchor != null else Vector3.ZERO
+	# 老师的字幕以「底边贴着头顶」摆放：行数变了只向上长，长句也不会压到脸。
+	# 面板中心要比头顶再高半个面板高度，所以这里按实际像素尺寸换算世界高度。
+	var half_height := float(_subtitle_viewport.size.y) * _subtitle.pixel_size * 0.5
+	match speaker_key:
+		&"teacher":
+			pos.y += _head_height(anchor, subtitle_height) + subtitle_head_gap + half_height
+		&"classmate":
+			pos.y += 0.85
+		&"protagonist":
+			pos.y += 1.55
+		&"stage":
+			# StageAnchor 是旁白框的「底边高度」，同样按行数往上长，
+			# 这样多行旁白只会向黑板方向展开，不会往下压住讲台前的老师。
+			pos.y += half_height
+	if speaker_key == &"protagonist" and _camera != null and _camera.global_position.distance_to(pos) < 0.9:
+		pos = _camera.global_position - _camera.global_basis.z * 1.95 - _camera.global_basis.y * 0.40
+	_subtitle.global_position = pos
+
 	_subtitle.visible = true
 	_subtitle.modulate.a = 0.0
 	_subtitle_tween = create_tween()
 	_subtitle_tween.tween_property(_subtitle, "modulate:a", 1.0, 0.18)
+
+
+## 说话者头顶相对其根节点原点的高度（米）。
+## 用网格包围盒实测，模型换了不用再改常量；拿不到网格时退回 fallback。
+func _head_height(anchor: Node3D, fallback: float) -> float:
+	if anchor == null:
+		return fallback
+	var key := anchor.get_instance_id()
+	if _head_height_cache.has(key):
+		return float(_head_height_cache[key])
+	var top := -INF
+	var base := anchor.global_position.y
+	var stack: Array[Node] = [anchor]
+	while stack.size() > 0:
+		var node: Node = stack.pop_back()
+		for child in node.get_children():
+			stack.append(child)
+		var mesh := node as MeshInstance3D
+		if mesh == null or not mesh.is_visible_in_tree():
+			continue
+		var box: AABB = mesh.global_transform * mesh.get_aabb()
+		top = maxf(top, box.position.y + box.size.y)
+	var height := fallback
+	if top > -INF:
+		height = clampf(top - base, 0.6, 3.0)
+	_head_height_cache[key] = height
+	return height
 
 
 func _on_world_subtitle_cleared() -> void:
@@ -208,10 +254,38 @@ func _on_world_subtitle_cleared() -> void:
 ## ——— 可观察事件 ———
 
 func _on_event_observed(event_id: StringName, label: String, world_position: Vector3) -> void:
+	var actor: Node3D = null
+	if _flow != null and _flow.has_method("observation_actor"):
+		actor = _flow.observation_actor(event_id)
+	var entry := {"id": event_id, "label": label, "position": world_position, "actor": actor}
+	if actor != null:
+		var key := actor.get_instance_id()
+		if _observation_queues.has(key):
+			_observation_queues[key].append(entry)
+			return
+		_observation_queues[key] = [entry]
+	_spawn_observation(entry)
+
+
+func _spawn_observation(entry: Dictionary) -> void:
 	var orb := EventOrbScript.new()
-	orb.setup(world_position, str(label))
-	orb.collected.connect(_on_orb_collected.bind(event_id))
+	orb.setup(entry.position, str(entry.label))
+	orb.collected.connect(_on_orb_collected.bind(entry.id))
 	add_child(orb)
+	if is_instance_valid(entry.actor):
+		orb.bind_actor(entry.actor)
+		orb.collected.connect(_advance_observation.bind(entry.actor.get_instance_id()))
+
+
+func _advance_observation(_orb: EventOrb3D, actor_id: int) -> void:
+	if not _observation_queues.has(actor_id):
+		return
+	var entries: Array = _observation_queues[actor_id]
+	entries.pop_front()
+	if entries.is_empty():
+		_observation_queues.erase(actor_id)
+	else:
+		_spawn_observation(entries[0])
 
 
 func _on_orb_collected(orb: Node, event_id: StringName) -> void:
@@ -230,9 +304,10 @@ func _on_orb_collected(orb: Node, event_id: StringName) -> void:
 ## ——— 第二层的三维思绪 ———
 
 ## 一条内心 OS / 回溯 / 概念，长在它对应的地方：宿舍楼下那个座位、桌角那支笔、
-## 或者抽离之后围着自己的那圈概念。位置由流程给（世界坐标），这里只负责长得好看。
+## 或者抽离之后围着自己的那圈概念。流程提供世界坐标与可选人物，人物事件实时跟随头部。
 func _on_thought_presented(
-	title: String, body: String, anchor: Vector3, kind: StringName, origin: Vector3
+	title: String, body: String, anchor: Vector3, kind: StringName, origin: Vector3,
+	actor: Node3D = null
 ) -> void:
 	if not is_inside_tree():
 		return
@@ -240,9 +315,13 @@ func _on_thought_presented(
 	var thought := ThoughtScript.new()
 	if thought == null:
 		return
-	thought.setup(title, body, THOUGHT_COLORS.get(kind, THOUGHT_COLORS[&"seen"]))
+	var heading := ""
+	if kind == &"seen" and _interface != null:
+		heading = str(_interface.call("thought_heading"))
+	thought.setup(title, body, THOUGHT_COLORS.get(kind, THOUGHT_COLORS[&"seen"]), heading)
 	add_child(thought)
 	thought.global_position = anchor
+	thought.bind_actor(actor)
 	# 收集过的观察带着起点（右下角收集夹）：从那儿飞过来，落在这件事发生的位置。
 	if origin.is_finite():
 		thought.appear_from(origin)

@@ -21,6 +21,7 @@
   },
   "pose_transition_seconds": 0.5,
   "ui": {
+	"inner_os": "内心 OS",
 	"brand": "I See Me · 课堂对话",
 	"pause": "暂停",
 	"resume": "继续体验",
@@ -744,6 +745,7 @@
 	  "step": 5,
 	  "label": "有人还在忙自己的事",
 	  "orb_position": [-1.20, 1.05, -0.62],
+	  "observation_actor": "busy_hands",
 	  "short": "邻座",
 	  "note": "第 5 步与「同学们三两回头看主角」同步：有人回头看，也有人根本没抬头。不写「稍微松了口气」——松口气发生在主角被点到之后（见 step 3 的 relief 事件）。",
 	  "clips": [
@@ -785,6 +787,7 @@
 	  "step": 3,
 	  "label": "同学们稍微松了口气",
 	  "orb_position": [-1.72, 1.22, 0.30],
+	  "observation_actor": "relief_a",
 	  "short": "松口气",
 	  "note": "被点到的是我，教室里绷着的那口气却在别人身上松下来：站起来以后，斜前方有人靠回椅背、抬起下巴。",
 	  "poses": [
@@ -868,6 +871,7 @@
 	  "step": 3,
 	  "label": "被悄悄捡回来的笔",
 	  "orb_position": [-0.62, 1.35, 1.28],
+	  "observation_actor": "pen_deskmate",
 	  "short": "捡笔",
 	  "note": "捡笔的是同桌（SeatC06，座位在主角左手边 0.5 m）：笔从自己桌边滚到两人课桌之间的地上，他弯腰去捡、慢慢直起，再把笔放回主角课本旁。动作刻意放慢（弯腰 2.6 s、起身 2.6 s），留给玩家看清楚的余量。",
 	  "props": [
@@ -931,6 +935,7 @@
 	  "step": 5,
 	  "label": "同学们三两回头看主角",
 	  "orb_position": [-0.70, 1.55, -0.05],
+	  "observation_actor": "glance_a",
 	  "short": "回头",
 	  "note": "回头的人全部换成正前方第一排（B05/B08/B07）：第一人称下只有这一排在默认视角里。B06（画方格的那个）不回头——同一时刻他正低着头忙自己的事（事件05），两个人不能是同一个座位。回头的速度放慢到 1.6~2.0 s 才转到位，每个人保持回头 3 s 以上再慢慢转回去，三个人错开，能看清是谁在看。",
 	  "clips": [
@@ -990,6 +995,7 @@
 	  "step": 6,
 	  "label": "E02｜低笑",
 	  "orb_position": [-1.20, 1.52, -0.05],
+	  "observation_actor": "laugh",
 	  "short": "低笑",
 	  "clips": [
 		{
@@ -1039,6 +1045,7 @@
 	  "step": 6,
 	  "label": "03｜被听成了另一个意思",
 	  "orb_position": [-2.20, 1.50, -0.05],
+	  "observation_actor": "misheard_speaker",
 	  "short": "误听",
 	  "clips": [
 		{
@@ -1097,6 +1104,7 @@
 	  "step": 9.1,
 	  "label": "E03｜轻声赞同",
 	  "orb_position": [0.70, 1.50, -0.05],
+	  "observation_actor": "nod",
 	  "short": "赞同",
 	  "clips": [
 		{
@@ -1137,6 +1145,7 @@
 	  "step": 9,
 	  "label": "04｜听见不同意见",
 	  "orb_position": [-1.70, 1.48, -0.42],
+	  "observation_actor": "dissent",
 	  "short": "分歧",
 	  "clips": [
 		{

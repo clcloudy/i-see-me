@@ -38,7 +38,8 @@ signal observation_collected(event_id: StringName, label: String)
 ## origin 是「这一条从哪儿飞出来」：L1 收集过的观察从屏幕右下的收集夹起飞，
 ## 其余（回溯 / 倒放 / 概念）没有起点，用 Vector3.INF 表示直接淡入。
 signal thought_presented(
-	title: String, body: String, anchor: Vector3, kind: StringName, origin: Vector3
+	title: String, body: String, anchor: Vector3, kind: StringName, origin: Vector3,
+	actor: Node3D
 )
 signal thought_cleared
 
@@ -509,7 +510,7 @@ func _fire_event(event_id: String, gen: int) -> void:
 			var recover_after := float(event_camera["recover"])
 			_schedule(recover_after, func(): camera.set_look_target(_beat_look_target))
 
-	# 三维观察提示使用内容里明确标注的动作部位坐标，不再拿镜头目标代替。
+	# 事件坐标仍供第二层思绪使用；第一层提示由世界层绑定 observation_actor 的头部。
 	# 环境事件可用 orb=false 只保留字幕、词条与声纹。
 	if bool(event.get("orb", true)):
 		event_observed.emit(StringName(event_id), str(event.get("label", event_id)), event_world)
@@ -681,6 +682,7 @@ func _build_l2_cards() -> void:
 		if lines.is_empty():
 			continue
 		var card_title := str(entry.get("label", ""))
+		var actor := observation_actor(StringName(str(entry.get("id", ""))))
 		if bool(entry.get("collected", false)):
 			card_title = os_title + " · " + card_title
 		_l2_cards.append({
@@ -689,7 +691,7 @@ func _build_l2_cards() -> void:
 			"seconds": base + per_line * lines.size(),
 			"voice": str(entry.get("os_voice", "")),
 			"kind": &"seen",
-			"position": entry.get("position", _seat + Vector3(0.0, _seated_height, 0.0)),
+			"position": EventOrb3D.head_position(actor) if actor != null else entry.get("position", _seat + Vector3(0.0, _seated_height, 0.0)),
 			# 这一条是从收集夹里飞出来的：记下事件 id，展开时才知道抽哪一行。
 			"source_event": str(entry.get("id", "")),
 		})
@@ -867,6 +869,9 @@ func _present_l2_card(card: Dictionary) -> void:
 	var title := str(card.get("title", ""))
 	var body := str(card.get("body", ""))
 	var anchor: Vector3 = card.get("position", _seat + Vector3(0.0, _seated_height, 0.0))
+	var actor := observation_actor(StringName(str(card.get("source_event", ""))))
+	if actor != null:
+		anchor = EventOrb3D.head_position(actor)
 	# 先在镜头里正对这一条，再让牌出现：牌一出来就在画面中央，
 	# 而不是先在画面边角露一下、再被 _shift_into_frame 推回来。
 	_aim_l2_camera(anchor)
@@ -878,7 +883,7 @@ func _present_l2_card(card: Dictionary) -> void:
 	if thought_presented.get_connections().is_empty():
 		interface.show_card(title, body)
 		return
-	thought_presented.emit(title, body, anchor, card.get("kind", &"seen"), origin)
+	thought_presented.emit(title, body, anchor, card.get("kind", &"seen"), origin, actor)
 
 
 ## 第二层：把镜头转向正在播放的这一条。
@@ -1062,6 +1067,13 @@ func _actor_node(name: String) -> Node:
 	var node: Node = seating.get_node_or_null(seat) if seating != null else null
 	_actor_cache[name] = node
 	return node
+
+
+## 第一层观察人物由内容明确指定，避免把桌面/声音坐标当成点击位置。
+func observation_actor(event_id: StringName) -> Node3D:
+	var event: Dictionary = _content.get("events", {}).get(str(event_id), {})
+	var actor := str(event.get("observation_actor", ""))
+	return _actor_node(actor) as Node3D if not actor.is_empty() else null
 
 
 ## `transition` 为该次姿态切换的过渡秒数；< 0 表示用内容里的默认值
