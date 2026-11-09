@@ -35,6 +35,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\Export-Windows.ps1
 
 预设按主课堂场景及其依赖导出，显式补入脚本所引用的辅助类、着色器与图标，并包含通过 JSON 动态加载的 19 个现有音轨及
 `content/classroom_dialogue.json`、`content/reflection.json`。新增音轨或动态读取的内容配置后应同步 `export_presets.cfg`。
+反思模块四个脚本、头顶观察图标与人物描边着色器也须显式列入导出；现有资源筛选未自动收集这些脚本的预加载依赖。
 构建使用编辑器生成 `assets/lightmaps/classroom_uv2_cache.res`，发行模板直接应用这份 UV2 数据，
 不在运行时调用仅编辑器支持的 `lightmap_unwrap`。缓存是可重建的忽略文件，不改源场景或重烘光照。
 不导出测试、演示场景、开发文档、原始素材包、本机日志、未知临时文件或凭据。
