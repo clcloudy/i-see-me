@@ -424,6 +424,8 @@ func set_focus_point(point: Vector3) -> void:
 	_focus_point = point
 	if _active:
 		_update_focus_point()
+	if _isolating:
+		_show_l3_floor()
 
 
 ## 用节点指定球心；height 为相对节点原点的抬高量（米），默认沿用 focus_height。

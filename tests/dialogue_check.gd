@@ -7,6 +7,7 @@ extends SceneTree
 ## 运行：Godot_v4.6.1-stable_win64_console.exe --headless --path . --script res://tests/dialogue_check.gd
 
 var _failures: int = 0
+var _assigned_feelings_seen: bool = false
 
 ## 教师开场站位（讲台台面上、铁讲台后方居中）。
 ## 与 content/classroom_dialogue.json 的 teacher.podium_position 保持一致；
@@ -55,6 +56,11 @@ func _run() -> void:
 	_flow.time_scale = 0.05
 	_flow_state.transition_seconds = 0.0
 	_flow_state.isolation_seconds = 0.0
+	# 持续监测短暂词条，避免只在流程结束后检查而漏掉已经消失的感受卡。
+	process_frame.connect(func() -> void:
+		if is_instance_valid(_ui) and _ui.chips.get_child_count() > 0:
+			_assigned_feelings_seen = true
+	)
 	await _check_initial()
 	await _check_pose_transition()
 	await _check_step_zero_free_look()
@@ -62,11 +68,14 @@ func _run() -> void:
 	await _check_orb_click_collect()
 	await _run_answer_flow()
 	await _run_empty_answer_flow()
+	await _check_dissent_timing()
 	await _check_skip_and_pause()
 	await _check_restart()
 	await _check_world_panel_click()
 	await _check_transient_fx_entries()
 	_check_voice_manifest()
+	_check_pen_fall_dialogue()
+	_check(not _assigned_feelings_seen, "Classroom events never assign feelings through automatic cards.")
 	_main.queue_free()
 	await process_frame
 	if _failures == 0:
@@ -493,31 +502,30 @@ func _run_answer_flow() -> void:
 	# L2：回溯到 0，再倒放（只有一套文案）
 	var bodies := _flow.debug_l2_card_bodies()
 	_check(bodies.has("回到你被点到名字之前。"), "L2 starts by rewinding to step 0.")
-	_check(
-		bodies.has("我站起来的时候，手扶着桌沿。"),
-		"The single replay set appears in the second layer."
-	)
-	_check(bodies.has("我能看见自己在紧张，光是看见，就平静了一点。"), "Observation cards appear.")
-	# 进入第二层 = 收集窗口结束：没点开的提示不能留到已经灰化的教室里
-	var leftover := 0
-	var world := _main.get_node_or_null("WorldUI")
-	if world != null:
-		for child in world.get_children():
-			if child is EventOrb3D:
-				leftover += 1
-	_check(leftover == 0, "Entering the second layer clears the unopened markers (got %d)." % leftover)
-	# L1 的收集 → L2 的内心 OS：点开过的那条才回放
-	_check_l2_observation_cards()
-	# 第二层的思绪长在事件发生的位置上，不是相机前的一块面片
-	await _check_l2_thoughts()
-	# L1 收进右下角的那几条，是一条条被抽走、飞到教室里的（不是结束时一起清空）
-	await _check_collection_pocket()
-	await _check_seated_sinks("ending")
+	_check(not bodies.has("我能看见自己在紧张，光是看见，就平静了一点。"), "L2 no longer assigns a feeling to the player.")
+	await _wait_until(func() -> bool: return _flow.reflection.page == "select", 1800)
+	var session: Node = _flow.reflection
+	_check(session.page == "select", "Rewind enters observation selection.")
+	var ids: Array = []
+	for entry in session.entries:
+		ids.append(str(entry["id"]))
+	for id in _content_events().keys():
+		var event: Dictionary = _content_events()[id]
+		if bool(event.get("orb", true)) and not _flow._collected.has(id):
+			_check(not ids.has(id), "Uncollected observation is not offered: " + str(id))
+	_check(ids.has("quiet"), "Experienced environment events can be selected.")
 	await _check_l2_state()
-	await _wait_until(func() -> bool: return _flow_state.is_l3(), 1200)
-	_check(_flow_state.is_l3(), "Observation cards enter the L3 isolation.")
-	await _wait_until(func() -> bool: return _flow.stage == &"complete", 12000)
-	_check(_flow.stage == &"complete", "L2 cards finish at completion.")
+	session._action("complete")
+	_check(session.page == "consent", "No selection permits continuing without invented thoughts.")
+	session._action("local")
+	await process_frame
+	_check(_flow.stage == &"l3" and _flow_state.is_l3(), "Local reflection enters L3 isolation.")
+	_check(session.page == "theory", "L3 begins with psychology introductions even without input.")
+	await _wait_until(func() -> bool: return not session.gallery.moving, 1800)
+	session._action("theory_done")
+	await _wait_until(func() -> bool: return not session.gallery.moving, 1800)
+	session._action("finish")
+	_check(_flow.stage == &"complete", "Explicit completion ends the reflection.")
 	_check(not _flow_state.is_active(), "Completion leaves the flow state.")
 	print("CHECK: answer flow")
 
@@ -608,20 +616,56 @@ func _run_empty_answer_flow() -> void:
 	var labels := _flow.debug_event_labels()
 	_check(labels.has("04｜听见不同意见"), "Step 9 fires the dissent after an empty answer.")
 	_check(labels.has("E03｜轻声赞同"), "E03 fires no matter what was answered.")
-	_check(
-		_flow.debug_l2_card_bodies().has("我站起来的时候，手扶着桌沿。"),
-		"The same replay set is used for an empty answer."
-	)
-	# 这一轮一个提示都没点：有提示的观察全部不进第二层，环境事件照旧
-	_check(
-		not _l2_has_line("他们在看我"),
-		"Without collecting, no observation inner voice appears in L2."
-	)
-	_check(_l2_has_line("轮到我说了"), "Environment events still speak when nothing was collected.")
+	await _wait_until(func() -> bool: return _flow.reflection.page == "select", 1800)
+	var offered: Array = _flow.reflection.entries
+	for entry in offered:
+		_check(not bool(entry.get("orb", true)), "Without collecting only experienced environment events are offered.")
+	_check(_flow.reflection.drafts.is_empty(), "No automatic inner voice is supplied.")
 	print("CHECK: empty answer")
 
 
 # ——— 跳过与暂停 ———
+
+func _check_dissent_timing() -> void:
+	var observed: Array[int] = []
+	var spoken: Array[int] = []
+	var on_observed := func(id: StringName, _label: String, _position: Vector3) -> void:
+		if id == &"dissent":
+			observed.append(Engine.get_process_frames())
+			_check(_flow._voice.playing, "Dissent audio is playing when its marker appears.")
+	var on_subtitle := func(_speaker: StringName, _display: String, text: String) -> void:
+		if text == "我还是觉得应该再试试。":
+			spoken.append(Engine.get_process_frames())
+	_flow.event_observed.connect(on_observed)
+	_ui.world_subtitle.connect(on_subtitle)
+	_flow.restart()
+	_flow.time_scale = 0.2
+	_flow._enter_ending()
+	await _wait_until(func() -> bool: return _flow._beat_fired.has("dissent"), 300)
+	await create_timer(0.12).timeout
+	_check(observed.is_empty(), "Dissent marker waits through the action lead-in until speech starts.")
+	_flow.toggle_pause()
+	await create_timer(0.6, true).timeout
+	_check(observed.is_empty() and spoken.is_empty(), "Pause freezes both the pending dissent marker and speech.")
+	_flow.toggle_pause()
+	await _wait_until(func() -> bool: return not spoken.is_empty(), 300)
+	_check(observed.size() == 1 and spoken.size() == 1, "Dissent marker and speech each start once.")
+	if observed.size() == 1 and spoken.size() == 1:
+		_check(observed[0] == spoken[0], "Dissent marker and spoken subtitle start on the same frame.")
+	# 跳过已开始动作、尚未说话的节拍，不能补发延迟提示或台词。
+	_flow.restart()
+	observed.clear()
+	spoken.clear()
+	_flow._enter_ending()
+	await _wait_until(func() -> bool: return _flow._beat_fired.has("dissent"), 300)
+	_flow.skip()
+	await create_timer(0.7).timeout
+	_check(observed.is_empty() and spoken.is_empty(), "Skipping the dissent lead-in cancels its pending marker and speech.")
+	_flow.event_observed.disconnect(on_observed)
+	_ui.world_subtitle.disconnect(on_subtitle)
+	_flow.time_scale = 0.05
+	print("CHECK: dissent marker/audio timing")
+
 
 func _check_skip_and_pause() -> void:
 	_restart_and_enter()
@@ -865,6 +909,49 @@ func _check_voice_manifest() -> void:
 	print("CHECK: voice manifest")
 
 
+# ——— 捡笔的两句台词（同桌递笔 → 我道谢）———
+
+func _check_pen_fall_dialogue() -> void:
+	var event: Dictionary = _flow._content.get("events", {}).get("pen_fall", {})
+	var voices := _flow._event_voices(event)
+	_check(voices.size() == 2, "Pen pickup has two lines (classmate then protagonist).")
+	if voices.size() != 2:
+		return
+	_check(str(voices[0].get("speaker", "")) == "classmate", "The first pen line is the classmate's.")
+	_check(str(voices[1].get("speaker", "")) == "protagonist", "The second pen line is the protagonist's.")
+	var first_path := _flow._resolve_cue("voice", str(voices[0].get("cue", "")))
+	var second_path := _flow._resolve_cue("voice", str(voices[1].get("cue", "")))
+	_check(
+		ResourceLoader.exists(first_path) and ResourceLoader.exists(second_path),
+		"Both pen lines have recorded audio."
+	)
+	var first_end := float(voices[0].get("at", 0.0)) + maxf(
+		float(voices[0].get("seconds", 0.0)), _flow._voice_length(first_path)
+	)
+	_check(
+		float(voices[1].get("at", 0.0)) >= first_end,
+		"The thank-you starts after the classmate's line (shared Voice channel)."
+	)
+	var last_end := float(voices[1].get("at", 0.0)) + maxf(
+		float(voices[1].get("seconds", 0.0)), _flow._voice_length(second_path)
+	)
+	var event_at := 0.0
+	var hold := 0.0
+	for b in _flow._content.get("beats", []):
+		var beat: Dictionary = b
+		if int(beat.get("step", -1)) != 3:
+			continue
+		hold = float(beat.get("hold", 0.0))
+		for e in beat.get("events", []):
+			if str((e as Dictionary).get("id", "")) == "pen_fall":
+				event_at = float((e as Dictionary).get("at", 0.0))
+	_check(
+		hold > 0.0 and event_at + last_end <= hold,
+		"Step 3 holds long enough for both pen lines."
+	)
+	print("CHECK: pen pickup two-line dialogue")
+
+
 # ——— L2 状态 ———
 
 func _check_l2_state() -> void:
@@ -953,160 +1040,6 @@ func _check_seated_sinks(where: String) -> void:
 
 
 # ——— 工具 ———
-
-## L2 的「我看到的」按收集过滤：有提示的事件必须被点开才回放内心 OS，
-## 没点开的不能出现；没有提示的环境事件（忽然安静 / 课堂往下走）仍然保留。
-func _check_l2_observation_cards() -> void:
-	var events := _content_events()
-	var collected := _flow.debug_collected_labels()
-	_check(not collected.is_empty(), "The run collected at least one observation.")
-	var present := 0
-	var absent := 0
-	for id in events.keys():
-		var event: Dictionary = events[id]
-		if not bool(event.get("orb", true)):
-			continue
-		var thoughts: Array = event.get("thoughts", [])
-		if thoughts.is_empty():
-			continue
-		var line := str(thoughts[0])
-		if collected.has(str(event.get("label", id))):
-			_check(_l2_has_line(line), "Collected observation becomes an inner-voice card: " + line)
-			present += 1
-		else:
-			_check(not _l2_has_line(line), "Uncollected observation stays out of the second layer: " + line)
-			absent += 1
-	_check(
-		present > 0 and absent > 0,
-		"The second layer filters observations by collection (%d in / %d out)." % [present, absent]
-	)
-	# 收集到的观察卡在标题上标出来源，和环境事件（没有提示可点）区分开
-	var prefixed := 0
-	for title in _flow.debug_l2_card_titles():
-		if str(title).begins_with("我看到的 · "):
-			prefixed += 1
-	_check(
-		prefixed == collected.size(),
-		"Every collected observation gets a 「我看到的」 card (%d of %d)." % [prefixed, collected.size()]
-	)
-	_check(_l2_has_line("轮到我说了"), "Environment events (no marker) keep their inner voice.")
-
-
-func _l2_has_line(text: String) -> bool:
-	for body in _flow.debug_l2_card_bodies():
-		if str(body).contains(text):
-			return true
-	return false
-
-
-## L1 收集 → L2 展开的连贯性：口袋里的每一条要在它对应的卡片播放时被抽走，
-## 而不是等到第二层结束再一起清空（那样玩家看不出东西去了哪）。
-func _check_collection_pocket() -> void:
-	var collected := _flow.debug_collected_labels().size()
-	_check(collected > 0, "The run collected at least one observation before the second layer.")
-	var pocket := _ui.debug_collected_rows().size()
-	_check(pocket <= collected, "The pocket holds at most the observations collected in L1.")
-	await _wait_until(func() -> bool: return _ui.debug_expanded_count() > 0, 4000)
-	_check(
-		_ui.debug_expanded_count() > 0,
-		"A collected observation is taken out of the pocket when its card plays."
-	)
-	_check(
-		_ui.debug_collected_rows().size() < pocket or _ui.debug_collected_rows().is_empty(),
-		"The pocket shrinks as its observations unfold into the classroom."
-	)
-
-
-# ——— 第二层的三维思绪（长在世界坐标上） ———
-
-## 第二层不再是「相机前的一块面片」：
-## - 每一条词条都带世界坐标，落点是它对应的地方（观察 = 事件人物头部，
-##   回溯 = 自己课桌上方，倒放 = 沿过道往讲台，概念 = 抽离后围着主角的一圈）；
-## - 场上同时只有一块 L2Thought3D，并且它必须在这块相机画幅里；
-## - 它打进 dialogue_fx 组，所以灰泥材质替换与 L3 隐藏都不会波及它（否则字会跟着变灰/消失）。
-func _check_l2_thoughts() -> void:
-	await process_frame
-	_check(not _ui.card_panel.visible, "L2 does not fall back to the flat camera panel.")
-	var world := _main.get_node_or_null("WorldUI")
-	_check(world != null, "The world layer exists to host the L2 thoughts.")
-	if world == null:
-		return
-	var thoughts: Array = []
-	for child in world.get_children():
-		if child is L2Thought3D:
-			thoughts.append(child)
-	_check(thoughts.size() == 1, "Exactly one thought is on stage in L2 (got %d)." % thoughts.size())
-	var entries := _flow.debug_l2_card_positions()
-	_check(entries.size() > 0, "Every L2 card carries a world anchor.")
-	# 落点必须都在教室里（不是随便飘在虚空或相机原点）
-	var outside: Array[String] = []
-	var concepts := 0
-	for entry in entries:
-		var point: Vector3 = entry["position"]
-		if absf(point.x) > 6.0 or point.z > 5.0 or point.z < -6.0 or point.y < 0.6 or point.y > 3.0:
-			outside.append("%s(%.2f, %.2f, %.2f)" % [str(entry["title"]), point.x, point.y, point.z])
-		if str(entry["kind"]) == "concept":
-			concepts += 1
-			_check(
-				point.distance_to(Vector3(-0.7, 1.36, 1.78)) < 1.8,
-				"Concept cards float around the seated protagonist (%.2f m)."
-				% point.distance_to(Vector3(-0.7, 1.36, 1.78))
-			)
-	_check(outside.is_empty(), "Every L2 thought anchors inside the classroom: " + ", ".join(outside))
-	_check(concepts > 0, "The observation cards become concept cards around the protagonist.")
-	# 收集到的观察：与第一层提示共用人物头部锚点。
-	var events := _content_events()
-	for label in _flow.debug_collected_labels():
-		var expected := Vector3.ZERO
-		var found := false
-		for id in events.keys():
-			if str((events[id] as Dictionary).get("label", "")) != str(label):
-				continue
-			var actor := _flow.observation_actor(StringName(id))
-			if actor != null:
-				expected = EventOrb3D.head_position(actor)
-				found = true
-		if not found:
-			continue
-		var matched := false
-		for entry in entries:
-			if str(entry["title"]).contains(str(label)) and (entry["position"] as Vector3).distance_to(expected) < 0.01:
-				matched = true
-		_check(matched, "「%s」的思绪落在它发生的位置（%s）。" % [str(label), str(expected)])
-	# 场上的那块：在前方、在画幅内、且不进灰泥材质清单
-	if thoughts.is_empty():
-		return
-	var thought := thoughts[0] as L2Thought3D
-	_check(
-		thought.is_in_group(L2FlowState.TRANSIENT_FX_GROUP),
-		"L2 thoughts stay out of the clay material list."
-	)
-	var card_point := thought.card_position()
-	_check(
-		not _camera.camera.is_position_behind(card_point),
-		"The live thought card faces the camera from inside the room."
-	)
-	var screen := _camera.camera.unproject_position(card_point)
-	_check(
-		screen.x > 0.0 and screen.x < float(root.size.x) and screen.y > 0.0 and screen.y < float(root.size.y),
-		"The live thought card lands inside the frame (%s)." % str(screen)
-	)
-	# 镜头逐条「正对」正在播放的那一条：注视点落在它的锚点上方，而不是一直盯着主角。
-	var anchor := thought.anchor_position()
-	var aimed := _camera.look_target()
-	var flat := Vector2(aimed.x - anchor.x, aimed.z - anchor.z).length()
-	_check(
-		flat < 0.05 and aimed.y > anchor.y,
-		"The camera faces the card that is playing (aim %s over anchor %s)." % [str(aimed), str(anchor)]
-	)
-	# 正对之后牌面应该落在画面中央一带（不再靠 _shift_into_frame 从画面边缘推回来）
-	var norm := Vector2(screen.x / float(root.size.x), screen.y / float(root.size.y))
-	_check(
-		norm.x > 0.28 and norm.x < 0.72 and norm.y > 0.15 and norm.y < 0.8,
-		"The aimed card sits in the middle of the frame (%.2f, %.2f)." % [norm.x, norm.y]
-	)
-	print("CHECK: L2 thoughts in world space")
-
 
 func _content_events() -> Dictionary:
 	var parsed: Variant = JSON.parse_string(

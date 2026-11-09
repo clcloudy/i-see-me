@@ -1,5 +1,5 @@
 param(
-    [ValidateSet('Editor', 'Play', 'Check', 'DialogueCheck', 'Capture')]
+    [ValidateSet('Editor', 'Play', 'Check', 'DialogueCheck', 'ReflectionCheck', 'Capture')]
     [string]$Mode = 'Editor',
     [string]$InstallDirectory = 'D:\tools\Godot\4.6.1'
 )
@@ -68,6 +68,11 @@ try {
         'DialogueCheck' {
             & $console --headless --path $project --log-file $log --script res://tests/dialogue_check.gd
             if ($LASTEXITCODE -ne 0) { throw 'Classroom dialogue check failed.' }
+            Assert-GodotLog -Path $log
+        }
+        'ReflectionCheck' {
+            & $console --headless --path $project --log-file $log --script res://tests/reflection_check.gd
+            if ($LASTEXITCODE -ne 0) { throw 'L2/L3 reflection check failed.' }
             Assert-GodotLog -Path $log
         }
         'Capture' {

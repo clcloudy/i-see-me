@@ -194,7 +194,7 @@ script = ExtResource("1_script")
 [node name="Screen" type="SubViewport" parent="."]
 disable_3d = true
 transparent_bg = true
-size = Vector2i(1280, 720)
+size = Vector2i(1280, 1320)
 render_target_update_mode = 4
 handle_input_locally = true
 
@@ -202,59 +202,77 @@ handle_input_locally = true
 unique_name_in_owner = true
 layout_mode = 0
 offset_left = 24.0
-offset_top = 22.0
+offset_top = 740.0
 offset_right = 830.0
-offset_bottom = 88.0
+offset_bottom = 1300.0
 theme = SubResource("Theme_ui")
 
-[node name="Row" type="HBoxContainer" parent="Screen/Header"]
+[node name="Row" type="VBoxContainer" parent="Screen/Header"]
 layout_mode = 2
-theme_override_constants/separation = 9
+theme_override_constants/separation = 24
 
-[node name="Brand" type="Label" parent="Screen/Header/Row"]
+[node name="TitleRow" type="HBoxContainer" parent="Screen/Header/Row"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 100)
+alignment = 1
+
+[node name="Brand" type="Label" parent="Screen/Header/Row/TitleRow"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.84, 0.76, 0.59, 1)
-theme_override_font_sizes/font_size = 20
+theme_override_font_sizes/font_size = 50
 text = "I See Me · 课堂对话"
 
-[node name="Spacer" type="Control" parent="Screen/Header/Row"]
+[node name="Controls" type="GridContainer" parent="Screen/Header/Row"]
 layout_mode = 2
-size_flags_horizontal = 3
+size_flags_vertical = 3
+columns = 3
+theme_override_constants/h_separation = 18
+theme_override_constants/v_separation = 18
 
-[node name="Skip" type="Button" parent="Screen/Header/Row"]
+[node name="Skip" type="Button" parent="Screen/Header/Row/Controls"]
 unique_name_in_owner = true
 layout_mode = 2
-custom_minimum_size = Vector2(74, 38)
-theme_override_font_sizes/font_size = 18
+custom_minimum_size = Vector2(234, 170)
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_font_sizes/font_size = 48
 text = "跳过"
 
-[node name="Pause" type="Button" parent="Screen/Header/Row"]
+[node name="Pause" type="Button" parent="Screen/Header/Row/Controls"]
 unique_name_in_owner = true
 layout_mode = 2
-custom_minimum_size = Vector2(74, 38)
-theme_override_font_sizes/font_size = 18
+custom_minimum_size = Vector2(234, 170)
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_font_sizes/font_size = 48
 text = "暂停"
 
-[node name="Mute" type="Button" parent="Screen/Header/Row"]
+[node name="Mute" type="Button" parent="Screen/Header/Row/Controls"]
 unique_name_in_owner = true
 layout_mode = 2
-custom_minimum_size = Vector2(74, 38)
-theme_override_font_sizes/font_size = 18
+custom_minimum_size = Vector2(234, 170)
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_font_sizes/font_size = 48
 text = "静音"
 
-[node name="Restart" type="Button" parent="Screen/Header/Row"]
+[node name="Restart" type="Button" parent="Screen/Header/Row/Controls"]
 unique_name_in_owner = true
 layout_mode = 2
-custom_minimum_size = Vector2(74, 38)
-theme_override_font_sizes/font_size = 18
+custom_minimum_size = Vector2(234, 170)
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_font_sizes/font_size = 48
 text = "重开"
 
-[node name="Quit" type="Button" parent="Screen/Header/Row"]
+[node name="Quit" type="Button" parent="Screen/Header/Row/Controls"]
 unique_name_in_owner = true
 layout_mode = 2
-custom_minimum_size = Vector2(74, 38)
-theme_override_font_sizes/font_size = 18
+custom_minimum_size = Vector2(234, 170)
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_font_sizes/font_size = 48
 text = "退出"
 
 [node name="LookHint" type="PanelContainer" parent="Screen"]

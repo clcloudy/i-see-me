@@ -51,6 +51,7 @@ transition_seconds = 0.6
 
 [node name="DialogueUI" parent="." instance=ExtResource("7_ui")]
 flat_subtitle = false
+header_surface_path = NodePath("../Classroom/Front/ProjectorScreen/Screen")
 
 [node name="Flow" type="Node3D" parent="." node_paths=PackedStringArray("camera", "teacher", "seating", "protagonist_sit", "protagonist_stand", "protagonist_look", "flow_state", "interface")]
 script = ExtResource("9_flow")

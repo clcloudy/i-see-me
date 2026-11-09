@@ -223,7 +223,7 @@ func move_to(position: Vector3, seconds: float) -> void:
 
 
 ## L1→L2 转场：位置与注视点同时补间（第三人称构图）。
-func transition_to(position: Vector3, look_target: Vector3, seconds: float) -> void:
+func transition_to(position: Vector3, look_target: Vector3, seconds: float) -> Tween:
 	cancel()
 	var from_position := _position
 	var from_look := _look_target
@@ -235,6 +235,7 @@ func transition_to(position: Vector3, look_target: Vector3, seconds: float) -> v
 	_tween.tween_method(
 		func(value: Vector3) -> void: _look_target = value, from_look, look_target, seconds
 	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	return _tween
 
 
 ## 结束进行中的补间并停在当前值（重开/跳转前调用）。

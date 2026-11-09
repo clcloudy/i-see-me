@@ -114,21 +114,31 @@ func _run() -> void:
 		world.clear_thoughts()
 	await create_timer(0.5).timeout
 	await _save("dialogue-06b-l2-highlight")
-	flow.skip() # → 第一张「我看到的」
+	flow.skip() # 回溯卡 → 观察选择
 	await create_timer(0.6).timeout
-	await _save("dialogue-07-l2-seen-1")
-	flow.skip()
-	await create_timer(0.6).timeout
-	await _save("dialogue-08-l2-seen-2")
-	# 抽离（L3）：概念牌围着坐着的自己浮一圈，教室只剩地板与主角
-	var state := main.get_node_or_null("L2FlowState") as L2FlowState
-	for i in range(20):
-		if state == null or state.is_l3() or flow.stage == &"complete":
-			break
-		flow.skip()
-		await create_timer(0.15).timeout
-	await create_timer(0.9).timeout
-	await _save("dialogue-09-l3-concepts")
+	await _save("dialogue-07-l2-selection")
+	var reflection: Node = flow.reflection
+	if not reflection.entries.is_empty():
+		reflection._action("select:0")
+		while reflection.page == "approach":
+			await process_frame
+		reflection.panel.thought.text = "我注意到了这件事，还不确定它对我意味着什么。"
+		await create_timer(0.6).timeout
+		await _save("dialogue-08-l2-input")
+		reflection._action("next")
+		while reflection.page == "returning":
+			await process_frame
+		await _save("dialogue-08b-l2-decision")
+	reflection._action("complete")
+	reflection._action("local") # 截图不使用真实在线服务，也不伪造 AI 输出
+	while reflection.gallery.moving:
+		await process_frame
+	await _save("dialogue-09-l3-theory")
+	reflection._action("theory_done")
+	while reflection.gallery.moving:
+		await process_frame
+	await create_timer(1.9).timeout
+	await _save("dialogue-09-l3-local-review")
 	main.queue_free()
 	await process_frame
 	print("PASS: dialogue captures saved." if _failures == 0 else "FAIL: dialogue captures.")

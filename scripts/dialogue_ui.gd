@@ -15,10 +15,10 @@ signal world_subtitle_cleared
 
 ## 右下角的收集夹：L1 每点开一个观察就多一条，L2 时逐条被抽走、飞到教室里对应的位置。
 ## 位置与 Screen 里 Collected 的实际矩形一致（改布局必须一起改）。
-const COLLECTED_REGION := Rect2(974, 396, 280, 304)
+const COLLECTED_REGION := Rect2(974, 740, 280, 520)
 ## 相机局部坐标：画面右下角，贴在镜头前的一块面片（与其他面板同一套世界空间做法）。
 ## fov 65°、16:9、距离 1.22 m 时可见半宽约 1.38 m，所以右边缘 = 0.90 + 0.38 = 1.28 仍在画内。
-const COLLECTED_OFFSET := Vector3(0.90, -0.33, -1.22)
+const COLLECTED_OFFSET := Vector3(0.90, -0.02, -1.22)
 const COLLECTED_WIDTH := 0.76
 ## 感受放在左侧，与右下角的事件收集夹分开，不再需要向上避让。
 const CHIPS_LIFT := 0.0
@@ -34,6 +34,8 @@ const SPEAKER_COLORS := {
 
 @export var flat_subtitle: bool = false
 @export var world_ui_enabled: bool = true
+## 固定在投影布表面；与相机前的其他交互面板分开。
+@export var header_surface_path: NodePath
 
 var _copy: Dictionary = {}
 var _muted: bool = false
@@ -49,6 +51,7 @@ var _expanded_count: int = 0
 var _world_ready: bool = false
 var _pressed_panel: int = -1
 var _hover_panel: int = -1
+var collected_suppressed := false
 
 @onready var _screen: SubViewport = $Screen
 @onready var brand: Label = %Brand
@@ -81,6 +84,8 @@ var _hover_panel: int = -1
 
 func _ready() -> void:
 	process_priority = -100
+	collected_box.position = COLLECTED_REGION.position
+	collected_box.size = COLLECTED_REGION.size
 	_style_header()
 	var title_surface := StyleBoxEmpty.new()
 	title_surface.content_margin_left = 15.0
@@ -130,7 +135,7 @@ func _style_header() -> void:
 		if i == 0:
 			var icon := TextureRect.new()
 			icon.texture = texture
-			icon.custom_minimum_size = Vector2(30, 24)
+			icon.custom_minimum_size = Vector2(60, 48)
 			icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 			icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			brand.get_parent().add_child(icon)
@@ -138,12 +143,9 @@ func _style_header() -> void:
 		else:
 			var button := targets[i] as Button
 			button.icon = texture
-			button.add_theme_constant_override("icon_max_width", 18)
-			button.add_theme_constant_override("h_separation", 6)
-	var divider := VSeparator.new()
-	divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	brand.get_parent().add_child(divider)
-	brand.get_parent().move_child(divider, brand.get_index() + 1)
+			button.add_theme_constant_override("icon_max_width", 40)
+			button.add_theme_constant_override("h_separation", 12)
+
 
 
 ## ——— 世界空间面板与输入转发 ———
@@ -156,7 +158,9 @@ func _build_world_panels() -> void:
 		call_deferred("_build_world_panels")
 		return
 	_world_ready = true
-	_add_world_panel("Header", %Header, Rect2(24, 22, 806, 66), Vector3(-0.16, 0.52, -1.20), 1.54, true, 1.0)
+	var header_surface := get_node_or_null(header_surface_path) as Node3D
+	if header_surface != null:
+		_add_world_panel("Header", %Header, Rect2(24, 740, 806, 560), Vector3(0.0, 0.0, 0.018), 2.14, true, 1.0, false, header_surface)
 	_add_world_panel("Choice", choice_panel, Rect2(320, 230, 640, 260), Vector3(0.0, -0.03, -1.22), 1.02, true)
 	_add_world_panel("Card", card_panel, Rect2(280, 130, 720, 460), Vector3(0.0, 0.0, -1.16), 1.12, true)
 	# 离屏画布上的感受区与收集区也必须分开，否则左侧面片会采样到右侧收集条目。
@@ -177,17 +181,17 @@ func _add_world_panel(
 	world_width: float,
 	interactive: bool,
 	initial_alpha: float = 0.0,
-	overlay: bool = false
+	overlay: bool = false,
+	surface: Node3D = null
 ) -> void:
 	var camera := get_viewport().get_camera_3d()
 	var root_3d := Node3D.new()
 	root_3d.name = "World" + panel_name
-	camera.add_child(root_3d)
+	var panel_parent: Node3D = surface if surface != null else camera
+	panel_parent.add_child(root_3d)
 	root_3d.position = camera_offset
-	root_3d.rotation_degrees.x = -4.0 if panel_name in ["Choice", "Card"] else -2.0
-	if panel_name == "Header":
-		root_3d.rotation_degrees.y = -3.0
-		root_3d.rotation_degrees.z = -1.0
+	if surface == null:
+		root_3d.rotation_degrees.x = -4.0 if panel_name in ["Choice", "Card"] else -2.0
 	var sprite := Sprite3D.new()
 	sprite.name = "Surface"
 	var atlas := AtlasTexture.new()
@@ -201,14 +205,12 @@ func _add_world_panel(
 	sprite.shaded = false
 	sprite.double_sided = true
 	sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_DISABLED
-	# 顶部控制条排在第二层思绪牌（6）之上：牌飘到画面顶端时不能压住按钮。
+	# 相机前的菜单优先显示；投影布控制条遵循世界中的遮挡关系。
 	if panel_name == "Card":
 		# 暂停/说明卡必须盖住思绪和收集夹，保证继续与退出按钮可见。
 		sprite.render_priority = 12
 	elif overlay:
 		sprite.render_priority = 9
-	elif panel_name == "Header":
-		sprite.render_priority = 8
 	else:
 		sprite.render_priority = 4
 	root_3d.add_child(sprite)
@@ -230,7 +232,7 @@ func _process(delta: float) -> void:
 	if not _world_ready:
 		return
 	# 菜单出现时暂收观察夹，既让按钮无遮挡，也避免两个离屏区域交叠采样。
-	collected_box.visible = not _collected_rows.is_empty() and not card_panel.visible
+	collected_box.visible = not _collected_rows.is_empty() and not card_panel.visible and not collected_suppressed
 	# 背板随实际条目高度贴底伸展，仍在原有离屏采样区域内。
 	var folio := _screen.get_node_or_null("CollectedFolio") as Panel
 	if folio != null:
@@ -703,7 +705,7 @@ func present_controls(paused: bool, muted: bool, skip_enabled: bool) -> void:
 	pause_button.text = _text("resume" if paused else "pause")
 	mute_button.text = _text("unmute" if muted else "mute")
 	skip_button.disabled = not skip_enabled
-	skip_button.visible = skip_enabled
+	skip_button.visible = true
 
 
 func focus_primary() -> void:

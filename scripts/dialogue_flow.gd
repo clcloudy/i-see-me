@@ -5,15 +5,15 @@ extends Node3D
 ##
 ## 时序依据：仓库根目录《流程控制(veryimportant).md》的 0–11 步（2026-10-25 实现）。
 ## 阶段：intro → l1（第 0–7 步） → choice（第 8 步，唯一的回答框）
-##       → answer（玩家说完 + 老师中性收束） → ending（第 9–11 步） → l2 → complete。
+##       → answer（玩家说完 + 老师中性收束） → ending（第 9–11 步） → l2 → l3 → complete。
 ##
-## 数据全部来自 content/classroom_dialogue.json：
+## 课堂数据来自 content/classroom_dialogue.json；反思文案与 AI 配置来自 content/reflection.json：
 ## - beats：L1 节拍，`step` 标记对应的流程步号；每拍可带 teacher / teacher_move / protagonist /
 ##   protagonist_clip / camera / free_look / cues / events / segments；
 ## - ending：第 9–11 步（E03 不再按分支过滤，固定在第 9.1 步）；
 ## - segments：字幕分段（speaker + text + seconds + 可选 voice 配音 id）；
 ## - events：事件按时间戳触发（姿态/动作、台词、独立音效、道具、词条）；可带 gaze，玩家转到该方向即提前触发；
-##   可被观察的事件带 orb_position，玩家点开（收集）后才会在第二层变成内心 OS（见 _l2_observation_entries）；
+##   可被观察的事件带 orb_position，玩家点开（收集）后才会在第二层成为可选观察（见 _l2_observation_entries）；
 ## - voice / sfx：配音与音效清单（id → 文件名，root 统一前缀）。台词 id 未登记时报警并静默跳过，
 ##   文件缺失时只按预留时长走，不阻塞流程。
 ##
@@ -114,7 +114,7 @@ var _seated_hip_height := 0.47
 var _managed_actors: Array[String] = []
 var _actor_cache: Dictionary = {}
 
-## 当前阶段：intro / l1 / choice / answer / ending / l2 / complete。
+## 当前阶段：intro / l1 / choice / answer / ending / l2 / l3 / complete。
 var stage: StringName = &"intro"
 var _beats: Array = []
 var _beat_index: int = -1
@@ -126,6 +126,11 @@ var _event_log: Array[Dictionary] = []
 var _collected: Dictionary = {}
 var _l2_cards: Array[Dictionary] = []
 var _l2_index: int = -1
+var reflection: Node
+var _reflection_labels: Dictionary = {}
+var _reflection_replay_id := ""
+var _reflection_replay_cycles := 0
+const ReflectionSession = preload("res://scripts/reflection_session.gd")
 
 var _seat := Vector3(-0.7, 0.0, 1.78)
 var _seated_height := 1.36
@@ -198,6 +203,19 @@ func _ready() -> void:
 	interface.answer_submitted.connect(_on_answer_submitted)
 	# 收集要当场看见：点开一个观察就往右下角的收集夹放一条，第二层再从那里展开。
 	observation_collected.connect(_on_observation_collected)
+	reflection = ReflectionSession.new()
+	reflection.name = "ReflectionSession"
+	add_child(reflection)
+	reflection.setup(interface)
+	reflection.isolation_requested.connect(_enter_l3_reflection)
+	reflection.finished.connect(_enter_complete)
+	reflection.observation_requested.connect(_present_reflection_observation)
+	reflection.replay_requested.connect(_replay_reflection_event)
+	reflection.replay_stopped.connect(_stop_reflection_replay)
+	reflection.selection_presented.connect(_show_reflection_selection)
+	reflection.focus_requested.connect(_focus_reflection_observation)
+	reflection.return_requested.connect(_return_reflection_camera)
+	reflection.passage_requested.connect(_focus_reflection_passage)
 	_build_audio()
 	_place_teacher_opening()
 	_build_props()
@@ -275,6 +293,161 @@ func _enter_l2() -> void:
 	_next_card()
 	_refresh_controls()
 	stage_changed.emit(stage)
+
+
+func _enter_l3_reflection() -> void:
+	_stop_reflection_replay()
+	stage = &"l3"
+	_clear_reflection_labels()
+	_l3_entered = true
+	thought_cleared.emit()
+	# 固定抽离构图后再取快照，避免淡出期间移动相机造成画面错位。
+	camera.set_free_look(false)
+	camera.reset_free_look()
+	camera.snap(camera.current_position(), _l2_focus_point() + Vector3(0.65, 0.3, 0))
+	if flow_state != null:
+		_flow_state_active = true
+		flow_state.enter_l3()
+	_refresh_controls()
+	stage_changed.emit(stage)
+
+
+func _present_reflection_observation(entry: Dictionary, text: String) -> void:
+	thought_cleared.emit()
+	var anchor: Vector3 = entry.get("position", _l2_focus_point())
+	if stage == &"l3":
+		return
+	else:
+		var actor := observation_actor(StringName(str(entry.get("id", ""))))
+		if actor != null:
+			anchor = EventOrb3D.head_position(actor)
+	if stage == &"l2" and interface.has_method("expand_collected"):
+		interface.expand_collected(StringName(str(entry.get("id", ""))))
+		var id := str(entry["id"])
+		if not _reflection_labels.has(id):
+			var label := Label3D.new()
+			label.add_to_group(L2FlowState.TRANSIENT_FX_GROUP)
+			label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+			label.no_depth_test = true
+			label.font_size = 30
+			label.pixel_size = 0.002
+			label.modulate = Color(0.88, 0.81, 0.62)
+			add_child(label)
+			_reflection_labels[id] = label
+		var label: Label3D = _reflection_labels[id]
+		label.global_position = anchor + Vector3(0, 0.32, 0)
+		label.text = text.left(32)
+		label.visible = not text.is_empty()
+
+func _focus_reflection_passage(position: Vector3, target: Vector3) -> void:
+	if stage != &"l3":
+		return
+	var gen := _generation
+	if flow_state != null and not flow_state.is_isolated():
+		await flow_state.isolation_finished
+		if stage != &"l3" or gen != _generation:
+			return
+	if flow_state != null:
+		flow_state.set_focus_point(target)
+	camera.set_free_look(false)
+	camera.reset_free_look()
+	camera.set_slow_look(false)
+	var motion := camera.transition_to(position, target, float(reflection.gallery_config["travel_seconds"]) * time_scale)
+	motion.finished.connect(func():
+		if stage == &"l3" and gen == _generation:
+			reflection.passage_arrived()
+	, CONNECT_ONE_SHOT)
+
+func _show_reflection_selection() -> void:
+	camera.set_free_look(true)
+	camera.recenter_free_look()
+	camera.transition_to(_l2_position, _l2_focus_point(), _l2_seconds * time_scale)
+	if flow_state != null:
+		flow_state.set_focus_point(_l2_focus_point())
+
+func _focus_reflection_observation(entry: Dictionary) -> void:
+	if stage != &"l2":
+		return
+	var anchor: Vector3 = entry.get("position", _l2_focus_point())
+	var actor := observation_actor(StringName(str(entry.get("id", ""))))
+	if actor != null:
+		anchor = EventOrb3D.head_position(actor)
+	var config: Dictionary = reflection.camera_config
+	var offset := _vec(config["observation_offset"])
+	var position := anchor + offset
+	# 目标位于画面左侧，为右侧输入面板留出空间。
+	var right := Vector3.UP.cross(offset).normalized()
+	var target := anchor + right * float(config["look_offset"])
+	camera.set_free_look(false)
+	camera.recenter_free_look()
+	if flow_state != null:
+		flow_state.set_focus_point(anchor)
+	var motion := camera.transition_to(position, target, float(config["travel_seconds"]) * time_scale)
+	motion.finished.connect(func():
+		if stage == &"l2":
+			reflection.arrived_at_observation()
+	, CONNECT_ONE_SHOT)
+
+func _return_reflection_camera() -> void:
+	camera.set_free_look(false)
+	camera.recenter_free_look()
+	if flow_state != null:
+		flow_state.set_focus_point(_l2_focus_point())
+	var motion := camera.transition_to(_l2_position, _l2_focus_point(), float(reflection.camera_config["travel_seconds"]) * time_scale)
+	motion.finished.connect(func():
+		if stage == &"l2":
+			reflection.returned_to_self()
+	, CONNECT_ONE_SHOT)
+
+
+func _stop_reflection_replay() -> void:
+	if _reflection_replay_id.is_empty():
+		return
+	_generation += 1
+	_reflection_replay_id = ""
+	if _prop_tween != null and _prop_tween.is_valid():
+		_prop_tween.kill()
+	if _pen != null:
+		_pen.position = _vec(_content["props"]["pen"]["desk_position"])
+		_pen.rotation_degrees.z = 0
+	_stop_all_audio()
+	interface.clear_subtitle()
+	_reset_managed_actors()
+	for actor in _managed_actors:
+		_play_actor_clip(actor, "NONE")
+
+func _replay_reflection_event(entry: Dictionary) -> void:
+	_stop_reflection_replay()
+	if stage != &"l2":
+		return
+	var id := str(entry.get("id", ""))
+	var event: Dictionary = _content.get("events", {}).get(id, {})
+	if event.is_empty():
+		return
+	_reflection_replay_id = id
+	_reflection_replay_cycles += 1
+	_generation += 1
+	if _pen != null:
+		_pen.position = _vec(_content["props"]["pen"]["desk_position"])
+		_pen.rotation_degrees.z = 0
+	_perform_event(event)
+	var duration := 4.0
+	for group in ["poses", "clips", "props", "sfx"]:
+		for cue in event.get(group, []):
+			duration = maxf(duration, float(cue.get("at", 0)) + float(cue.get("transition", 2.0)) + 2.0)
+			duration = maxf(duration, float(cue.get("recover", 0)) + float(cue.get("recover_transition", 2.0)) + 1.0)
+	for voice in _event_voices(event):
+		var section := "voice" if voice.get("kind", "speech") == "speech" else "sfx"
+		var path := _resolve_cue(section, str(voice.get("cue", "")))
+		duration = maxf(duration, float(voice.get("at", 0)) + maxf(float(voice.get("seconds", 0)), _voice_length(path)) + 1.0)
+	_schedule(duration, func(): _replay_reflection_event(entry))
+
+
+func _clear_reflection_labels() -> void:
+	for label in _reflection_labels.values():
+		if is_instance_valid(label):
+			label.queue_free()
+	_reflection_labels.clear()
 
 
 func _enter_complete() -> void:
@@ -412,6 +585,21 @@ func _current_beat() -> Dictionary:
 
 # ——— 事件 ———
 
+## 一个事件的台词可以写一条（原来的 Dictionary 写法），也可以写成按时间顺序播放的数组。
+## 统一在这里展开，其余事件仍按单条写法工作。
+func _event_voices(event: Dictionary) -> Array[Dictionary]:
+	var raw: Variant = event.get("voice", {})
+	var voices: Array[Dictionary] = []
+	if raw is Dictionary:
+		if not (raw as Dictionary).is_empty():
+			voices.append(raw as Dictionary)
+	elif raw is Array:
+		for item in (raw as Array):
+			if item is Dictionary:
+				voices.append(item as Dictionary)
+	return voices
+
+
 func _fire_event(event_id: String, gen: int) -> void:
 	if gen != _generation:
 		return
@@ -441,10 +629,36 @@ func _fire_event(event_id: String, gen: int) -> void:
 		"position": event_world,
 		"order": _event_log.size(),
 	})
-	# 感受词条 chip（事件发生时直接加入）
-	var feelings: Array = event.get("feelings", [])
-	if not feelings.is_empty():
-		interface.show_chip(str(event.get("short", event.get("label", ""))), "、".join(feelings))
+	_perform_event(event)
+	# 镜头吸引：auto_look 打开时事件才转头（默认关闭，朝向交给玩家）
+	if auto_look and event_camera.has("look"):
+		camera.recenter_free_look() # 先交还视线控制权，事件才框得住
+		camera.set_look_target(_camera_target(str(event_camera["look"])))
+		if event_camera.has("recover"):
+			var recover_after := float(event_camera["recover"])
+			_schedule(recover_after, func(): camera.set_look_target(_beat_look_target))
+
+	# 事件坐标仍供第二层思绪使用；第一层提示由世界层绑定 observation_actor 的头部。
+	# 环境事件可用 orb=false 只保留字幕、词条与声纹。
+	if bool(event.get("orb", true)):
+		var show_observation := func() -> void:
+			event_observed.emit(StringName(event_id), str(event.get("label", event_id)), event_world)
+		if bool(event.get("observe_on_voice", false)):
+			# 提示跟随第一句台词的起点，避免动作铺垫时提前透露「分歧」。
+			# 复用配音偏移，缺失音源或静音时仍与字幕同步；跳过/重开会取消。
+			var voice_at := 0.0
+			var voices := _event_voices(event)
+			if not voices.is_empty():
+				voice_at = float(voices[0].get("at", 0.0))
+			_schedule(voice_at, show_observation)
+		else:
+			show_observation.call()
+
+
+## L1 与 L2 只共享表演，不重复登记事件或推进课堂步号。
+func _perform_event(event: Dictionary) -> void:
+	# 课堂只呈现事件本身，不把内容配置中的预写感受自动当作玩家的感受。
+	# 玩家在 L2 回看时自行表达；动作、声音和观察收集仍按原时序触发。
 	# 环境收声 / 全员复位
 	if event.get("ambient_to_sit", false):
 		_set_ambient_whispers(false)
@@ -480,21 +694,10 @@ func _fire_event(event_id: String, gen: int) -> void:
 		var sfx_path := _resolve_cue("sfx", str(sfx.get("cue", "")))
 		if not sfx_path.is_empty():
 			_schedule(float(sfx.get("at", 0.0)), func(): _play_cue(sfx_path, true))
-	# 第一层声音：speech 走字幕条，ambient 只放音频
-	var voice: Dictionary = event.get("voice", {})
-	if not voice.is_empty():
-		var voice_at := float(voice.get("at", 0.0))
-		var kind := str(voice.get("kind", "speech"))
-		if kind == "speech":
-			_schedule(voice_at, func(): _show_segment({
-				"speaker": str(voice.get("speaker", "classmate")),
-				"text": str(voice.get("text", "")),
-				"seconds": float(voice.get("seconds", 2.0)),
-			}))
-		var cue_path := _resolve_cue("voice" if kind == "speech" else "sfx", str(voice.get("cue", "")))
-		if not cue_path.is_empty():
-			var volume_db := float(voice.get("volume_db", 0.0))
-			_schedule(voice_at, func(): _play_cue(cue_path, kind != "speech", volume_db))
+	# 第一层声音：speech 走字幕条，ambient 只放音频。
+	# 一个事件可以有多句（如捡笔时同桌递笔、主角道谢），各自按 at 排队。
+	for voice in _event_voices(event):
+		_schedule_event_voice(voice)
 	# 道具
 	for prop_cue in event.get("props", []):
 		var prop: Dictionary = prop_cue
@@ -502,18 +705,23 @@ func _fire_event(event_id: String, gen: int) -> void:
 			float(prop.get("at", 0.0)),
 			func(): _apply_prop_action(str(prop["prop"]), str(prop["action"]))
 		)
-	# 镜头吸引：auto_look 打开时事件才转头（默认关闭，朝向交给玩家）
-	if auto_look and event_camera.has("look"):
-		camera.recenter_free_look() # 先交还视线控制权，事件才框得住
-		camera.set_look_target(_camera_target(str(event_camera["look"])))
-		if event_camera.has("recover"):
-			var recover_after := float(event_camera["recover"])
-			_schedule(recover_after, func(): camera.set_look_target(_beat_look_target))
 
-	# 事件坐标仍供第二层思绪使用；第一层提示由世界层绑定 observation_actor 的头部。
-	# 环境事件可用 orb=false 只保留字幕、词条与声纹。
-	if bool(event.get("orb", true)):
-		event_observed.emit(StringName(event_id), str(event.get("label", event_id)), event_world)
+
+## 单独排一句事件台词。每句各占一次调用，字幕与音频不会串到别的句子上。
+func _schedule_event_voice(voice: Dictionary) -> void:
+	var voice_at := float(voice.get("at", 0.0))
+	var kind := str(voice.get("kind", "speech"))
+	if kind == "speech":
+		var segment := {
+			"speaker": str(voice.get("speaker", "classmate")),
+			"text": str(voice.get("text", "")),
+			"seconds": float(voice.get("seconds", 2.0)),
+		}
+		_schedule(voice_at, func(): _show_segment(segment))
+	var cue_path := _resolve_cue("voice" if kind == "speech" else "sfx", str(voice.get("cue", "")))
+	if not cue_path.is_empty():
+		var volume_db := float(voice.get("volume_db", 0.0))
+		_schedule(voice_at, func(): _play_cue(cue_path, kind != "speech", volume_db))
 
 
 ## 事件在教室里的世界坐标（第二层思绪牌的落点）。
@@ -651,13 +859,10 @@ func _load_beats(source: Variant) -> Array:
 # ——— L2 词条序列 ———
 
 ## 第二层每一条都带一个世界坐标（`position`）：卡片不再是相机前的一块面片，
-## 而是长在它对应的地方——回溯在自己课桌上方，内心 OS 在事件发生的那个座位/桌角，
-## 倒放沿着过道往讲台走，概念卡在抽离后围着主角浮一圈。
+## 回溯卡位于自己课桌上方；其后交给 ReflectionSession，等待玩家选择和输入。
 func _build_l2_cards() -> void:
 	_l2_cards.clear()
 	var l2: Dictionary = _content.get("l2", {})
-	var base := float(l2.get("card_base_seconds", 1.8))
-	var per_line := float(l2.get("card_seconds_per_line", 0.55))
 	# 0) 回溯起点：进入 L2 后从第 0 步重新看一遍（“回溯到 0”）
 	var rewind_line := str(l2.get("rewind_line", ""))
 	if not rewind_line.is_empty():
@@ -673,91 +878,6 @@ func _build_l2_cards() -> void:
 			"kind": &"rewind",
 			"position": rewind_position,
 		})
-	# 1) 「我看到的」：只回放 L1 里被点开收集过的观察，按发生的流程步号从第 0 步排起。
-	#    没点开的不进第二层——没看见的东西不能变成回想；没提示可点的环境事件
-	#    （忽然安静 / 课堂往下走）属于自己在那几秒里的状态，照旧保留。
-	var os_title := str(l2.get("os_title", "我看到的"))
-	for entry in _l2_observation_entries():
-		var lines := _os_lines(entry)
-		if lines.is_empty():
-			continue
-		var card_title := str(entry.get("label", ""))
-		var actor := observation_actor(StringName(str(entry.get("id", ""))))
-		if bool(entry.get("collected", false)):
-			card_title = os_title + " · " + card_title
-		_l2_cards.append({
-			"title": card_title,
-			"body": "\n".join(lines),
-			"seconds": base + per_line * lines.size(),
-			"voice": str(entry.get("os_voice", "")),
-			"kind": &"seen",
-			"position": EventOrb3D.head_position(actor) if actor != null else entry.get("position", _seat + Vector3(0.0, _seated_height, 0.0)),
-			# 这一条是从收集夹里飞出来的：记下事件 id，展开时才知道抽哪一行。
-			"source_event": str(entry.get("id", "")),
-		})
-	# 2) 思绪倒放（只有一套，不再按回答分支区分）
-	var replay: Array = l2.get("replay", [])
-	var replay_title := str(l2.get("replay_title", "思绪倒放"))
-	var replay_index := 0
-	for line in replay:
-		var text := str(line)
-		var voice := ""
-		var position := _l2_replay_position(replay_index)
-		if line is Dictionary:
-			text = str(line.get("text", ""))
-			voice = str(line.get("voice", ""))
-			if (line as Dictionary).has("position"):
-				position = _vec((line as Dictionary)["position"])
-		_l2_cards.append({
-			"title": replay_title,
-			"body": text,
-			"seconds": 2.8,
-			"voice": voice,
-			"kind": &"replay",
-			"position": position,
-		})
-		replay_index += 1
-	# 3) 对观察的观察（心理概念）：此时已经抽离，教室只剩地板与主角，
-	#    所以这些概念不指房间里的某个座位，而是围着坐着的自己浮一圈。
-	var observation_title := str(l2.get("observations_title", "对观察的观察"))
-	var observations: Array = l2.get("observations", [])
-	for index in range(observations.size()):
-		var obs: Dictionary = observations[index]
-		var concept_position := _l2_concept_position(index, observations.size(), l2)
-		if obs.has("position"):
-			concept_position = _vec(obs["position"])
-		_l2_cards.append({
-			"title": observation_title + " · " + str(obs.get("concept", "")),
-			"body": str(obs.get("line", "")),
-			"seconds": 3.0,
-			"isolate": true,
-			"voice": str(obs.get("voice", "")),
-			"kind": &"concept",
-			"position": concept_position,
-		})
-
-
-## 倒放的落点：沿着主角课桌往讲台的那条过道依次往前，像把回忆铺在教室里。
-## 内容里给 `replay[i].position` 即可覆盖。
-func _l2_replay_position(index: int) -> Vector3:
-	return _seat + Vector3(0.0, 1.32 + 0.10 * float(index), -0.30 - 0.72 * float(index))
-
-
-## 抽离后的概念落点：以主角头部为心的半圆（朝向教室），半径 / 张角 / 高度可配。
-## 高度取负值是有意的：牌面本身要往上抬一截，落点低一点，牌才落在胸口到头部这一带，
-## 不会顶到画面顶边（那里还有顶部控制条）。
-func _l2_concept_position(index: int, count: int, l2: Dictionary) -> Vector3:
-	var center := _l2_focus_point()
-	var radius := float(l2.get("observation_radius", 1.15))
-	var span := deg_to_rad(float(l2.get("observation_span_degrees", 150.0)))
-	var height := float(l2.get("observation_height", -0.25))
-	if count <= 1:
-		return center + Vector3(0.0, height, -radius)
-	var t := float(index) / float(count - 1)
-	var angle := lerpf(-span * 0.5, span * 0.5, t)
-	# 交错一点高度，避免五块牌落在同一个水平面上像一排字幕。
-	var lift := height + 0.10 * float(index % 2)
-	return center + Vector3(sin(angle) * radius, lift, -cos(angle) * radius)
 
 
 ## 主角头部（L2 的清晰球心 / L3 唯一留在场上的人）。
@@ -784,10 +904,10 @@ func _sorted_event_log() -> Array:
 	return entries
 
 
-## 第二层「我看到的」素材：
+## 第二层可选观察：
 ## - 有提示可点的观察，只有被点开收集过才进来；
 ## - 没有提示的环境事件（orb=false）直接算自己经历过的，不需要收集。
-## 返回按流程步号排好的条目副本，附 `collected` 标记供卡片标题区分。
+## 返回按流程步号排好的条目副本；反思模块使用客观描述，忽略预写 OS。
 func _l2_observation_entries() -> Array:
 	var out: Array = []
 	for entry in _sorted_event_log():
@@ -798,24 +918,6 @@ func _l2_observation_entries() -> Array:
 		item["collected"] = collected
 		out.append(item)
 	return out
-
-
-## 内心 OS 正文：优先用事件自己的 `os`（第二层回看时的说法），缺省回落到
-## `thoughts`（事件当下就写好的想法）。两者都支持单条字符串或字符串数组。
-func _os_lines(entry: Dictionary) -> PackedStringArray:
-	var lines := PackedStringArray()
-	var raw: Variant = entry.get("os", [])
-	if raw is String:
-		raw = [str(raw)]
-	if not raw is Array or (raw as Array).is_empty():
-		raw = entry.get("thoughts", [])
-	if not raw is Array:
-		return lines
-	for line in raw:
-		var text := str(line.get("text", "")) if line is Dictionary else str(line)
-		if not text.strip_edges().is_empty():
-			lines.append(text)
-	return lines
 
 
 ## 登记一次观察收集（由三维观察提示的 collected 信号转进来）。
@@ -845,7 +947,10 @@ func _next_card() -> void:
 	var gen: int = _generation
 	_l2_index += 1
 	if _l2_index >= _l2_cards.size():
-		_enter_complete()
+		thought_cleared.emit()
+		interface.hide_card()
+		reflection.begin(_l2_observation_entries())
+		_refresh_controls()
 		return
 	var card: Dictionary = _l2_cards[_l2_index]
 	if bool(card.get("isolate", false)) and not _l3_entered:
@@ -917,7 +1022,8 @@ func skip() -> void:
 	if get_tree().paused or not _skip_enabled():
 		return
 	if stage == &"l2":
-		_next_card()
+		if reflection.page == "closed":
+			_next_card()
 		return
 	var beat := _current_beat()
 	if beat.is_empty():
@@ -939,10 +1045,11 @@ func toggle_pause() -> void:
 	if stage == &"l2":
 		thought_cleared.emit()
 	interface.show_paused(paused)
-	if not paused and stage == &"l2" and _l2_index >= 0 and _l2_index < _l2_cards.size():
+	if not paused and stage == &"l2" and reflection.page == "closed" and _l2_index >= 0 and _l2_index < _l2_cards.size():
 		_present_l2_card(_l2_cards[_l2_index])
 	_refresh_controls()
-	interface.focus_primary()
+	if reflection.page == "closed" or paused:
+		interface.focus_primary()
 
 
 func toggle_mute() -> void:
@@ -958,7 +1065,8 @@ func restart() -> void:
 
 func quit() -> void:
 	get_tree().paused = false
-	if _flow_state_active:
+	reflection.reset()
+	if flow_state != null:
 		flow_state.deactivate(true)
 		_flow_state_active = false
 	camera.cancel()
@@ -966,7 +1074,7 @@ func quit() -> void:
 
 
 func _skip_enabled() -> bool:
-	return stage in [&"l1", &"answer", &"ending", &"l2"]
+	return stage in [&"l1", &"answer", &"ending"] or (stage == &"l2" and reflection.page == "closed")
 
 
 func _refresh_controls() -> void:
@@ -977,6 +1085,9 @@ func _refresh_controls() -> void:
 
 func _reset_world() -> void:
 	_generation += 1
+	_clear_reflection_labels()
+	if reflection != null:
+		reflection.reset()
 	_kill_tweens()
 	_apply_pose_transition_seconds()
 	_reset_managed_actors()
@@ -996,7 +1107,7 @@ func _reset_world() -> void:
 	if _textbook != null:
 		_textbook.visible = false
 	# 心流状态
-	if _flow_state_active:
+	if flow_state != null:
 		flow_state.deactivate(true)
 	_flow_state_active = false
 	if flow_state != null and flow_state.has_method("set_highlight_nodes"):
@@ -1515,6 +1626,7 @@ func _activate_flow_state() -> void:
 	# 第一次上色就用对材质（激活后再改要走一次全量重刷）。
 	if flow_state.has_method("set_highlight_nodes"):
 		flow_state.set_highlight_nodes(_l2_highlight_nodes())
+	flow_state.set_focus_point(_l2_focus_point())
 	flow_state.activate()
 
 
@@ -1695,9 +1807,9 @@ func debug_voice_usage() -> Dictionary:
 		for beat in _content.get(source, []):
 			_scan_beat_voice(beat, add)
 	for event in _content.get("events", {}).values():
-		var voice: Dictionary = event.get("voice", {})
-		var kind := str(voice.get("kind", "speech"))
-		add.call("voice" if kind == "speech" else "sfx", str(voice.get("cue", "")))
+		for voice in _event_voices(event):
+			var kind := str(voice.get("kind", "speech"))
+			add.call("voice" if kind == "speech" else "sfx", str(voice.get("cue", "")))
 		for sfx in event.get("sfx", []):
 			add.call("sfx", str((sfx as Dictionary).get("cue", "")))
 		add.call("voice", str(event.get("os_voice", "")))

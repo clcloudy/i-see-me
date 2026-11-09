@@ -198,6 +198,8 @@ func _on_world_subtitle(speaker_key: StringName, display: String, text: String) 
 			pos.y += _head_height(anchor, subtitle_height) + subtitle_head_gap + half_height
 		&"classmate":
 			pos.y += 0.85
+			if _flow != null and not _flow._reflection_replay_id.is_empty() and anchor != null:
+				pos = EventOrb3D.head_position(anchor) + Vector3.UP * (subtitle_head_gap + half_height)
 		&"protagonist":
 			pos.y += 1.55
 		&"stage":
@@ -395,6 +397,10 @@ func _anchor_for_speaker(speaker_key: StringName) -> Node3D:
 					return node
 			return get_node_or_null(protagonist_sit_anchor)
 		&"classmate":
+			if _flow != null and not _flow._reflection_replay_id.is_empty():
+				var actor: Node3D = _flow.observation_actor(StringName(_flow._reflection_replay_id))
+				if actor != null:
+					return actor
 			return get_node_or_null(classmate_anchor)
 		&"stage":
 			return get_node_or_null(stage_anchor)
