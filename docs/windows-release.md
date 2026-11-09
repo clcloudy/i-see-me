@@ -25,6 +25,7 @@ https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\Start-Godot.ps1 -Mode DialogueCheck
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\Start-Godot.ps1 -Mode ReflectionCheck
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\Export-Windows.ps1
 ```
 
@@ -32,8 +33,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\Export-Windows.ps1
 脚本拒绝覆盖已有目录或压缩包。输出均在被 Git 忽略的 `dist/` 中。
 日志在 `.local/logs/<BuildName>/`；构建检查导入、导出及独立发行程序启动的退出码与 Godot 错误日志。
 
-预设按主课堂场景及其依赖导出，显式补入脚本所引用的辅助类、着色器与图标，并包含通过 JSON 动态加载的 15 个现有音轨及
-`content/classroom_dialogue.json`。新增音轨后应同步 `export_presets.cfg`。
+预设按主课堂场景及其依赖导出，显式补入脚本所引用的辅助类、着色器与图标，并包含通过 JSON 动态加载的 19 个现有音轨及
+`content/classroom_dialogue.json`、`content/reflection.json`。新增音轨或动态读取的内容配置后应同步 `export_presets.cfg`。
 构建使用编辑器生成 `assets/lightmaps/classroom_uv2_cache.res`，发行模板直接应用这份 UV2 数据，
 不在运行时调用仅编辑器支持的 `lightmap_unwrap`。缓存是可重建的忽略文件，不改源场景或重烘光照。
 不导出测试、演示场景、开发文档、原始素材包、本机日志、未知临时文件或凭据。
